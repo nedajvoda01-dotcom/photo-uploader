@@ -65,8 +65,11 @@ async function ensureDir(path: string): Promise<void> {
 
       // Handle other errors
       const errorData = await response.json().catch(() => ({}));
+      const errorDetails = Object.keys(errorData).length > 0 
+        ? JSON.stringify(errorData) 
+        : "No additional error details available";
       throw new Error(
-        `Failed to ensure directory exists at ${currentPath}: ${response.status} ${response.statusText}. ${JSON.stringify(errorData)}`
+        `Failed to ensure directory exists at ${currentPath}: ${response.status} ${response.statusText}. ${errorDetails}`
       );
     } catch (error) {
       if (error instanceof Error) {
