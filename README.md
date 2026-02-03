@@ -211,4 +211,25 @@ This allows the same codebase to work both locally (with users.json) and on Verc
 
 **For Production:** Use `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` (bcrypt hash) for better security
 
+### Debugging Authentication Issues
+
+If you're experiencing login issues (401 errors) on Vercel, you can enable safe diagnostic logging:
+
+1. **Enable debug mode:** Add `AUTH_DEBUG=1` to your Vercel environment variables
+2. **Redeploy:** Trigger a new deployment in Vercel
+3. **View logs:** Go to Vercel → Your Project → Runtime Logs → Filter by `/api/login`
+4. **Analyze:** Check the diagnostic output to see which environment variables are present and whether they're being matched correctly
+5. **Cleanup:** After debugging, remove the `AUTH_DEBUG` variable or set it to `0`
+
+**Debug output includes (all safe, no secrets logged):**
+- Boolean flags: `hasAdminEmail`, `hasAdminPassword`, `hasAdminPasswordHash`, `hasAuthSecret`
+- Input validation: `inputEmailPresent`, `inputPasswordPresent`
+- Email matching: `emailMatchesAdmin`, `emailEqualsAdmin`, `emailTrimEqualsAdminTrim` (helps catch whitespace issues)
+- Authentication mode: `usingPlain`, `usingHash`
+- String lengths (not actual values): `envAdminEmailLength`, `envAdminPasswordLength`, `inputEmailLength`, `inputPasswordLength`
+- Result status: `result` ("ok" or "fail")
+- Failure reason: `reasonCode` (e.g., "missing_env_admin_email", "email_mismatch", "password_mismatch_plain", "password_mismatch_hash", "hash_compare_error", "jwt_sign_error")
+
+**Note:** Debug logs only show boolean flags and lengths - no actual passwords, emails, tokens, or secrets are logged.
+
 # Build Instructions
