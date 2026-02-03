@@ -35,7 +35,6 @@ export default function LoginPage() {
 
       // Success - redirect to home
       router.push("/");
-      router.refresh();
     } catch (err) {
       setError("An error occurred. Please try again.");
       setLoading(false);

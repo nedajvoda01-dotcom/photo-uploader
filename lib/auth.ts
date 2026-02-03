@@ -24,7 +24,7 @@ export async function signSession(payload: SessionPayload): Promise<string> {
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + TOKEN_TTL)
+    .setExpirationTime("7d")
     .sign(secret);
 
   return token;

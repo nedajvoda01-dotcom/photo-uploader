@@ -4,23 +4,11 @@ import { verifySession, getSessionCookieName } from "@/lib/auth";
 // Paths that don't require authentication
 const PUBLIC_PATHS = ["/login", "/api/login"];
 
-// Static file patterns that don't require authentication
-const STATIC_PATTERNS = [
-  /^\/_next\//,
-  /^\/favicon\.ico$/,
-  /^\/.*\.(?:png|jpg|jpeg|gif|svg|ico)$/,
-];
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths
   if (PUBLIC_PATHS.includes(pathname)) {
-    return NextResponse.next();
-  }
-
-  // Allow static files
-  if (STATIC_PATTERNS.some((pattern) => pattern.test(pathname))) {
     return NextResponse.next();
   }
 
@@ -64,7 +52,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public files with common extensions
      */
-    "/((?!_next/static|_next/image).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

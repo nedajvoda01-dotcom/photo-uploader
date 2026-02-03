@@ -13,7 +13,6 @@ export default function Home() {
       });
       
       router.push("/login");
-      router.refresh();
     } catch (error) {
       console.error("Logout error:", error);
     }
