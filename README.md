@@ -160,8 +160,17 @@ Configure the following environment variables in your Vercel project settings:
    - Email address for the admin user
    - Example: `admin@example.com`
 
-6. **ADMIN_PASSWORD_HASH** (required when data/users.json is not available)
+6. **ADMIN_PASSWORD** (optional, for MVP/quick setup)
+   - Plain text password for the admin user
+   - **Recommended for MVP and testing only** - simpler setup without generating bcrypt hashes
+   - Takes priority over `ADMIN_PASSWORD_HASH` if both are set
+   - Example: `mySecurePassword123`
+   - ⚠️ **Security Note:** Plain passwords in environment variables are vulnerable to exposure through logging, process listings, error reports, and configuration management tools. Even for MVP, use a strong, unique password. **Transition to `ADMIN_PASSWORD_HASH` for production or when handling sensitive data.** The implementation uses constant-time comparison to mitigate timing attacks.
+
+7. **ADMIN_PASSWORD_HASH** (optional, more secure alternative to ADMIN_PASSWORD)
    - Bcrypt hash of the admin password
+   - **Recommended for production** - more secure than plain password
+   - Only used if `ADMIN_PASSWORD` is not set
    - Generate with: `node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('your-password', 10, (err, hash) => { console.log(hash); });"`
    - **Important:** In local `.env` files (`.env.local`), you must escape the `$` signs in the bcrypt hash with backslashes: `\$2b\$10\$...` (this is required by Next.js's dotenv parsing)
    - In Vercel's environment variables UI, use the hash as-is without escaping (no backslashes needed)
@@ -192,8 +201,14 @@ ADMIN_PASSWORD_HASH=\$2b\$10\$XAFke6qJqObeuIa.1kC3T.ufP4078lWsDvwLIfMCWBhdT2gAFD
 
 The application prioritizes authentication sources in this order:
 1. **data/users.json** file (if present) - used for local development
-2. **Environment variables** (ADMIN_EMAIL + ADMIN_PASSWORD_HASH) - fallback for production
+2. **Environment variables** - fallback for production/Vercel:
+   - **ADMIN_PASSWORD** (plain text) - takes priority if set
+   - **ADMIN_PASSWORD_HASH** (bcrypt hash) - used if ADMIN_PASSWORD is not set
 
 This allows the same codebase to work both locally (with users.json) and on Vercel (with environment variables).
+
+**For MVP/Quick Setup:** Use `ADMIN_EMAIL` + `ADMIN_PASSWORD` (plain text)
+
+**For Production:** Use `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` (bcrypt hash) for better security
 
 # Build Instructions
