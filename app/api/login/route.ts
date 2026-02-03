@@ -43,10 +43,16 @@ export async function POST(request: NextRequest) {
           isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
         } else {
           // Lengths differ, password is incorrect
-          // Still perform a dummy comparison to maintain constant time
+          // Perform a dummy comparison to maintain constant time behavior
+          const dummyBuffer = Buffer.alloc(Math.max(passwordBuffer.length, adminPasswordBuffer.length));
+          timingSafeEqual(dummyBuffer, dummyBuffer);
           isValid = false;
         }
       } catch {
+        // Error during comparison (e.g., Buffer creation failed)
+        // Perform dummy comparison to maintain timing consistency
+        const dummyBuffer = Buffer.alloc(32);
+        timingSafeEqual(dummyBuffer, dummyBuffer);
         isValid = false;
       }
     } else {
