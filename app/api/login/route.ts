@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { timingSafeEqual } from "crypto";
 import { getUserByEmail } from "@/lib/users";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
 
@@ -32,8 +33,22 @@ export async function POST(request: NextRequest) {
 
     // Check if plain password is configured and email matches
     if (adminPassword && adminEmail && email === adminEmail) {
-      // Direct comparison for plain password (MVP)
-      isValid = password === adminPassword;
+      // Use constant-time comparison to prevent timing attacks
+      try {
+        const passwordBuffer = Buffer.from(password);
+        const adminPasswordBuffer = Buffer.from(adminPassword);
+        
+        // timingSafeEqual requires buffers of equal length
+        if (passwordBuffer.length === adminPasswordBuffer.length) {
+          isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
+        } else {
+          // Lengths differ, password is incorrect
+          // Still perform a dummy comparison to maintain constant time
+          isValid = false;
+        }
+      } catch {
+        isValid = false;
+      }
     } else {
       // Fallback to bcrypt hash comparison
       isValid = await bcrypt.compare(password, user.passwordHash);
