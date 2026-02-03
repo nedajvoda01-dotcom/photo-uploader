@@ -36,6 +36,11 @@ function loadUsers(): User[] | null {
 
 /**
  * Get a user by email address
+ * 
+ * Note: This function intentionally does not cache the loaded users or environment
+ * variables to allow for dynamic updates and avoid stale authentication data.
+ * The file system operation is fast enough for authentication flows.
+ * 
  * @param email User's email address
  * @returns User object if found, undefined otherwise
  */

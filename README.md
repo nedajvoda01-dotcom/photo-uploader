@@ -163,7 +163,7 @@ Configure the following environment variables in your Vercel project settings:
 6. **ADMIN_PASSWORD_HASH** (required when data/users.json is not available)
    - Bcrypt hash of the admin password
    - Generate with: `node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('your-password', 10, (err, hash) => { console.log(hash); });"`
-   - **Important:** In `.env` files (like `.env.local`), you must escape the `$` signs in the bcrypt hash with backslashes: `\$2b\$10\$...`
+   - **Important:** In local `.env` files (`.env.local`), you must escape the `$` signs in the bcrypt hash with backslashes: `\$2b\$10\$...` (this is required by Next.js's dotenv parsing)
    - In Vercel's environment variables UI, use the hash as-is without escaping (no backslashes needed)
 
 ### Generating Password Hash for ADMIN_PASSWORD_HASH
@@ -178,7 +178,7 @@ Replace `'your-password-here'` with your desired password.
 
 **For Vercel:** Copy the output hash directly and paste it as the `ADMIN_PASSWORD_HASH` environment variable in Vercel's project settings.
 
-**For local `.env.local` file:** You must escape the `$` signs with backslashes. For example, if the hash is:
+**For local `.env.local` file:** You must escape the `$` signs with backslashes (required by Next.js's dotenv parsing). For example, if the hash is:
 ```
 $2b$10$XAFke6qJqObeuIa.1kC3T.ufP4078lWsDvwLIfMCWBhdT2gAFD3Gi
 ```
