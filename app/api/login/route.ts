@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password using bcrypt hash
-    // (Plain admin password was already checked above)
+    // This path handles bcrypt hash authentication (plain admin already returned above if matched)
     let isValid = false;
     try {
       isValid = await bcrypt.compare(password, user.passwordHash);
