@@ -20,12 +20,13 @@ export async function POST(request: NextRequest) {
     const isDebugMode = process.env.AUTH_DEBUG === "1";
     let debugInfo: Record<string, boolean | string | number> | null = null;
     
+    // Capture env vars once to avoid redundant reads
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
+    const authSecret = process.env.AUTH_SECRET;
+    
     if (isDebugMode) {
-      const adminEmail = process.env.ADMIN_EMAIL;
-      const adminPassword = process.env.ADMIN_PASSWORD;
-      const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
-      const authSecret = process.env.AUTH_SECRET;
-      
       debugInfo = {
         hasAdminEmail: !!adminEmail,
         hasAdminPassword: !!adminPassword,
@@ -33,7 +34,6 @@ export async function POST(request: NextRequest) {
         hasAuthSecret: !!authSecret,
         inputEmailPresent: !!email,
         inputPasswordPresent: !!password,
-        emailMatchesAdmin: !!(adminEmail && email === adminEmail),
         emailEqualsAdmin: !!(adminEmail && email === adminEmail),
         emailTrimEqualsAdminTrim: !!(adminEmail && email && email.trim() === adminEmail.trim()),
         usingPlain: !!(adminPassword && adminEmail && email === adminEmail),
@@ -55,12 +55,11 @@ export async function POST(request: NextRequest) {
       if (isDebugMode && debugInfo) {
         debugInfo.result = "fail";
         // Determine reason code
-        const adminEmail = process.env.ADMIN_EMAIL;
         if (!adminEmail) {
           debugInfo.reasonCode = "missing_env_admin_email";
         } else if (email !== adminEmail) {
           debugInfo.reasonCode = "email_mismatch";
-        } else if (!process.env.ADMIN_PASSWORD && !process.env.ADMIN_PASSWORD_HASH) {
+        } else if (!adminPassword && !adminPasswordHash) {
           debugInfo.reasonCode = "missing_env_admin_password";
         } else {
           debugInfo.reasonCode = "user_not_found";
@@ -76,8 +75,6 @@ export async function POST(request: NextRequest) {
     // Verify password
     // Priority: ADMIN_PASSWORD (plain) > ADMIN_PASSWORD_HASH (bcrypt)
     let isValid = false;
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
 
     // Check if plain password is configured and email matches
     if (adminPassword && adminEmail && email === adminEmail) {

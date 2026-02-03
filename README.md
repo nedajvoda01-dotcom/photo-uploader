@@ -224,7 +224,7 @@ If you're experiencing login issues (401 errors) on Vercel, you can enable safe 
 **Debug output includes (all safe, no secrets logged):**
 - Boolean flags: `hasAdminEmail`, `hasAdminPassword`, `hasAdminPasswordHash`, `hasAuthSecret`
 - Input validation: `inputEmailPresent`, `inputPasswordPresent`
-- Email matching: `emailMatchesAdmin`, `emailEqualsAdmin`, `emailTrimEqualsAdminTrim` (helps catch whitespace issues)
+- Email matching: `emailEqualsAdmin`, `emailTrimEqualsAdminTrim` (helps catch whitespace issues)
 - Authentication mode: `usingPlain`, `usingHash`
 - String lengths (not actual values): `envAdminEmailLength`, `envAdminPasswordLength`, `inputEmailLength`, `inputPasswordLength`
 - Result status: `result` ("ok" or "fail")
