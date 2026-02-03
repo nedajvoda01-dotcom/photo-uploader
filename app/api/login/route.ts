@@ -25,7 +25,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password
-    const isValid = await bcrypt.compare(password, user.passwordHash);
+    // Priority: ADMIN_PASSWORD (plain) > ADMIN_PASSWORD_HASH (bcrypt)
+    let isValid = false;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    // Check if plain password is configured and email matches
+    if (adminPassword && adminEmail && email === adminEmail) {
+      // Direct comparison for plain password (MVP)
+      isValid = password === adminPassword;
+    } else {
+      // Fallback to bcrypt hash comparison
+      isValid = await bcrypt.compare(password, user.passwordHash);
+    }
+
     if (!isValid) {
       return NextResponse.json(
         { error: "Invalid email or password" },
