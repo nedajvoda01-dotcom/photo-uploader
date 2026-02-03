@@ -1,42 +1,40 @@
 # Photo Uploader
 
-Веб-приложение для загрузки фотографий на Яндекс.Диск через Google Apps Script backend.
+A Next.js application for uploading photos to Yandex Disk.
 
-## 🔒 Безопасность
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-**⚠️ ВАЖНО: НЕ ХРАНИ ТОКЕНЫ И КЛЮЧИ В РЕПОЗИТОРИИ!**
+## Getting Started
 
-- **Никогда** не коммить реальные API ключи, токены или секретные URL в код
-- Все секреты должны храниться только в переменных окружения или защищенных конфигурационных файлах
-- Для production использования вынеси всю авторизацию на backend
+First, install dependencies:
 
-### Настройка
-
-1. Создай свой Google Apps Script backend для загрузки на Яндекс.Диск
-2. В файле `index.html` замени плейсхолдеры на свои реальные значения:
-   - `PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE` → URL твоего Apps Script
-   - `PASTE_YOUR_API_KEY_HERE` → твой API ключ (если требуется)
-
-3. **НЕ КОММИТЬ** файл с реальными значениями обратно в репозиторий!
-
-### Резервная копия
-
-Оригинальная версия с примером структуры хранится в `legacy/index.html.backup` (только для справки, без реальных секретов в репозитории).
-
-## Использование
-
-1. Открой `index.html` в браузере
-2. Выбери файл для загрузки
-3. Укажи папку на Яндекс.Диске (формат: `disk:/Имя_Папки`)
-4. (Опционально) Укажи новое имя файла
-5. Нажми "Upload"
-
-## Структура проекта
-
+```bash
+npm install
 ```
-.
-├── index.html              # Основной файл приложения (с плейсхолдерами)
-├── legacy/
-│   └── index.html.backup  # Резервная копия оригинальной версии
-└── README.md              # Этот файл
+
+Then, run the development server:
+
+```bash
+npm run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Project Structure
+
+- `app/` - Next.js App Router pages and layouts
+- `data/` - User data storage (users.json is gitignored)
+- `legacy/` - Legacy HTML implementation
+- `public/` - Static assets
+
+## Configuration
+
+Copy `data/users.example.json` to `data/users.json` for local development.
+
+## Security
+
+**⚠️ Never commit real credentials or user data!**
+
+- User data file `data/users.json` is excluded from git
+- Environment variables should be in `.env.local` (also gitignored)
+- See `data/users.example.json` for the expected user data format
