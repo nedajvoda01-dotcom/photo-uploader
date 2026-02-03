@@ -12,18 +12,99 @@ First, install dependencies:
 npm install
 ```
 
-Then, run the development server:
+### Authentication Setup
+
+This application uses JWT-based session authentication with bcrypt password hashing.
+
+#### 1. Set up environment variables
+
+Create a `.env.local` file in the project root:
+
+```bash
+AUTH_SECRET=your-long-random-secret-key-here
+```
+
+To generate a secure random secret, you can use:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+#### 2. Create user data file
+
+Copy the example user data file:
+
+```bash
+cp data/users.example.json data/users.json
+```
+
+**Note**: The default credentials in `data/users.example.json` are:
+- Email: `admin@example.com`
+- Password: `password123`
+
+#### 3. Generate password hashes (for new users)
+
+To add new users or change passwords, you need to generate bcrypt password hashes.
+
+You can use this Node.js script:
+
+```bash
+node -e "const bcrypt = require('bcryptjs'); const password = 'your-password-here'; bcrypt.hash(password, 10, (err, hash) => { console.log(hash); });"
+```
+
+Or create a helper script `scripts/hash-password.js`:
+
+```javascript
+const bcrypt = require('bcryptjs');
+const password = process.argv[2];
+
+if (!password) {
+  console.error('Usage: node scripts/hash-password.js <password>');
+  process.exit(1);
+}
+
+bcrypt.hash(password, 10, (err, hash) => {
+  if (err) throw err;
+  console.log('Password hash:', hash);
+});
+```
+
+Then run:
+
+```bash
+node scripts/hash-password.js your-password-here
+```
+
+Add the generated hash to your `data/users.json` file:
+
+```json
+[
+  {
+    "email": "user@example.com",
+    "passwordHash": "$2a$10$..."
+  }
+]
+```
+
+### Run the development server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser. You'll be redirected to the login page.
 
 ## Project Structure
 
 - `app/` - Next.js App Router pages and layouts
+  - `app/login/` - Login page
+  - `app/api/login/` - Login API endpoint
+  - `app/api/logout/` - Logout API endpoint
 - `data/` - User data storage (users.json is gitignored)
+- `lib/` - Utility functions
+  - `lib/auth.ts` - JWT session management
+  - `lib/users.ts` - User data access
+- `middleware.ts` - Authentication middleware
 - `legacy/` - Legacy HTML implementation
 - `public/` - Static assets
 
@@ -38,4 +119,17 @@ Copy `data/users.example.json` to `data/users.json` for local development.
 - User data file `data/users.json` is excluded from git
 - Environment variables should be in `.env.local` (also gitignored)
 - See `data/users.example.json` for the expected user data format
+- AUTH_SECRET must be a long, random string in production
+- Passwords are hashed using bcrypt before storage
+- Sessions use JWT tokens with 7-day expiration
+- Cookies are HttpOnly, SameSite=Lax, and Secure in production
+
+## Authentication Flow
+
+1. User visits any protected route → redirected to `/login`
+2. User submits email/password → validated against `data/users.json`
+3. On success → JWT session created and set as HttpOnly cookie
+4. Middleware validates session on each request
+5. User clicks logout → session cookie cleared
+
 # Build Instructions
