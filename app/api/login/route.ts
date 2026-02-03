@@ -16,9 +16,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Debug diagnostics (only if AUTH_DEBUG=1)
+    const isDebugMode = process.env.AUTH_DEBUG === "1";
+    let debugInfo: Record<string, boolean | string | number> | null = null;
+    
+    // Capture env vars once to avoid redundant reads
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
+    const authSecret = process.env.AUTH_SECRET;
+    
+    if (isDebugMode) {
+      debugInfo = {
+        hasAdminEmail: !!adminEmail,
+        hasAdminPassword: !!adminPassword,
+        hasAdminPasswordHash: !!adminPasswordHash,
+        hasAuthSecret: !!authSecret,
+        inputEmailPresent: !!email,
+        inputPasswordPresent: !!password,
+        emailEqualsAdmin: !!(adminEmail && email === adminEmail),
+        emailTrimEqualsAdminTrim: !!(adminEmail && email && email.trim() === adminEmail.trim()),
+        usingPlain: !!(adminPassword && adminEmail && email === adminEmail),
+        usingHash: !!adminPasswordHash,
+        // Technical metrics (lengths only, no actual values)
+        envAdminEmailLength: adminEmail?.length ?? 0,
+        envAdminPasswordLength: adminPassword?.length ?? 0,
+        inputEmailLength: email?.length ?? 0,
+        inputPasswordLength: password?.length ?? 0,
+        result: "unknown", // Will be set later
+        reasonCode: "unknown", // Will be set on failure
+      };
+    }
+
     // Find user by email
     const user = getUserByEmail(email);
     if (!user) {
+      // Log debug info on failure
+      if (isDebugMode && debugInfo) {
+        debugInfo.result = "fail";
+        // Determine reason code
+        if (!adminEmail) {
+          debugInfo.reasonCode = "missing_env_admin_email";
+        } else if (email !== adminEmail) {
+          debugInfo.reasonCode = "email_mismatch";
+        } else if (!adminPassword && !adminPasswordHash) {
+          debugInfo.reasonCode = "missing_env_admin_password";
+        } else {
+          debugInfo.reasonCode = "user_not_found";
+        }
+        console.warn("[AUTH_DEBUG] Login attempt failed - user not found:", debugInfo);
+      }
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
@@ -28,8 +75,6 @@ export async function POST(request: NextRequest) {
     // Verify password
     // Priority: ADMIN_PASSWORD (plain) > ADMIN_PASSWORD_HASH (bcrypt)
     let isValid = false;
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
 
     // Check if plain password is configured and email matches
     if (adminPassword && adminEmail && email === adminEmail) {
@@ -58,10 +103,33 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Fallback to bcrypt hash comparison
-      isValid = await bcrypt.compare(password, user.passwordHash);
+      try {
+        isValid = await bcrypt.compare(password, user.passwordHash);
+      } catch (_error) {
+        if (isDebugMode && debugInfo) {
+          debugInfo.result = "fail";
+          debugInfo.reasonCode = "hash_compare_error";
+          console.warn("[AUTH_DEBUG] Login attempt failed - bcrypt compare error:", debugInfo);
+        }
+        return NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 }
+        );
+      }
     }
 
     if (!isValid) {
+      // Log debug info on failure
+      if (isDebugMode && debugInfo) {
+        debugInfo.result = "fail";
+        // Determine reason code based on which method was used
+        if (adminPassword && adminEmail && email === adminEmail) {
+          debugInfo.reasonCode = "password_mismatch_plain";
+        } else {
+          debugInfo.reasonCode = "password_mismatch_hash";
+        }
+        console.warn("[AUTH_DEBUG] Login attempt failed - invalid password:", debugInfo);
+      }
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
@@ -69,7 +137,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Create session token
-    const token = await signSession({ email: user.email });
+    let token: string;
+    try {
+      token = await signSession({ email: user.email });
+    } catch (error) {
+      if (isDebugMode && debugInfo) {
+        debugInfo.result = "fail";
+        debugInfo.reasonCode = "jwt_sign_error";
+        console.warn("[AUTH_DEBUG] Login attempt failed - JWT signing error:", debugInfo);
+      }
+      console.error("JWT signing error:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 }
+      );
+    }
 
     // Set cookie
     const response = NextResponse.json(
@@ -85,6 +167,12 @@ export async function POST(request: NextRequest) {
       maxAge: getSessionTTL(),
       path: "/",
     });
+
+    // Log debug info on success
+    if (isDebugMode && debugInfo) {
+      debugInfo.result = "ok";
+      console.info("[AUTH_DEBUG] Login successful:", debugInfo);
+    }
 
     return response;
   } catch (error) {
