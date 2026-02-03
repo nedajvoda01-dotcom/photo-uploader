@@ -66,12 +66,15 @@ export async function uploadToYandexDisk(
     }
 
     // Step 2: Upload file to the received URL
+    // Convert bytes to ArrayBuffer for proper fetch body handling
+    const arrayBuffer = bytes instanceof Buffer ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes.buffer;
+    const blob = new Blob([arrayBuffer], { type: contentType });
     const uploadResponse = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": contentType,
       },
-      body: bytes as BodyInit,
+      body: blob,
     });
 
     if (!uploadResponse.ok) {
