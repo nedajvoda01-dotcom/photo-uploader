@@ -38,7 +38,9 @@ Copy the example user data file:
 cp data/users.example.json data/users.json
 ```
 
-The default password for `admin@example.com` in the example file is: `password123`
+**Note**: The default credentials in `data/users.example.json` are:
+- Email: `admin@example.com`
+- Password: `password123`
 
 #### 3. Generate password hashes (for new users)
 
