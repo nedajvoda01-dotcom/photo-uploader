@@ -28,8 +28,9 @@ function convertToArrayBuffer(bytes: Uint8Array | Buffer): ArrayBuffer {
 
 /**
  * Ensure a directory exists on Yandex.Disk by creating it if necessary
+ * Creates all parent directories recursively if they don't exist
  * 
- * @param path Directory path on Yandex.Disk (e.g., "/mvp_uploads")
+ * @param path Directory path on Yandex.Disk (e.g., "/mvp_uploads" or "/mvp_uploads/2024/january")
  * @returns Promise that resolves when directory exists or is created
  */
 async function ensureDir(path: string): Promise<void> {
@@ -39,33 +40,40 @@ async function ensureDir(path: string): Promise<void> {
     throw new Error("YANDEX_DISK_TOKEN environment variable is not set");
   }
 
-  try {
-    const response = await fetch(
-      `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `OAuth ${token}`,
-        },
+  // Split the path into segments and recursively create each directory
+  const segments = path.split("/").filter((seg) => seg.length > 0);
+  
+  for (let i = 0; i < segments.length; i++) {
+    const currentPath = "/" + segments.slice(0, i + 1).join("/");
+    
+    try {
+      const response = await fetch(
+        `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(currentPath)}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `OAuth ${token}`,
+          },
+        }
+      );
+
+      // 201 = created successfully
+      // 409 = already exists (this is acceptable)
+      if (response.status === 201 || response.status === 409) {
+        continue;
       }
-    );
 
-    // 201 = created successfully
-    // 409 = already exists (this is acceptable)
-    if (response.ok || response.status === 409) {
-      return;
+      // Handle other errors
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `Failed to ensure directory exists at ${currentPath}: ${response.status} ${response.statusText}. ${JSON.stringify(errorData)}`
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`Unknown error ensuring directory exists at ${currentPath}`);
     }
-
-    // Handle other errors
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `Failed to ensure directory exists: ${response.status} ${response.statusText}. ${JSON.stringify(errorData)}`
-    );
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Unknown error ensuring directory exists");
   }
 }
 
