@@ -10,16 +10,11 @@ const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 
 /**
  * Load users from data/users.json
- * @returns Array of users
- * @throws Error if users.json doesn't exist or is invalid
+ * @returns Array of users or null if file doesn't exist
  */
-function loadUsers(): User[] {
+function loadUsers(): User[] | null {
   if (!fs.existsSync(USERS_FILE)) {
-    throw new Error(
-      `Users file not found: ${USERS_FILE}\n\n` +
-        "Please create data/users.json based on data/users.example.json.\n" +
-        "See README.md for instructions on how to generate password hashes."
-    );
+    return null;
   }
 
   try {
@@ -41,10 +36,33 @@ function loadUsers(): User[] {
 
 /**
  * Get a user by email address
+ * 
+ * Note: This function intentionally does not cache the loaded users or environment
+ * variables to allow for dynamic updates and avoid stale authentication data.
+ * The file system operation is fast enough for authentication flows.
+ * 
  * @param email User's email address
  * @returns User object if found, undefined otherwise
  */
 export function getUserByEmail(email: string): User | undefined {
+  // Try to load users from file first (priority over env)
   const users = loadUsers();
-  return users.find((user) => user.email === email);
+  
+  if (users !== null) {
+    // File exists and was loaded successfully
+    return users.find((user) => user.email === email);
+  }
+  
+  // Fallback to environment variables (for Vercel deployment)
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
+  
+  if (adminEmail && adminPasswordHash && email === adminEmail) {
+    return {
+      email: adminEmail,
+      passwordHash: adminPasswordHash,
+    };
+  }
+  
+  return undefined;
 }
