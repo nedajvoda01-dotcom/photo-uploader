@@ -35,17 +35,18 @@ export async function POST(request: NextRequest) {
     if (adminPassword && adminEmail && email === adminEmail) {
       // Use constant-time comparison to prevent timing attacks
       try {
-        const passwordBuffer = Buffer.from(password);
-        const adminPasswordBuffer = Buffer.from(adminPassword);
+        const passwordBuffer = Buffer.from(password, 'utf8');
+        const adminPasswordBuffer = Buffer.from(adminPassword, 'utf8');
         
         // timingSafeEqual requires buffers of equal length
         if (passwordBuffer.length === adminPasswordBuffer.length) {
           isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
         } else {
           // Lengths differ, password is incorrect
-          // Perform a dummy comparison to maintain constant time behavior
-          const dummyBuffer = Buffer.alloc(Math.max(passwordBuffer.length, adminPasswordBuffer.length));
-          timingSafeEqual(dummyBuffer, dummyBuffer);
+          // Perform a dummy comparison with fixed-size buffers to maintain constant time
+          const dummyBuffer1 = Buffer.alloc(32);
+          const dummyBuffer2 = Buffer.alloc(32);
+          timingSafeEqual(dummyBuffer1, dummyBuffer2);
           isValid = false;
         }
       } catch {

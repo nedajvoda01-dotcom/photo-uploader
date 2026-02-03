@@ -165,7 +165,7 @@ Configure the following environment variables in your Vercel project settings:
    - **Recommended for MVP and testing only** - simpler setup without generating bcrypt hashes
    - Takes priority over `ADMIN_PASSWORD_HASH` if both are set
    - Example: `mySecurePassword123`
-   - ⚠️ **Security Note:** While convenient for MVP, plain passwords in environment variables are less secure than hashed passwords. Even with MVP, use a strong, unique password. For production deployments, use `ADMIN_PASSWORD_HASH` for better security. The implementation uses constant-time comparison to mitigate timing attacks.
+   - ⚠️ **Security Note:** Plain passwords in environment variables are vulnerable to exposure through logging, process listings, error reports, and configuration management tools. Even for MVP, use a strong, unique password. **Transition to `ADMIN_PASSWORD_HASH` for production or when handling sensitive data.** The implementation uses constant-time comparison to mitigate timing attacks.
 
 7. **ADMIN_PASSWORD_HASH** (optional, more secure alternative to ADMIN_PASSWORD)
    - Bcrypt hash of the admin password
