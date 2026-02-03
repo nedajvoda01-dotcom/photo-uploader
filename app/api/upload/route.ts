@@ -50,7 +50,15 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename with timestamp
     const timestamp = Date.now();
-    const extension = file.name.split(".").pop() || "jpg";
+    // Map MIME type to safe extension
+    const mimeToExtension: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/png": "png",
+      "image/gif": "gif",
+      "image/webp": "webp",
+    };
+    const extension = mimeToExtension[file.type] || "jpg";
     const filename = `photo_${timestamp}.${extension}`;
     const remotePath = `${UPLOAD_DIR}/${filename}`;
 
