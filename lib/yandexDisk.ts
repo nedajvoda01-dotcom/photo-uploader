@@ -17,6 +17,16 @@ export interface UploadResult {
 }
 
 /**
+ * Convert Buffer or Uint8Array to ArrayBuffer for fetch body
+ */
+function convertToArrayBuffer(bytes: Uint8Array | Buffer): ArrayBuffer {
+  if (bytes instanceof Buffer) {
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  }
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+/**
  * Upload a file to Yandex.Disk
  * 
  * @param params Upload parameters including path, file bytes, and content type
@@ -67,7 +77,7 @@ export async function uploadToYandexDisk(
 
     // Step 2: Upload file to the received URL
     // Convert bytes to ArrayBuffer for proper fetch body handling
-    const arrayBuffer = bytes instanceof Buffer ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes.buffer;
+    const arrayBuffer = convertToArrayBuffer(bytes);
     const blob = new Blob([arrayBuffer], { type: contentType });
     const uploadResponse = await fetch(uploadUrl, {
       method: "PUT",
