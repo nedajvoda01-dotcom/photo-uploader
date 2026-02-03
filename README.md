@@ -132,4 +132,68 @@ Copy `data/users.example.json` to `data/users.json` for local development.
 4. Middleware validates session on each request
 5. User clicks logout → session cookie cleared
 
+## Vercel Deployment
+
+When deploying to Vercel (or other cloud platforms), the `data/users.json` file will not be available since it's gitignored. The application supports environment variable-based authentication as a fallback.
+
+### Required Environment Variables
+
+Configure the following environment variables in your Vercel project settings:
+
+1. **AUTH_SECRET** (required)
+   - A long, random secret key for JWT token signing
+   - Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+2. **YANDEX_DISK_TOKEN** (required for file uploads)
+   - Your Yandex Disk OAuth token
+   - Obtain from: https://yandex.ru/dev/disk/poligon/
+
+3. **UPLOAD_DIR** (optional)
+   - Directory path on Yandex Disk where files will be uploaded
+   - Default: `/uploads`
+
+4. **UPLOAD_MAX_MB** (optional)
+   - Maximum file size in megabytes
+   - Default: `10`
+
+5. **ADMIN_EMAIL** (required when data/users.json is not available)
+   - Email address for the admin user
+   - Example: `admin@example.com`
+
+6. **ADMIN_PASSWORD_HASH** (required when data/users.json is not available)
+   - Bcrypt hash of the admin password
+   - Generate with: `node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('your-password', 10, (err, hash) => { console.log(hash); });"`
+   - **Important:** In `.env` files (like `.env.local`), you must escape the `$` signs in the bcrypt hash with backslashes: `\$2b\$10\$...`
+   - In Vercel's environment variables UI, use the hash as-is without escaping (no backslashes needed)
+
+### Generating Password Hash for ADMIN_PASSWORD_HASH
+
+To generate a bcrypt password hash for the `ADMIN_PASSWORD_HASH` environment variable:
+
+```bash
+node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('your-password-here', 10, (err, hash) => { if (err) throw err; console.log(hash); });"
+```
+
+Replace `'your-password-here'` with your desired password.
+
+**For Vercel:** Copy the output hash directly and paste it as the `ADMIN_PASSWORD_HASH` environment variable in Vercel's project settings.
+
+**For local `.env.local` file:** You must escape the `$` signs with backslashes. For example, if the hash is:
+```
+$2b$10$XAFke6qJqObeuIa.1kC3T.ufP4078lWsDvwLIfMCWBhdT2gAFD3Gi
+```
+
+In your `.env.local` file, it should be:
+```
+ADMIN_PASSWORD_HASH=\$2b\$10\$XAFke6qJqObeuIa.1kC3T.ufP4078lWsDvwLIfMCWBhdT2gAFD3Gi
+```
+
+### Deployment Priority
+
+The application prioritizes authentication sources in this order:
+1. **data/users.json** file (if present) - used for local development
+2. **Environment variables** (ADMIN_EMAIL + ADMIN_PASSWORD_HASH) - fallback for production
+
+This allows the same codebase to work both locally (with users.json) and on Vercel (with environment variables).
+
 # Build Instructions
