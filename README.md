@@ -38,3 +38,4 @@ Copy `data/users.example.json` to `data/users.json` for local development.
 - User data file `data/users.json` is excluded from git
 - Environment variables should be in `.env.local` (also gitignored)
 - See `data/users.example.json` for the expected user data format
+# Build Instructions
