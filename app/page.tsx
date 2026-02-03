@@ -27,6 +27,19 @@ export default function Home() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (20MB limit)
+      const maxSizeMB = 20;
+      const maxSizeBytes = maxSizeMB * 1024 * 1024;
+      
+      if (file.size > maxSizeBytes) {
+        setUploadError(`File size exceeds ${maxSizeMB}MB limit`);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+      
       setSelectedFile(file);
       setUploadStatus("");
       setUploadError("");
