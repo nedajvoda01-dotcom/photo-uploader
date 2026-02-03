@@ -48,7 +48,89 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Find user by email
+    // Check plain admin credentials BEFORE checking users.json
+    // This fixes the issue where plain admin login was failing with "user_not_found"
+    if (adminPassword && adminEmail && email === adminEmail) {
+      // Verify password using constant-time comparison
+      let isValid = false;
+      try {
+        const passwordBuffer = Buffer.from(password, 'utf8');
+        const adminPasswordBuffer = Buffer.from(adminPassword, 'utf8');
+        
+        // timingSafeEqual requires buffers of equal length
+        if (passwordBuffer.length === adminPasswordBuffer.length) {
+          isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
+        } else {
+          // Lengths differ, password is incorrect
+          // Perform a dummy comparison with fixed-size buffers to maintain constant time
+          const dummyBuffer1 = Buffer.alloc(32);
+          const dummyBuffer2 = Buffer.alloc(32);
+          timingSafeEqual(dummyBuffer1, dummyBuffer2);
+          isValid = false;
+        }
+      } catch {
+        // Error during comparison (e.g., Buffer creation failed)
+        // Perform dummy comparison to maintain timing consistency
+        const dummyBuffer = Buffer.alloc(32);
+        timingSafeEqual(dummyBuffer, dummyBuffer);
+        isValid = false;
+      }
+
+      if (!isValid) {
+        // Password mismatch for plain admin
+        if (isDebugMode && debugInfo) {
+          debugInfo.result = "fail";
+          debugInfo.reasonCode = "password_mismatch_plain";
+          console.warn("[AUTH_DEBUG] Login attempt failed - plain admin password mismatch:", debugInfo);
+        }
+        return NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 }
+        );
+      }
+
+      // Plain admin login successful - create session and return
+      let token: string;
+      try {
+        token = await signSession({ email: adminEmail });
+      } catch (error) {
+        if (isDebugMode && debugInfo) {
+          debugInfo.result = "fail";
+          debugInfo.reasonCode = "jwt_sign_error";
+          console.warn("[AUTH_DEBUG] Login attempt failed - JWT signing error:", debugInfo);
+        }
+        console.error("JWT signing error:", error);
+        return NextResponse.json(
+          { error: "Internal server error" },
+          { status: 500 }
+        );
+      }
+
+      // Set cookie
+      const response = NextResponse.json(
+        { success: true, message: "Login successful" },
+        { status: 200 }
+      );
+
+      const isProduction = process.env.NODE_ENV === "production";
+      response.cookies.set(getSessionCookieName(), token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProduction,
+        maxAge: getSessionTTL(),
+        path: "/",
+      });
+
+      // Log debug info on success
+      if (isDebugMode && debugInfo) {
+        debugInfo.result = "ok";
+        console.info("[AUTH_DEBUG] Plain admin login successful:", debugInfo);
+      }
+
+      return response;
+    }
+
+    // Find user by email (users.json or ADMIN_PASSWORD_HASH)
     const user = getUserByEmail(email);
     if (!user) {
       // Log debug info on failure
@@ -72,62 +154,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password
-    // Priority: ADMIN_PASSWORD (plain) > ADMIN_PASSWORD_HASH (bcrypt)
+    // Verify password using bcrypt hash
+    // This path handles bcrypt hash authentication (plain admin already returned above if matched)
     let isValid = false;
-
-    // Check if plain password is configured and email matches
-    if (adminPassword && adminEmail && email === adminEmail) {
-      // Use constant-time comparison to prevent timing attacks
-      try {
-        const passwordBuffer = Buffer.from(password, 'utf8');
-        const adminPasswordBuffer = Buffer.from(adminPassword, 'utf8');
-        
-        // timingSafeEqual requires buffers of equal length
-        if (passwordBuffer.length === adminPasswordBuffer.length) {
-          isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
-        } else {
-          // Lengths differ, password is incorrect
-          // Perform a dummy comparison with fixed-size buffers to maintain constant time
-          const dummyBuffer1 = Buffer.alloc(32);
-          const dummyBuffer2 = Buffer.alloc(32);
-          timingSafeEqual(dummyBuffer1, dummyBuffer2);
-          isValid = false;
-        }
-      } catch {
-        // Error during comparison (e.g., Buffer creation failed)
-        // Perform dummy comparison to maintain timing consistency
-        const dummyBuffer = Buffer.alloc(32);
-        timingSafeEqual(dummyBuffer, dummyBuffer);
-        isValid = false;
+    try {
+      isValid = await bcrypt.compare(password, user.passwordHash);
+    } catch (_error) {
+      if (isDebugMode && debugInfo) {
+        debugInfo.result = "fail";
+        debugInfo.reasonCode = "hash_compare_error";
+        console.warn("[AUTH_DEBUG] Login attempt failed - bcrypt compare error:", debugInfo);
       }
-    } else {
-      // Fallback to bcrypt hash comparison
-      try {
-        isValid = await bcrypt.compare(password, user.passwordHash);
-      } catch (_error) {
-        if (isDebugMode && debugInfo) {
-          debugInfo.result = "fail";
-          debugInfo.reasonCode = "hash_compare_error";
-          console.warn("[AUTH_DEBUG] Login attempt failed - bcrypt compare error:", debugInfo);
-        }
-        return NextResponse.json(
-          { error: "Invalid email or password" },
-          { status: 401 }
-        );
-      }
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
     }
 
     if (!isValid) {
       // Log debug info on failure
       if (isDebugMode && debugInfo) {
         debugInfo.result = "fail";
-        // Determine reason code based on which method was used
-        if (adminPassword && adminEmail && email === adminEmail) {
-          debugInfo.reasonCode = "password_mismatch_plain";
-        } else {
-          debugInfo.reasonCode = "password_mismatch_hash";
-        }
+        debugInfo.reasonCode = "password_mismatch_hash";
         console.warn("[AUTH_DEBUG] Login attempt failed - invalid password:", debugInfo);
       }
       return NextResponse.json(
