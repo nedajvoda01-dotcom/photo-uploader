@@ -74,8 +74,10 @@
 
   <script>
     // === НАСТРОЙКА (вставь свои значения) ===
-    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw8uGlRqD1I2QMrc2LLBv70QXNkAccEaMYc903BoK3dmB_a-iZuXTmJw4AHb1YGdAS8/exec";
-    const API_KEY = "p6g8m2x9v4k1q7r3t5y8u0i2o4a6s8d1"; // если не нужен — оставь пустым ""
+    // ⚠️ LEGACY BACKUP - НЕ ИСПОЛЬЗОВАТЬ НАПРЯМУЮ!
+    // Реальные секреты удалены. См. основной index.html
+    const BACKEND_URL = "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+    const API_KEY = "PASTE_YOUR_API_KEY_HERE"; // если не нужен — оставь пустым ""
     // =======================================
 
     const elFile = document.getElementById("file");
