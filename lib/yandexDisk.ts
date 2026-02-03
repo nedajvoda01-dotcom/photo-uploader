@@ -27,6 +27,49 @@ function convertToArrayBuffer(bytes: Uint8Array | Buffer): ArrayBuffer {
 }
 
 /**
+ * Ensure a directory exists on Yandex.Disk by creating it if necessary
+ * 
+ * @param path Directory path on Yandex.Disk (e.g., "/mvp_uploads")
+ * @returns Promise that resolves when directory exists or is created
+ */
+async function ensureDir(path: string): Promise<void> {
+  const token = process.env.YANDEX_DISK_TOKEN;
+
+  if (!token) {
+    throw new Error("YANDEX_DISK_TOKEN environment variable is not set");
+  }
+
+  try {
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `OAuth ${token}`,
+        },
+      }
+    );
+
+    // 201 = created successfully
+    // 409 = already exists (this is acceptable)
+    if (response.ok || response.status === 409) {
+      return;
+    }
+
+    // Handle other errors
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      `Failed to ensure directory exists: ${response.status} ${response.statusText}. ${JSON.stringify(errorData)}`
+    );
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Unknown error ensuring directory exists");
+  }
+}
+
+/**
  * Upload a file to Yandex.Disk
  * 
  * @param params Upload parameters including path, file bytes, and content type
@@ -46,7 +89,15 @@ export async function uploadToYandexDisk(
   }
 
   try {
-    // Step 1: Get upload URL from Yandex.Disk
+    // Step 1: Ensure the directory exists
+    // Extract directory path from the file path (e.g., "/mvp_uploads" from "/mvp_uploads/photo.jpg")
+    const lastSlashIndex = path.lastIndexOf("/");
+    if (lastSlashIndex > 0) {
+      const dirPath = path.substring(0, lastSlashIndex);
+      await ensureDir(dirPath);
+    }
+
+    // Step 2: Get upload URL from Yandex.Disk
     const uploadUrlResponse = await fetch(
       `${YANDEX_DISK_API_BASE}/resources/upload?path=${encodeURIComponent(path)}&overwrite=true`,
       {
@@ -75,7 +126,7 @@ export async function uploadToYandexDisk(
       };
     }
 
-    // Step 2: Upload file to the received URL
+    // Step 3: Upload file to the received URL
     // Convert bytes to ArrayBuffer for proper fetch body handling
     const arrayBuffer = convertToArrayBuffer(bytes);
     const blob = new Blob([arrayBuffer], { type: contentType });
