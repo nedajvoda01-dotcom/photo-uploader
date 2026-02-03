@@ -9,7 +9,6 @@ const MAX_FILE_SIZE = UPLOAD_MAX_MB * 1024 * 1024; // Convert MB to bytes
 // Allowed image MIME types
 const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
-  "image/jpg",
   "image/png",
   "image/gif",
   "image/webp",
