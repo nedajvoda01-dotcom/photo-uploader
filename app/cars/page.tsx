@@ -27,6 +27,7 @@ export default function CarsPage() {
 
   useEffect(() => {
     fetchCars();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchCars = async () => {

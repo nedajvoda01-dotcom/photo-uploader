@@ -48,7 +48,6 @@ function SlotCard({ slot, carId, onUploadComplete }: SlotCardProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [loadingShare, setLoadingShare] = useState(false);
 
   const isLocked = slot.status === "locked";
@@ -118,7 +117,6 @@ function SlotCard({ slot, carId, onUploadComplete }: SlotCardProps) {
 
       if (response.ok) {
         const data = await response.json();
-        setShareUrl(data.url);
         window.open(data.url, "_blank");
       }
     } catch (err) {
@@ -206,6 +204,7 @@ export default function CarDetailPage() {
     if (carId) {
       fetchCarData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carId]);
 
   const fetchCarData = async () => {
