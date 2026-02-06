@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/apiHelpers";
+import { getCarLinkById, deleteCarLink } from "@/lib/models/carLinks";
+import { getCarById } from "@/lib/models/cars";
+
+interface RouteContext {
+  params: Promise<{ linkId: string }>;
+}
+
+/**
+ * DELETE /api/links/:linkId
+ * Delete a specific link
+ */
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext
+) {
+  const authResult = await requireAuth(request);
+  
+  if ('error' in authResult) {
+    return authResult.error;
+  }
+  
+  const { session } = authResult;
+  const params = await context.params;
+  const linkId = parseInt(params.linkId, 10);
+  
+  if (isNaN(linkId)) {
+    return NextResponse.json(
+      { error: "Invalid link ID" },
+      { status: 400 }
+    );
+  }
+  
+  try {
+    const link = await getCarLinkById(linkId);
+    
+    if (!link) {
+      return NextResponse.json(
+        { error: "Link not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Check if user has permission (same region)
+    const car = await getCarById(link.car_id);
+    
+    if (!car) {
+      return NextResponse.json(
+        { error: "Associated car not found" },
+        { status: 404 }
+      );
+    }
+    
+    if (car.region !== session.region) {
+      return NextResponse.json(
+        { error: "Access denied - region mismatch" },
+        { status: 403 }
+      );
+    }
+    
+    await deleteCarLink(linkId);
+    
+    return NextResponse.json({
+      success: true,
+      message: "Link deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting link:", error);
+    return NextResponse.json(
+      { error: "Failed to delete link" },
+      { status: 500 }
+    );
+  }
+}

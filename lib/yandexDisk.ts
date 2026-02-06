@@ -1,8 +1,10 @@
 /**
- * Yandex.Disk API integration for uploading files
+ * Yandex.Disk API integration for uploading files and managing folders
  */
 
 const YANDEX_DISK_API_BASE = "https://cloud-api.yandex.net/v1/disk";
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
 
 export interface UploadParams {
   path: string; // Remote path on Yandex.Disk (e.g., "/mvp_uploads/photo.jpg")
@@ -24,6 +26,44 @@ function convertToArrayBuffer(bytes: Uint8Array | Buffer): ArrayBuffer {
     return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   }
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+/**
+ * Sleep for a given number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Retry a function with exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries: number = MAX_RETRIES
+): Promise<T> {
+  let lastError: Error | undefined;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry on 4xx errors (client errors)
+      if (error instanceof Error && error.message.includes('4')) {
+        throw error;
+      }
+      
+      if (i < retries - 1) {
+        const delay = RETRY_DELAY_MS * Math.pow(2, i);
+        console.warn(`Retry ${i + 1}/${retries} after ${delay}ms due to:`, error);
+        await sleep(delay);
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
 }
 
 /**
@@ -165,6 +205,227 @@ export async function uploadToYandexDisk(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+/**
+ * Create a folder on Yandex.Disk
+ * @param path Folder path to create
+ */
+export async function createFolder(path: string): Promise<{ success: boolean; error?: string }> {
+  return withRetry(async () => {
+    const token = process.env.YANDEX_DISK_TOKEN;
+    
+    if (!token) {
+      throw new Error("YANDEX_DISK_TOKEN environment variable is not set");
+    }
+    
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `OAuth ${token}`,
+        },
+      }
+    );
+    
+    // 201 = created successfully, 409 = already exists (both acceptable)
+    if (response.status === 201 || response.status === 409) {
+      return { success: true };
+    }
+    
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Failed to create folder: ${response.status} ${JSON.stringify(errorData)}`);
+  }).catch(error => ({
+    success: false,
+    error: error instanceof Error ? error.message : "Unknown error occurred"
+  }));
+}
+
+/**
+ * Check if a path exists on Yandex.Disk
+ * @param path Path to check
+ */
+export async function exists(path: string): Promise<boolean> {
+  try {
+    const token = process.env.YANDEX_DISK_TOKEN;
+    
+    if (!token) {
+      throw new Error("YANDEX_DISK_TOKEN environment variable is not set");
+    }
+    
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `OAuth ${token}`,
+        },
+      }
+    );
+    
+    return response.status === 200;
+  } catch (error) {
+    console.error("Error checking path existence:", error);
+    return false;
+  }
+}
+
+/**
+ * List contents of a folder on Yandex.Disk
+ * @param path Folder path to list
+ */
+export async function listFolder(path: string): Promise<{ success: boolean; items?: any[]; error?: string }> {
+  try {
+    const token = process.env.YANDEX_DISK_TOKEN;
+    
+    if (!token) {
+      return {
+        success: false,
+        error: "YANDEX_DISK_TOKEN environment variable is not set"
+      };
+    }
+    
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `OAuth ${token}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: `Failed to list folder: ${response.status} ${JSON.stringify(errorData)}`
+      };
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      items: data._embedded?.items || []
+    };
+  } catch (error) {
+    console.error("Error listing folder:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
+}
+
+/**
+ * Upload text/JSON content to Yandex.Disk
+ * @param path Remote path on Yandex.Disk
+ * @param content Text or JSON content
+ */
+export async function uploadText(path: string, content: string | object): Promise<UploadResult> {
+  const textContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+  const bytes = Buffer.from(textContent, 'utf-8');
+  
+  return uploadToYandexDisk({
+    path,
+    bytes,
+    contentType: 'application/json',
+  });
+}
+
+/**
+ * Publish a file or folder and get a public URL
+ * @param path Path to publish
+ */
+export async function publish(path: string): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const token = process.env.YANDEX_DISK_TOKEN;
+    
+    if (!token) {
+      return {
+        success: false,
+        error: "YANDEX_DISK_TOKEN environment variable is not set"
+      };
+    }
+    
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources/publish?path=${encodeURIComponent(path)}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `OAuth ${token}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: `Failed to publish: ${response.status} ${JSON.stringify(errorData)}`
+      };
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      url: data.href
+    };
+  } catch (error) {
+    console.error("Error publishing path:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
+}
+
+/**
+ * Get download link for a file
+ * @param path Path to get download link for
+ */
+export async function getDownloadLink(path: string): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const token = process.env.YANDEX_DISK_TOKEN;
+    
+    if (!token) {
+      return {
+        success: false,
+        error: "YANDEX_DISK_TOKEN environment variable is not set"
+      };
+    }
+    
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources/download?path=${encodeURIComponent(path)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `OAuth ${token}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: `Failed to get download link: ${response.status} ${JSON.stringify(errorData)}`
+      };
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      url: data.href
+    };
+  } catch (error) {
+    console.error("Error getting download link:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
     };
   }
 }
