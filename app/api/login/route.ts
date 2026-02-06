@@ -92,7 +92,12 @@ export async function POST(request: NextRequest) {
       // Plain admin login successful - create session and return
       let token: string;
       try {
-        token = await signSession({ email: adminEmail });
+        token = await signSession({ 
+          userId: 0, // Legacy admin has ID 0
+          email: adminEmail,
+          region: process.env.DEFAULT_REGION || 'MSK',
+          role: 'admin'
+        });
       } catch (error) {
         if (isDebugMode && debugInfo) {
           debugInfo.result = "fail";
@@ -184,10 +189,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session token
+    // Create session token with extended payload
     let token: string;
     try {
-      token = await signSession({ email: user.email });
+      const defaultRegion = process.env.DEFAULT_REGION || 'MSK';
+      token = await signSession({ 
+        userId: 0, // Legacy file-based user
+        email: user.email,
+        region: defaultRegion,
+        role: 'admin'
+      });
     } catch (error) {
       if (isDebugMode && debugInfo) {
         debugInfo.result = "fail";
