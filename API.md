@@ -406,3 +406,194 @@ All Yandex Disk API calls include automatic retry with exponential backoff:
 - Initial delay: 1 second
 - Delay multiplier: 2x per retry
 - 4xx errors (client errors) are not retried
+
+---
+
+### User Info
+
+#### GET /api/me
+
+Get current authenticated user information.
+
+**Authentication:** Required
+
+**Response (200 OK):**
+```json
+{
+  "userId": 5,
+  "email": "admin@example.com",
+  "region": "MSK",
+  "role": "admin"
+}
+```
+
+**Notes:**
+- Returns user information from JWT session
+- Useful for checking user role in frontend
+
+---
+
+### Slot Management
+
+#### PATCH /api/cars/:id/slots/:slotType/:slotIndex
+
+Mark a slot as used or unused (admin only).
+
+**Authentication:** Required (Admin only)
+
+**URL Parameters:**
+- `id` - Car ID
+- `slotType` - Slot type (dealer, buyout, dummies)
+- `slotIndex` - Slot index (dealer: 1, buyout: 1-8, dummies: 1-5)
+
+**Request Body:**
+```json
+{
+  "isUsed": true
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "slot": {
+    "id": 123,
+    "car_id": 1,
+    "slot_type": "dealer",
+    "slot_index": 1,
+    "status": "locked",
+    "is_used": true,
+    "marked_used_at": "2026-02-06T16:00:00.000Z",
+    "marked_used_by": 5,
+    ...
+  }
+}
+```
+
+**Response (403 Forbidden):**
+```json
+{
+  "error": "Forbidden - admin access required"
+}
+```
+
+**Notes:**
+- Only admin users can mark slots
+- Used slots show visual indicator to team
+- Can be toggled back to unused
+
+---
+
+#### GET /api/cars/:id/download
+
+Get file list for downloading slot contents.
+
+**Authentication:** Required
+
+**URL Parameters:**
+- `id` - Car ID
+
+**Query Parameters:**
+- `slotType` - Slot type (dealer, buyout, dummies)
+- `slotIndex` - Slot index
+
+**Example:**
+```
+GET /api/cars/1/download?slotType=buyout&slotIndex=3
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "files": [
+    {
+      "name": "photo1.jpg",
+      "path": "/Фото/MSK/Toyota Camry ABC123/2. Выкуп фото/3. Toyota Camry ABC123/photo1.jpg"
+    },
+    {
+      "name": "photo2.jpg",
+      "path": "/Фото/MSK/Toyota Camry ABC123/2. Выкуп фото/3. Toyota Camry ABC123/photo2.jpg"
+    }
+  ],
+  "slotInfo": {
+    "car": "Toyota Camry",
+    "vin": "ABC123",
+    "slotType": "buyout",
+    "slotIndex": 3
+  }
+}
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "error": "Slot is empty - no files to download"
+}
+```
+
+**Notes:**
+- Only works on locked (filled) slots
+- Filters out _LOCK.json from file list
+- Returns metadata for client-side processing
+- Future: Will stream ZIP file directly
+
+---
+
+## Step 3 Features
+
+### Used/Unused Marking
+
+**Purpose**: Admin users can mark slots as "used" to indicate they've been processed, preventing duplicate work by team members.
+
+**Access**: Admin only
+
+**Visual Indicators**:
+- Yellow border on used slots
+- "Used" badge displayed
+- Slightly reduced opacity
+
+**Workflow**:
+1. Admin fills slot with photos
+2. Admin processes/uses those photos
+3. Admin marks slot as "used"
+4. Team members see slot is already used
+5. Team avoids duplicate work
+
+### Download ZIP
+
+**Purpose**: Download all photos from a specific slot in one operation.
+
+**Access**: All authenticated users (with region permission)
+
+**Current Implementation**:
+- API returns list of files
+- Client can download individually
+- Shows file count
+
+**Future Implementation**:
+- Server streams ZIP file
+- Progress bar for large downloads
+- One-click download
+
+---
+
+## Error Codes Summary
+
+- **400 Bad Request**: Invalid input data, slot empty for download
+- **401 Unauthorized**: Not authenticated
+- **403 Forbidden**: 
+  - Region mismatch (non-admin)
+  - Admin access required (for marking used/unused)
+- **404 Not Found**: Resource not found
+- **409 Conflict**: Slot already filled, VIN conflict
+- **500 Internal Server Error**: Server-side error
+
+## Rate Limiting
+
+All Yandex Disk operations include automatic retry with exponential backoff:
+- Max retries: 3
+- Initial delay: 1 second
+- Delay multiplier: 2x per retry
+- 4xx errors are not retried
