@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
     let isValid = false;
     try {
       isValid = await bcrypt.compare(password, user.passwordHash);
-    } catch (_error) {
+    } catch {
       if (isDebugMode && debugInfo) {
         debugInfo.result = "fail";
         debugInfo.reasonCode = "hash_compare_error";

@@ -2,8 +2,8 @@
  * Database-aware user operations with fallback to file-based auth
  */
 import { checkDatabaseConnection } from "./db";
-import { getUserByEmail as getUserByEmailDB, type User as DBUser } from "./models/users";
-import { getUserByEmail as getUserByEmailFile, type User as FileUser } from "./users";
+import { getUserByEmail as getUserByEmailDB } from "./models/users";
+import { getUserByEmail as getUserByEmailFile } from "./users";
 
 export interface User {
   id?: number;

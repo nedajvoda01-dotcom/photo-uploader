@@ -277,7 +277,11 @@ export async function exists(path: string): Promise<boolean> {
  * List contents of a folder on Yandex.Disk
  * @param path Folder path to list
  */
-export async function listFolder(path: string): Promise<{ success: boolean; items?: any[]; error?: string }> {
+export async function listFolder(path: string): Promise<{ 
+  success: boolean; 
+  items?: Array<{ name: string; type: string; path: string }>; 
+  error?: string 
+}> {
   try {
     const token = process.env.YANDEX_DISK_TOKEN;
     

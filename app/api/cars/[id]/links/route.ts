@@ -15,7 +15,7 @@ export async function GET(
   request: NextRequest,
   context: RouteContext
 ) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth();
   
   if ('error' in authResult) {
     return authResult.error;
@@ -72,7 +72,7 @@ export async function POST(
   request: NextRequest,
   context: RouteContext
 ) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth();
   
   if ('error' in authResult) {
     return authResult.error;

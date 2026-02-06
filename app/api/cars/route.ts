@@ -9,8 +9,8 @@ import { createFolder } from "@/lib/yandexDisk";
  * GET /api/cars
  * List all cars for the user's region with progress breakdown
  */
-export async function GET(request: NextRequest) {
-  const authResult = await requireAuth(request);
+export async function GET() {
+  const authResult = await requireAuth();
   
   if ('error' in authResult) {
     return authResult.error;
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
  * Create a new car with all slots
  */
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth();
   
   if ('error' in authResult) {
     return authResult.error;

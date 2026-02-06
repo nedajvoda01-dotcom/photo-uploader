@@ -15,7 +15,7 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth();
   
   if ('error' in authResult) {
     return authResult.error;
