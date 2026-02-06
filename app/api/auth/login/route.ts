@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { timingSafeEqual } from "crypto";
-import { getUserByEmail } from "@/lib/users";
+import { getUserByEmail } from "@/lib/userAuth";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     const adminPassword = process.env.ADMIN_PASSWORD;
     const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
     const authSecret = process.env.AUTH_SECRET;
+    const defaultRegion = process.env.DEFAULT_REGION || 'MSK';
     
     if (isDebugMode) {
       debugInfo = {
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Check plain admin credentials BEFORE checking users.json
+    // Check plain admin credentials BEFORE checking database/file
     // This fixes the issue where plain admin login was failing with "user_not_found"
     if (adminPassword && adminEmail && email === adminEmail) {
       // Verify password using constant-time comparison
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
         token = await signSession({ 
           userId: 0, // Legacy admin has ID 0
           email: adminEmail,
-          region: process.env.DEFAULT_REGION || 'MSK',
+          region: defaultRegion,
           role: 'admin'
         });
       } catch (error) {
@@ -135,8 +136,8 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
-    // Find user by email (users.json or ADMIN_PASSWORD_HASH)
-    const user = getUserByEmail(email);
+    // Find user by email (database or file/env)
+    const user = await getUserByEmail(email);
     if (!user) {
       // Log debug info on failure
       if (isDebugMode && debugInfo) {
@@ -192,12 +193,11 @@ export async function POST(request: NextRequest) {
     // Create session token with extended payload
     let token: string;
     try {
-      const defaultRegion = process.env.DEFAULT_REGION || 'MSK';
       token = await signSession({ 
-        userId: 0, // Legacy file-based user
+        userId: user.id || 0,
         email: user.email,
-        region: defaultRegion,
-        role: 'admin'
+        region: user.region || defaultRegion,
+        role: user.role || 'user'
       });
     } catch (error) {
       if (isDebugMode && debugInfo) {

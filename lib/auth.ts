@@ -11,7 +11,10 @@ if (!SECRET_KEY) {
 const secret = new TextEncoder().encode(SECRET_KEY);
 
 export interface SessionPayload {
+  userId: number;
   email: string;
+  region: string;
+  role: string;
   [key: string]: unknown;
 }
 
