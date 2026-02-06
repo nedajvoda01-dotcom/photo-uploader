@@ -27,6 +27,9 @@ interface CarSlot {
   lock_meta_json: string | null;
   disk_slot_path: string;
   public_url: string | null;
+  is_used: boolean;
+  marked_used_at: string | null;
+  marked_used_by: number | null;
 }
 
 interface CarLink {
@@ -42,15 +45,19 @@ interface SlotCardProps {
   slot: CarSlot;
   carId: number;
   onUploadComplete: () => void;
+  userRole?: string;
 }
 
-function SlotCard({ slot, carId, onUploadComplete }: SlotCardProps) {
+function SlotCard({ slot, carId, onUploadComplete, userRole }: SlotCardProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [loadingShare, setLoadingShare] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [togglingUsed, setTogglingUsed] = useState(false);
 
   const isLocked = slot.status === "locked";
+  const isAdmin = userRole === "admin";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedFiles(e.target.files);
@@ -126,15 +133,86 @@ function SlotCard({ slot, carId, onUploadComplete }: SlotCardProps) {
     }
   };
 
+  const handleDownloadZip = async () => {
+    setDownloading(true);
+    try {
+      const response = await fetch(
+        `/api/cars/${carId}/download?slotType=${slot.slot_type}&slotIndex=${slot.slot_index}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // For now, just open the share link as ZIP download needs server-side implementation
+        // In production, this would trigger a ZIP file download
+        if (data.files && data.files.length > 0) {
+          // Show info about files
+          alert(`Found ${data.files.length} file(s). Download functionality coming soon.`);
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "Failed to prepare download");
+      }
+    } catch (err) {
+      console.error("Error downloading:", err);
+      alert("Failed to download files");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleToggleUsed = async () => {
+    if (!isAdmin) return;
+
+    const newUsedState = !slot.is_used;
+    const confirmMsg = newUsedState
+      ? "Mark this slot as USED? Other users will see it's already been used."
+      : "Mark this slot as UNUSED? It will be available for others to use.";
+
+    if (!confirm(confirmMsg)) return;
+
+    setTogglingUsed(true);
+    try {
+      const response = await fetch(
+        `/api/cars/${carId}/slots/${slot.slot_type}/${slot.slot_index}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ isUsed: newUsedState }),
+        }
+      );
+
+      if (response.ok) {
+        onUploadComplete(); // Refresh data
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "Failed to update slot");
+      }
+    } catch (err) {
+      console.error("Error toggling used status:", err);
+      alert("Failed to update slot");
+    } finally {
+      setTogglingUsed(false);
+    }
+  };
+
   const lockMeta = slot.lock_meta_json ? JSON.parse(slot.lock_meta_json) : null;
 
   return (
-    <div className={`${styles.slotCard} ${isLocked ? styles.slotLocked : styles.slotEmpty}`}>
+    <div className={`${styles.slotCard} ${isLocked ? styles.slotLocked : styles.slotEmpty} ${slot.is_used ? styles.slotUsed : ''}`}>
       <div className={styles.slotHeader}>
         <span className={styles.slotIndex}>Slot {slot.slot_index}</span>
-        <span className={`${styles.slotStatus} ${isLocked ? styles.statusLocked : styles.statusEmpty}`}>
-          {isLocked ? "Filled" : "Empty"}
-        </span>
+        <div className={styles.statusBadges}>
+          <span className={`${styles.slotStatus} ${isLocked ? styles.statusLocked : styles.statusEmpty}`}>
+            {isLocked ? "Filled" : "Empty"}
+          </span>
+          {slot.is_used && (
+            <span className={`${styles.slotStatus} ${styles.statusUsed}`}>
+              Used
+            </span>
+          )}
+        </div>
       </div>
 
       {isLocked ? (
@@ -149,13 +227,35 @@ function SlotCard({ slot, carId, onUploadComplete }: SlotCardProps) {
               </p>
             </div>
           )}
-          <button
-            onClick={handleGetShareLink}
-            className={styles.shareButton}
-            disabled={loadingShare}
-          >
-            {loadingShare ? "Loading..." : "Get Link"}
-          </button>
+          <div className={styles.buttonGroup}>
+            <button
+              onClick={handleGetShareLink}
+              className={styles.shareButton}
+              disabled={loadingShare}
+            >
+              {loadingShare ? "Loading..." : "Get Link"}
+            </button>
+            <button
+              onClick={handleDownloadZip}
+              className={styles.downloadButton}
+              disabled={downloading}
+            >
+              {downloading ? "Preparing..." : "Download ZIP"}
+            </button>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={handleToggleUsed}
+              className={`${styles.toggleUsedButton} ${slot.is_used ? styles.markUnused : styles.markUsed}`}
+              disabled={togglingUsed}
+            >
+              {togglingUsed
+                ? "Updating..."
+                : slot.is_used
+                ? "Mark as Unused"
+                : "Mark as Used"}
+            </button>
+          )}
         </div>
       ) : (
         <div className={styles.emptyContent}>
@@ -199,13 +299,27 @@ export default function CarDetailPage() {
   const [newLinkTitle, setNewLinkTitle] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
     if (carId) {
       fetchCarData();
+      fetchUserRole();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carId]);
+
+  const fetchUserRole = async () => {
+    try {
+      const response = await fetch("/api/me");
+      if (response.ok) {
+        const data = await response.json();
+        setUserRole(data.role || "");
+      }
+    } catch (err) {
+      console.error("Error fetching user role:", err);
+    }
+  };
 
   const fetchCarData = async () => {
     try {
@@ -348,7 +462,7 @@ export default function CarDetailPage() {
           <h2 className={styles.sectionTitle}>Dealer Photos (1 slot)</h2>
           <div className={styles.slotGrid}>
             {dealerSlots.map((slot) => (
-              <SlotCard key={slot.id} slot={slot} carId={parseInt(carId)} onUploadComplete={fetchCarData} />
+              <SlotCard key={slot.id} slot={slot} carId={parseInt(carId)} onUploadComplete={fetchCarData} userRole={userRole} />
             ))}
           </div>
         </div>
@@ -357,7 +471,7 @@ export default function CarDetailPage() {
           <h2 className={styles.sectionTitle}>Buyout Photos (8 slots)</h2>
           <div className={styles.slotGrid}>
             {buyoutSlots.map((slot) => (
-              <SlotCard key={slot.id} slot={slot} carId={parseInt(carId)} onUploadComplete={fetchCarData} />
+              <SlotCard key={slot.id} slot={slot} carId={parseInt(carId)} onUploadComplete={fetchCarData} userRole={userRole} />
             ))}
           </div>
         </div>
@@ -366,7 +480,7 @@ export default function CarDetailPage() {
           <h2 className={styles.sectionTitle}>Dummies Photos (5 slots)</h2>
           <div className={styles.slotGrid}>
             {dummiesSlots.map((slot) => (
-              <SlotCard key={slot.id} slot={slot} carId={parseInt(carId)} onUploadComplete={fetchCarData} />
+              <SlotCard key={slot.id} slot={slot} carId={parseInt(carId)} onUploadComplete={fetchCarData} userRole={userRole} />
             ))}
           </div>
         </div>

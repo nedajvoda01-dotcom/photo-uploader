@@ -63,6 +63,9 @@ export async function initializeDatabase() {
         lock_meta_json TEXT,
         disk_slot_path TEXT NOT NULL,
         public_url TEXT,
+        is_used BOOLEAN DEFAULT FALSE,
+        marked_used_at TIMESTAMP,
+        marked_used_by INTEGER REFERENCES users(id),
         UNIQUE(car_id, slot_type, slot_index)
       )
     `;
