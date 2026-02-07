@@ -5,6 +5,7 @@ import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
 import { syncRegion } from "@/lib/sync";
 import { deleteFolder } from "@/lib/yandexDisk";
+import { ensureDbSchema } from "@/lib/db";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -38,6 +39,9 @@ export async function GET(
   }
   
   try {
+    // Ensure database schema exists (idempotent, auto-creates tables)
+    await ensureDbSchema();
+    
     // Sync region from disk first (DB as cache, Disk as truth)
     console.log(`[API] Syncing region ${session.region} before getting car ${vin}`);
     await syncRegion(session.region);

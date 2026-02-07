@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireAdmin } from "@/lib/apiHelpers";
+import { requireAuth, requireAdmin, getEffectiveRegion } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
 import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
 import { createFolder, uploadText } from "@/lib/yandexDisk";
 import { syncRegion } from "@/lib/sync";
+import { ensureDbSchema } from "@/lib/db";
 
 /**
  * GET /api/cars
  * List all cars for the user's region with progress breakdown
  * Syncs from disk before returning data
+ * 
+ * Query params:
+ * - region: (admin only) specify which region to view
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const authResult = await requireAuth();
   
   if ('error' in authResult) {
@@ -21,15 +25,36 @@ export async function GET() {
   const { session } = authResult;
   
   try {
-    // Sync region from disk first (DB as cache, Disk as truth)
-    console.log(`[API] Syncing region ${session.region} before listing cars`);
-    await syncRegion(session.region);
+    // Ensure database schema exists (idempotent, auto-creates tables)
+    await ensureDbSchema();
     
-    const cars = await listCarsByRegion(session.region);
+    // Get query params
+    const searchParams = request.nextUrl.searchParams;
+    const queryRegion = searchParams.get("region") || undefined;
+    
+    // Determine effective region (users use their region, admins can specify)
+    const effectiveRegion = getEffectiveRegion(session, queryRegion);
+    
+    if (!effectiveRegion) {
+      return NextResponse.json(
+        { 
+          error: "region_required",
+          message: "Admin must specify a region via ?region= query parameter" 
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Sync region from disk first (DB as cache, Disk as truth)
+    console.log(`[API] Syncing region ${effectiveRegion} before listing cars`);
+    await syncRegion(effectiveRegion);
+    
+    const cars = await listCarsByRegion(effectiveRegion);
     
     return NextResponse.json({
       success: true,
       cars,
+      region: effectiveRegion,
     });
   } catch (error) {
     console.error("Error listing cars:", error);
@@ -43,6 +68,12 @@ export async function GET() {
 /**
  * POST /api/cars
  * Create a new car with all slots (ADMIN ONLY)
+ * 
+ * Body:
+ * - make: string (required)
+ * - model: string (required)
+ * - vin: string (required, 17 characters)
+ * - region: string (optional, admin can specify, defaults to session region)
  */
 export async function POST(request: NextRequest) {
   const authResult = await requireAdmin();
@@ -54,8 +85,11 @@ export async function POST(request: NextRequest) {
   const { session } = authResult;
   
   try {
+    // Ensure database schema exists (idempotent, auto-creates tables)
+    await ensureDbSchema();
+    
     const body = await request.json();
-    const { make, model, vin } = body;
+    const { make, model, vin, region: bodyRegion } = body;
     
     // Validate input
     if (!make || !model || !vin) {
@@ -73,8 +107,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Determine effective region for car creation
+    const effectiveRegion = getEffectiveRegion(session, bodyRegion);
+    
+    if (!effectiveRegion) {
+      return NextResponse.json(
+        { 
+          error: "region_required",
+          message: "Admin must specify a region in request body" 
+        },
+        { status: 400 }
+      );
+    }
+    
     // Check uniqueness (region, vin)
-    const exists = await carExistsByRegionAndVin(session.region, vin);
+    const exists = await carExistsByRegionAndVin(effectiveRegion, vin);
     if (exists) {
       return NextResponse.json(
         { error: "Car with this VIN already exists in this region" },
@@ -83,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Generate root path
-    const rootPath = carRoot(session.region, make, model, vin);
+    const rootPath = carRoot(effectiveRegion, make, model, vin);
     
     // Create car root folder on Yandex Disk
     const rootFolderResult = await createFolder(rootPath);
@@ -97,7 +144,7 @@ export async function POST(request: NextRequest) {
     
     // Create _CAR.json metadata file in car root
     const carMetadata = {
-      region: session.region,
+      region: effectiveRegion,
       make,
       model,
       vin,
@@ -113,7 +160,7 @@ export async function POST(request: NextRequest) {
     
     // Create car in database
     const car = await createCar({
-      region: session.region,
+      region: effectiveRegion,
       make,
       model,
       vin,
@@ -122,7 +169,7 @@ export async function POST(request: NextRequest) {
     });
     
     // Get all slot paths (14 total)
-    const slotPaths = getAllSlotPaths(session.region, make, model, vin);
+    const slotPaths = getAllSlotPaths(effectiveRegion, make, model, vin);
     
     // Create folders on Yandex Disk and slots in database
     for (const slot of slotPaths) {
