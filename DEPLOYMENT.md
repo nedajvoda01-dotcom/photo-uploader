@@ -58,9 +58,9 @@ In your Vercel project settings, add the following environment variables:
    - Click "Get OAuth token"
    - Copy the generated token
 
-3. **DEFAULT_REGION**
-   - Example: `MSK` (Moscow), `SPB` (St. Petersburg), `EKB` (Yekaterinburg)
-   - This is used for legacy/file-based authentication
+3. **REGIONS**
+   - Example: `R1,R2,R3,K1,V,S1,S2` or `MSK,SPB,EKB`
+   - Comma-separated list of regions supported by the system
 
 ### Optional Variables (for fallback admin)
 
@@ -192,7 +192,7 @@ Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables as described in Ste
 - [ ] Admin user created
 - [ ] AUTH_SECRET is a strong random value
 - [ ] YANDEX_DISK_TOKEN is configured
-- [ ] DEFAULT_REGION is set appropriately
+- [ ] REGIONS is set appropriately
 - [ ] All environment variables are set
 - [ ] Login works
 - [ ] Car creation works

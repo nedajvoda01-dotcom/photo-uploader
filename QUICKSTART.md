@@ -39,11 +39,12 @@ Create `.env.local`:
 # Required
 AUTH_SECRET=<generated-secret-from-step-2>
 YANDEX_DISK_TOKEN=<token-from-step-3>
-DEFAULT_REGION=MSK
+REGIONS=R1,R2,R3,K1,V,S1,S2
 
 # For local dev without database (quick start)
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=admin123
+ADMIN_REGION=ALL
 ```
 
 ### 5. Run Development Server
