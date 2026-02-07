@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
 import { getCarByRegionAndVin } from "@/lib/models/cars";
 import { listCarLinks, createCarLink } from "@/lib/models/carLinks";
 
@@ -9,7 +9,7 @@ interface RouteContext {
 
 /**
  * GET /api/cars/vin/:vin/links
- * List all links for a car by VIN
+ * List all links for a car by VIN (ADMIN ONLY)
  */
 export async function GET(
   request: NextRequest,
@@ -22,6 +22,15 @@ export async function GET(
   }
   
   const { session } = authResult;
+  
+  // RBAC: Only admins can view links
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can view links" },
+      { status: 403 }
+    );
+  }
+  
   const params = await context.params;
   const vin = params.vin.toUpperCase();
   
@@ -65,7 +74,7 @@ export async function GET(
 
 /**
  * POST /api/cars/vin/:vin/links
- * Create a new link for a car by VIN
+ * Create a new link for a car by VIN (ADMIN ONLY)
  */
 export async function POST(
   request: NextRequest,
@@ -78,6 +87,15 @@ export async function POST(
   }
   
   const { session } = authResult;
+  
+  // RBAC: Only admins can create links
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can create links" },
+      { status: 403 }
+    );
+  }
+  
   const params = await context.params;
   const vin = params.vin.toUpperCase();
   
@@ -105,18 +123,18 @@ export async function POST(
     }
     
     const body = await request.json();
-    const { title, url } = body;
+    const { label, url } = body;
     
-    if (!title || !url) {
+    if (!label || !url) {
       return NextResponse.json(
-        { error: "title and url are required" },
+        { error: "label and url are required" },
         { status: 400 }
       );
     }
     
     const link = await createCarLink({
       car_id: car.id,
-      title,
+      label,
       url,
       created_by: session.userId,
     });
