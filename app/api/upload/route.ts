@@ -1,3 +1,9 @@
+/**
+ * @deprecated Legacy upload endpoint - Use /api/cars/:id/upload or /api/cars/vin/:vin/upload instead
+ * 
+ * This endpoint uploads directly to LEGACY_UPLOAD_DIR without car/slot association.
+ * It's maintained for backward compatibility but should not be used in new code.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToYandexDisk } from "@/lib/yandexDisk";
 import { LEGACY_UPLOAD_DIR, UPLOAD_MAX_MB } from "@/lib/config";
