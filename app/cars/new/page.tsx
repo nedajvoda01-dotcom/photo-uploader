@@ -64,24 +64,48 @@ function NewCarForm() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        if (response.status === 409) {
-          setError("A car with this VIN already exists in your region");
-        } else if (response.status === 401) {
+      // Handle new standardized response format
+      if (data.ok === false) {
+        // Error response with detailed information
+        const errorMessage = data.message || "Failed to create car";
+        const errorCode = data.code ? ` (${data.code})` : "";
+        const statusCode = data.status || response.status;
+        
+        if (response.status === 401) {
           router.push("/login");
           return;
-        } else {
-          setError(data.error || "Failed to create car");
         }
+        
+        setError(`Error ${statusCode}: ${errorMessage}${errorCode}`);
         setLoading(false);
         return;
       }
 
-      // Success - redirect to car details
-      router.push(`/cars/${data.car.vin}`);
+      // Success - handle both new creation (201) and existing car (200)
+      if (data.ok === true && data.car) {
+        const carVin = data.car.vin;
+        console.log(`Car ${response.status === 201 ? 'created' : 'already exists'}: ${carVin}`);
+        // Redirect to car details page
+        router.push(`/cars/${carVin}`);
+        return;
+      }
+
+      // Legacy response format support (success: true)
+      if (data.success && data.car) {
+        router.push(`/cars/${data.car.vin}`);
+        return;
+      }
+
+      // Fallback for unexpected response format
+      if (!response.ok) {
+        setError(data.error || `Error ${response.status}: Failed to create car`);
+        setLoading(false);
+        return;
+      }
+
     } catch (err) {
       console.error("Error creating car:", err);
-      setError("An error occurred. Please try again.");
+      setError("Network error: Unable to connect to the server. Please try again.");
       setLoading(false);
     }
   };

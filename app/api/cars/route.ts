@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getEffectiveRegion } from "@/lib/apiHelpers";
-import { listCarsByRegion, createCar, carExistsByRegionAndVin } from "@/lib/models/cars";
+import { listCarsByRegion, createCar, carExistsByRegionAndVin, getCarByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
 import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
 import { createFolder, uploadText } from "@/lib/yandexDisk";
@@ -69,12 +69,20 @@ export async function GET(request: NextRequest) {
  * POST /api/cars
  * Create a new car with all slots
  * Available to both users and admins
+ * Idempotent: returns success if car already exists
  * 
  * Body:
  * - make: string (required)
  * - model: string (required)
  * - vin: string (required, 17 characters)
  * - region: string (optional, admin can specify, users use their own region)
+ * 
+ * Success Response:
+ * - 201 Created: { ok: true, car: {...} } - car was newly created
+ * - 200 OK: { ok: true, car: {...} } - car already existed
+ * 
+ * Error Response:
+ * - 4xx/5xx: { ok: false, code: "error_code", message: "...", status: xxx }
  */
 export async function POST(request: NextRequest) {
   // Changed from requireAdmin() to requireAuth() - users can now create cars
@@ -96,7 +104,12 @@ export async function POST(request: NextRequest) {
     // Validate input
     if (!make || !model || !vin) {
       return NextResponse.json(
-        { error: "make, model, and vin are required" },
+        { 
+          ok: false,
+          code: "validation_error",
+          message: "make, model, and vin are required",
+          status: 400
+        },
         { status: 400 }
       );
     }
@@ -104,7 +117,12 @@ export async function POST(request: NextRequest) {
     // Validate VIN format (17 characters)
     if (vin.length !== 17) {
       return NextResponse.json(
-        { error: "VIN must be exactly 17 characters" },
+        { 
+          ok: false,
+          code: "invalid_vin",
+          message: "VIN must be exactly 17 characters",
+          status: 400
+        },
         { status: 400 }
       );
     }
@@ -119,20 +137,30 @@ export async function POST(request: NextRequest) {
     if (!effectiveRegion) {
       return NextResponse.json(
         { 
-          error: "region_required",
-          message: "Admin must specify a region in request body" 
+          ok: false,
+          code: "region_required",
+          message: "Admin must specify a region in request body",
+          status: 400
         },
         { status: 400 }
       );
     }
     
-    // Check uniqueness (region, vin)
-    const exists = await carExistsByRegionAndVin(effectiveRegion, vin);
-    if (exists) {
-      return NextResponse.json(
-        { error: "Car with this VIN already exists in this region" },
-        { status: 409 }
-      );
+    // Check if car already exists (idempotent behavior)
+    const existingCar = await getCarByRegionAndVin(effectiveRegion, vin);
+    if (existingCar) {
+      // Car already exists - return success with existing car data (idempotent)
+      console.log(`[API] Car already exists: ${effectiveRegion}/${vin}, returning existing car`);
+      return NextResponse.json({
+        ok: true,
+        car: {
+          id: existingCar.id,
+          region: existingCar.region,
+          make: existingCar.make,
+          model: existingCar.model,
+          vin: existingCar.vin,
+        }
+      }, { status: 200 });
     }
     
     // Generate root path
@@ -143,7 +171,12 @@ export async function POST(request: NextRequest) {
     if (!rootFolderResult.success) {
       console.error(`Failed to create car root folder:`, rootFolderResult.error);
       return NextResponse.json(
-        { error: "Failed to create car folder on Yandex Disk" },
+        { 
+          ok: false,
+          code: "disk_error",
+          message: "Failed to create car folder on Yandex Disk",
+          status: 500
+        },
         { status: 500 }
       );
     }
@@ -196,13 +229,24 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json({
-      success: true,
-      car,
+      ok: true,
+      car: {
+        id: car.id,
+        region: car.region,
+        make: car.make,
+        model: car.model,
+        vin: car.vin,
+      },
     }, { status: 201 });
   } catch (error) {
     console.error("Error creating car:", error);
     return NextResponse.json(
-      { error: "Failed to create car" },
+      { 
+        ok: false,
+        code: "server_error",
+        message: error instanceof Error ? error.message : "Failed to create car",
+        status: 500
+      },
       { status: 500 }
     );
   }
