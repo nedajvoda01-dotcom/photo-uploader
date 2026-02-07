@@ -3,31 +3,36 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f5f7fa;
 }
 
 .loginBox {
   background: white;
-  padding: 2.5rem;
+  padding: 3rem;
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: #333;
-  margin: 0 0 0.5rem 0;
+  color: #1a1a1a;
+  margin: 0 0 0.25rem 0;
   text-align: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .subtitle {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 500;
   color: #666;
-  margin: 0 0 2rem 0;
+  margin: 0 0 2.5rem 0;
   text-align: center;
 }
 
@@ -46,29 +51,31 @@
 .label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #333;
+  color: #1a1a1a;
 }
 
 .input {
-  padding: 0.75rem;
-  border: 2px solid #e0e0e0;
+  padding: 0.875rem;
+  border: 2px solid #e5e7eb;
   border-radius: 8px;
   font-size: 1rem;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
 }
 
 .input:focus {
   outline: none;
   border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .input:disabled {
   background-color: #f5f5f5;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .button {
-  padding: 0.875rem;
+  padding: 1rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -76,24 +83,40 @@
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  margin-top: 0.5rem;
 }
 
 .button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
 }
 
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 .error {
-  padding: 0.75rem;
+  padding: 0.875rem;
   background-color: #fee;
   color: #c33;
+  border: 2px solid #fbb;
   border-radius: 8px;
   font-size: 0.875rem;
   text-align: center;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .loginBox {
+    padding: 2rem;
+    margin: 1rem;
+  }
+
+  .title {
+    font-size: 1.75rem;
+  }
 }
