@@ -1,7 +1,7 @@
 /**
  * Car model for database operations
  */
-import { sql } from '../db';
+import { sql, ensureDbSchema } from '../db';
 
 export interface Car {
   id: number;
@@ -35,6 +35,7 @@ export interface CarWithProgress extends Car {
  */
 export async function createCar(params: CreateCarParams): Promise<Car> {
   try {
+    await ensureDbSchema();
     const { region, make, model, vin, disk_root_path, created_by } = params;
     
     const result = await sql<Car>`
@@ -55,6 +56,7 @@ export async function createCar(params: CreateCarParams): Promise<Car> {
  */
 export async function getCarById(id: number): Promise<Car | null> {
   try {
+    await ensureDbSchema();
     const result = await sql<Car>`
       SELECT id, region, make, model, vin, disk_root_path, created_by, created_at, deleted_at
       FROM cars
@@ -75,6 +77,7 @@ export async function getCarById(id: number): Promise<Car | null> {
  */
 export async function getCarByRegionAndVin(region: string, vin: string): Promise<Car | null> {
   try {
+    await ensureDbSchema();
     const result = await sql<Car>`
       SELECT id, region, make, model, vin, disk_root_path, created_by, created_at, deleted_at
       FROM cars
@@ -94,6 +97,7 @@ export async function getCarByRegionAndVin(region: string, vin: string): Promise
  */
 export async function carExistsByRegionAndVin(region: string, vin: string): Promise<boolean> {
   try {
+    await ensureDbSchema();
     const result = await sql`
       SELECT COUNT(*) as count
       FROM cars
@@ -113,6 +117,7 @@ export async function carExistsByRegionAndVin(region: string, vin: string): Prom
  */
 export async function listCarsByRegion(region: string): Promise<CarWithProgress[]> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarWithProgress>`
       SELECT 
         c.id, c.region, c.make, c.model, c.vin, c.disk_root_path, c.created_by, c.created_at, c.deleted_at,
@@ -138,6 +143,7 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
  */
 export async function deleteCar(id: number): Promise<void> {
   try {
+    await ensureDbSchema();
     await sql`
       DELETE FROM cars WHERE id = ${id}
     `;
@@ -153,6 +159,7 @@ export async function deleteCar(id: number): Promise<void> {
  */
 export async function deleteCarByVin(region: string, vin: string): Promise<void> {
   try {
+    await ensureDbSchema();
     await sql`
       UPDATE cars 
       SET deleted_at = NOW()

@@ -36,6 +36,43 @@ if (typeof window === 'undefined') { // Only log on server side
 
 export { sql };
 
+// Memoization for ensureDbSchema
+let schemaInitialized = false;
+let schemaInitializationPromise: Promise<boolean> | null = null;
+
+/**
+ * Ensure database schema exists (idempotent, memoized)
+ * Auto-creates tables and runs migrations on first call
+ * Safe to call multiple times - only runs once per instance
+ */
+export async function ensureDbSchema(): Promise<boolean> {
+  // Return immediately if already initialized
+  if (schemaInitialized) {
+    return true;
+  }
+  
+  // If initialization is in progress, wait for it
+  if (schemaInitializationPromise) {
+    return schemaInitializationPromise;
+  }
+  
+  // Start initialization
+  schemaInitializationPromise = (async () => {
+    try {
+      await initializeDatabase();
+      schemaInitialized = true;
+      return true;
+    } catch (error) {
+      console.error('[ensureDbSchema] Failed to initialize database schema:', error);
+      // Reset promise so retry is possible
+      schemaInitializationPromise = null;
+      throw error;
+    }
+  })();
+  
+  return schemaInitializationPromise;
+}
+
 /**
  * Initialize database schema
  * Creates tables if they don't exist

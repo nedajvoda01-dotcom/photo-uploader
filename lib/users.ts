@@ -51,16 +51,19 @@ function loadUsers(): User[] | null {
  * @returns User object if found, undefined otherwise
  */
 export function getUserByEmail(email: string): User | undefined {
+  // Normalize email for lookup
+  const normalizedEmail = email.trim().toLowerCase();
+  
   // Try to load users from file first (priority over env, dev only)
   const users = loadUsers();
   
   if (users !== null) {
     // File exists and was loaded successfully
-    return users.find((user) => user.email === email);
+    return users.find((user) => user.email.toLowerCase() === normalizedEmail);
   }
   
   // Fallback to environment variables (from config)
-  if (ADMIN_EMAIL && ADMIN_PASSWORD_HASH && email === ADMIN_EMAIL) {
+  if (ADMIN_EMAIL && ADMIN_PASSWORD_HASH && normalizedEmail === ADMIN_EMAIL.trim().toLowerCase()) {
     return {
       email: ADMIN_EMAIL,
       passwordHash: ADMIN_PASSWORD_HASH,
