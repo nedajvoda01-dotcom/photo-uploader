@@ -134,68 +134,105 @@ Copy `data/users.example.json` to `data/users.json` for local development.
 
 ## Vercel Deployment
 
-When deploying to Vercel (or other cloud platforms), the `data/users.json` file will not be available since it's gitignored. The application supports environment variable-based authentication as a fallback.
+When deploying to Vercel (or other cloud platforms), configure the required environment variables.
 
 ### Required Environment Variables
 
-Configure the following environment variables in your Vercel project settings:
+#### Critical Configuration (Required)
 
 1. **AUTH_SECRET** (required)
    - A long, random secret key for JWT token signing
    - Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
-2. **YANDEX_DISK_TOKEN** (required for file uploads)
+2. **YANDEX_DISK_TOKEN** (required)
    - Your Yandex Disk OAuth token
    - Obtain from: https://yandex.ru/dev/disk/poligon/
 
-3. **UPLOAD_DIR** (optional)
-   - Directory path on Yandex Disk where files will be uploaded
-   - Default: `/uploads`
+3. **REGIONS** (required)
+   - Comma-separated list of regions
+   - Example: `REGIONS=R1,R2,R3,K1,V,S1,S2` or `REGIONS=MSK,SPB,EKB`
+   - Used for access control and organization
 
-4. **UPLOAD_MAX_MB** (optional)
-   - Maximum file size in megabytes
-   - Default: `10`
+#### Bootstrap Admin Configuration
 
-5. **ADMIN_EMAIL** (required when data/users.json is not available)
-   - Email address for the admin user
-   - Example: `admin@example.com`
+The application supports two bootstrap admin accounts configured via environment variables. At least one admin must be configured (or use Postgres with users in the database).
 
-6. **ADMIN_PASSWORD** (optional, for MVP/quick setup)
-   - Plain text password for the admin user
-   - **Recommended for MVP and testing only** - simpler setup without generating bcrypt hashes
+4. **ADMIN_REGION** (optional, default: `ALL`)
+   - Region access for bootstrap admins
+   - `ALL` grants access to all regions (recommended for admins)
+   - Can also be set to a specific region
+
+5. **ADMIN_EMAIL** and **ADMIN_PASSWORD** / **ADMIN_PASSWORD_HASH** (Bootstrap Admin #1)
+   - **ADMIN_EMAIL**: Email address for first admin user
+   - **ADMIN_PASSWORD** (plain text, simpler but less secure): Plain password for quick setup
+   - **ADMIN_PASSWORD_HASH** (bcrypt hash, more secure): Use instead of ADMIN_PASSWORD for production
    - Takes priority over `ADMIN_PASSWORD_HASH` if both are set
-   - Example: `mySecurePassword123`
-   - ⚠️ **Security Note:** Plain passwords in environment variables are vulnerable to exposure through logging, process listings, error reports, and configuration management tools. Even for MVP, use a strong, unique password. **Transition to `ADMIN_PASSWORD_HASH` for production or when handling sensitive data.** The implementation uses constant-time comparison to mitigate timing attacks.
+   - Generate hash: `node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('your-password', 10, (err, hash) => { console.log(hash); });"`
+   - **Important:** In local `.env` files, escape `$` signs: `\$2b\$10\$...`
+   - In Vercel UI, use hash as-is without escaping
 
-7. **ADMIN_PASSWORD_HASH** (optional, more secure alternative to ADMIN_PASSWORD)
-   - Bcrypt hash of the admin password
-   - **Recommended for production** - more secure than plain password
-   - Only used if `ADMIN_PASSWORD` is not set
-   - Generate with: `node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('your-password', 10, (err, hash) => { console.log(hash); });"`
-   - **Important:** In local `.env` files (`.env.local`), you must escape the `$` signs in the bcrypt hash with backslashes: `\$2b\$10\$...` (this is required by Next.js's dotenv parsing)
-   - In Vercel's environment variables UI, use the hash as-is without escaping (no backslashes needed)
+6. **ADMIN_EMAIL_2** and **ADMIN_PASSWORD_2** / **ADMIN_PASSWORD_HASH_2** (Bootstrap Admin #2, optional)
+   - Second admin account (same format as first admin)
+   - Useful for having multiple admin users
+   - **ADMIN_EMAIL_2**: Email for second admin
+   - **ADMIN_PASSWORD_2** or **ADMIN_PASSWORD_HASH_2**: Password credentials
 
-### Generating Password Hash for ADMIN_PASSWORD_HASH
+#### Yandex Disk Configuration
 
-To generate a bcrypt password hash for the `ADMIN_PASSWORD_HASH` environment variable:
+7. **YANDEX_DISK_BASE_DIR** (optional, default: `/Фото`)
+   - Base directory on Yandex Disk (SSOT for path construction)
+   - All car folders are created under: `${YANDEX_DISK_BASE_DIR}/${region}/...`
+   - This is the Single Source of Truth for Yandex Disk paths
 
-```bash
-node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('your-password-here', 10, (err, hash) => { if (err) throw err; console.log(hash); });"
-```
+#### Step 3 - ZIP Download Limits
 
-Replace `'your-password-here'` with your desired password.
+8. **ZIP_MAX_FILES** (optional, default: `500`)
+   - Maximum number of files allowed in a ZIP download
 
-**For Vercel:** Copy the output hash directly and paste it as the `ADMIN_PASSWORD_HASH` environment variable in Vercel's project settings.
+9. **ZIP_MAX_TOTAL_MB** (optional, default: `1500`)
+   - Maximum total size in MB for ZIP download
 
-**For local `.env.local` file:** You must escape the `$` signs with backslashes (required by Next.js's dotenv parsing). For example, if the hash is:
-```
-$2b$10$XAFke6qJqObeuIa.1kC3T.ufP4078lWsDvwLIfMCWBhdT2gAFD3Gi
-```
+#### Database Configuration (Optional)
 
-In your `.env.local` file, it should be:
-```
-ADMIN_PASSWORD_HASH=\$2b\$10\$XAFke6qJqObeuIa.1kC3T.ufP4078lWsDvwLIfMCWBhdT2gAFD3Gi
-```
+10. **POSTGRES_URL** (optional)
+    - PostgreSQL connection string
+    - When configured, users are loaded from database
+    - Automatically provided by Vercel when you add Postgres storage
+    - Other Postgres vars: `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NO_SSL`, etc.
+
+#### Legacy Configuration (Backward Compatibility)
+
+11. **UPLOAD_DIR** (optional, legacy, default: `/mvp_uploads`)
+    - **⚠️ LEGACY:** Not the Single Source of Truth
+    - Only used by legacy `/api/upload` endpoint
+    - New code should use `YANDEX_DISK_BASE_DIR` instead
+
+12. **UPLOAD_MAX_MB** (optional, default: `20`)
+    - Maximum file size in MB for uploads
+
+#### Debug Options
+
+13. **AUTH_DEBUG** (optional)
+    - Set to `1` to enable authentication debug logging
+    - Logs safe diagnostic info (no secrets) to help troubleshoot login issues
+
+### Authentication Priority
+
+The application checks authentication sources in this order:
+
+1. **Bootstrap admins** (from ENV): `ADMIN_EMAIL` / `ADMIN_EMAIL_2` pairs checked first
+   - Role: `admin`
+   - Region: `ADMIN_REGION` (default: `ALL`)
+
+2. **Database users** (if `POSTGRES_URL` configured): Users from Postgres with their role and region
+
+3. **File-based users** (local dev): `data/users.json` for local development
+
+### Region Access Control
+
+- **Admin users** (role=`admin`, region=`ALL`): Can access all regions and all cars
+- **Regular users** (role=`user`, region=specific): Can only access cars in their assigned region
+- Region is **always** taken from the session JWT, never from client input
 
 ### Deployment Priority
 
@@ -283,10 +320,10 @@ The application uses PostgreSQL with the following tables:
 
 ### Yandex Disk Structure
 
-The application follows a strict folder structure on Yandex Disk:
+The application follows a strict folder structure on Yandex Disk. All paths are constructed from `YANDEX_DISK_BASE_DIR` as the Single Source of Truth:
 
 ```
-Фото/
+${YANDEX_DISK_BASE_DIR}/          # Default: /Фото
 └── <REGION>/
     └── <Марка> <Модель> <VIN>/
         ├── 1. Дилер фото/
@@ -302,6 +339,12 @@ The application follows a strict folder structure on Yandex Disk:
             ...
             └── 5. <Марка> <Модель> <VIN>/
 ```
+
+**Key Points:**
+- `YANDEX_DISK_BASE_DIR` is the SSOT for all path construction
+- Each region has its own folder under the base directory
+- Car folders are named: `<Марка> <Модель> <VIN>`
+- 14 slots per car: 1 dealer + 8 buyout + 5 dummies
 
 Each slot folder contains:
 - Uploaded photo files
@@ -399,21 +442,32 @@ The `_LOCK.json` file is the Single Source of Truth (SSOT) and contains:
 **Required:**
 - `AUTH_SECRET` - JWT signing secret
 - `YANDEX_DISK_TOKEN` - Yandex Disk API token
-- Database connection variables (for Vercel Postgres)
+- `REGIONS` - Comma-separated list of regions
+- At least one admin: `ADMIN_EMAIL` + `ADMIN_PASSWORD`/`ADMIN_PASSWORD_HASH` OR `POSTGRES_URL` with users
 
 **Optional:**
-- `DEFAULT_REGION` - Default region for legacy auth (default: 'MSK')
-- `UPLOAD_DIR` - Legacy upload directory (default: '/mvp_uploads')
+- `YANDEX_DISK_BASE_DIR` - Base directory on Yandex Disk (default: '/Фото')
+- `ADMIN_REGION` - Region for bootstrap admins (default: 'ALL')
+- `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_2`/`ADMIN_PASSWORD_HASH_2` - Second admin account
+- `ZIP_MAX_FILES` - Max files in ZIP download (default: 500)
+- `ZIP_MAX_TOTAL_MB` - Max ZIP size in MB (default: 1500)
+- `POSTGRES_URL` - Database connection (for Postgres mode)
+- `UPLOAD_DIR` - **LEGACY** - Legacy upload directory (default: '/mvp_uploads')
 - `UPLOAD_MAX_MB` - Max file size (default: 20)
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD` - Fallback admin credentials
 - `AUTH_DEBUG` - Enable debug logging (1 or 0)
 
 ### Authentication Flow
 
 1. User logs in via `/api/auth/login` or `/api/login`
-2. JWT token created with: `userId`, `email`, `region`, `role`
-3. All API endpoints verify session and check region permission
-4. Region is ALWAYS taken from session, never from client input
+2. System checks in order:
+   - Bootstrap admins from ENV (ADMIN_EMAIL, ADMIN_EMAIL_2)
+   - Database users (if POSTGRES_URL configured)
+   - File-based users (data/users.json, local dev only)
+3. JWT token created with: `userId`, `email`, `region`, `role`
+4. All API endpoints verify session and check region permission
+5. **Region is ALWAYS taken from session, never from client input**
+6. Admin users (region=ALL) can access all regions
+7. Regular users can only access their assigned region
 
 ### Backward Compatibility
 
