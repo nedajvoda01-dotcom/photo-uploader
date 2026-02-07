@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireAdmin, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin } from "@/lib/models/cars";
+import { getCarByVin } from "@/lib/models/cars";
 import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/models/carSlots";
 import { validateSlot, type SlotType, getLockMarkerPath } from "@/lib/diskPaths";
 import { listFolder, downloadFile, exists } from "@/lib/yandexDisk";
@@ -213,11 +213,11 @@ export async function PATCH(
   }
   
   try {
-    const car = await getCarByRegionAndVin(session.region, vin);
+    const car = await getCarByVin(vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found in your region" },
+        { error: "Car not found" },
         { status: 404 }
       );
     }

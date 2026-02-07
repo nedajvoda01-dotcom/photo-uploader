@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin } from "@/lib/models/cars";
+import { getCarByVin } from "@/lib/models/cars";
 import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
 import { uploadToYandexDisk, uploadText, exists } from "@/lib/yandexDisk";
 import { getLockMarkerPath, validateSlot, type SlotType } from "@/lib/diskPaths";
@@ -42,12 +42,12 @@ export async function POST(
   }
   
   try {
-    // Get car by VIN
-    const car = await getCarByRegionAndVin(session.region, vin);
+    // Get car by VIN first (without region filter)
+    const car = await getCarByVin(vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found in your region" },
+        { error: "Car not found" },
         { status: 404 }
       );
     }

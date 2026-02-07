@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin } from "@/lib/models/cars";
+import { getCarByVin } from "@/lib/models/cars";
 import { listCarLinks, createCarLink } from "@/lib/models/carLinks";
 
 interface RouteContext {
@@ -42,11 +42,11 @@ export async function GET(
   }
   
   try {
-    const car = await getCarByRegionAndVin(session.region, vin);
+    const car = await getCarByVin(vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found in your region" },
+        { error: "Car not found" },
         { status: 404 }
       );
     }
@@ -107,11 +107,11 @@ export async function POST(
   }
   
   try {
-    const car = await getCarByRegionAndVin(session.region, vin);
+    const car = await getCarByVin(vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found in your region" },
+        { error: "Car not found" },
         { status: 404 }
       );
     }
