@@ -3,6 +3,7 @@ import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarByRegionAndVin } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
+import { syncRegion } from "@/lib/sync";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -12,6 +13,7 @@ interface RouteContext {
  * GET /api/cars/vin/:vin
  * Get car details by VIN with slots and links
  * VIN is the canonical identifier for cars within a region
+ * Syncs from disk before returning data
  */
 export async function GET(
   request: NextRequest,
@@ -35,6 +37,10 @@ export async function GET(
   }
   
   try {
+    // Sync region from disk first (DB as cache, Disk as truth)
+    console.log(`[API] Syncing region ${session.region} before getting car ${vin}`);
+    await syncRegion(session.region);
+    
     // Get car by region and VIN (region from session)
     const car = await getCarByRegionAndVin(session.region, vin);
     

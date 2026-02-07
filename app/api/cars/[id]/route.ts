@@ -3,6 +3,7 @@ import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
+import { syncRegion } from "@/lib/sync";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -11,6 +12,7 @@ interface RouteContext {
 /**
  * GET /api/cars/:id
  * Get car details with slots and links
+ * Syncs from disk before returning data
  */
 export async function GET(
   request: NextRequest,
@@ -34,6 +36,10 @@ export async function GET(
   }
   
   try {
+    // Sync region from disk first (DB as cache, Disk as truth)
+    console.log(`[API] Syncing region ${session.region} before getting car ${carId}`);
+    await syncRegion(session.region);
+    
     const car = await getCarById(carId);
     
     if (!car) {
