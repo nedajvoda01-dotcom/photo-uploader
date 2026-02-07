@@ -207,6 +207,7 @@ async function upsertSlotFromDisk(
       await sql`
         UPDATE car_slots
         SET status = ${status},
+            locked = ${isLocked},
             disk_slot_path = ${diskSlotPath},
             file_count = ${fileCount},
             total_size_mb = ${totalSizeMB},
@@ -217,11 +218,11 @@ async function upsertSlotFromDisk(
       // Slot doesn't exist, create it
       await sql`
         INSERT INTO car_slots (
-          car_id, slot_type, slot_index, disk_slot_path, status,
+          car_id, slot_type, slot_index, disk_slot_path, status, locked,
           file_count, total_size_mb, last_sync_at
         )
         VALUES (
-          ${carId}, ${slotType}, ${slotIndex}, ${diskSlotPath}, ${status},
+          ${carId}, ${slotType}, ${slotIndex}, ${diskSlotPath}, ${status}, ${isLocked},
           ${fileCount}, ${totalSizeMB}, CURRENT_TIMESTAMP
         )
       `;
@@ -235,6 +236,7 @@ async function upsertSlotFromDisk(
 /**
  * Sync a single region from Yandex Disk
  * Scans the disk structure and updates the database cache
+ * Marks cars as deleted if they're in DB but not on disk
  * 
  * @param region - Region code to sync (e.g., "MSK", "SPB")
  */
@@ -242,6 +244,7 @@ export async function syncRegion(region: string): Promise<{
   success: boolean; 
   carsFound: number;
   slotsFound: number;
+  carsMarkedDeleted: number;
   error?: string;
 }> {
   try {
@@ -250,15 +253,32 @@ export async function syncRegion(region: string): Promise<{
     
     console.log(`[Sync] Starting sync for region: ${region} at ${regionPath}`);
     
+    // Get all cars in DB for this region (not deleted)
+    const dbCars = await sql`
+      SELECT id, vin, disk_root_path FROM cars
+      WHERE region = ${region} AND deleted_at IS NULL
+    `;
+    
+    const dbCarVins = new Set(dbCars.rows.map(car => car.vin.toUpperCase()));
+    const foundCarVins = new Set<string>();
+    
     // List cars in the region folder
     const carsResult = await listFolder(regionPath);
     if (!carsResult.success) {
       console.warn(`[Sync] Region folder not found or error: ${regionPath}`);
-      return { success: true, carsFound: 0, slotsFound: 0 };
+      // Mark all DB cars as deleted if region folder doesn't exist
+      if (dbCars.rows.length > 0) {
+        await sql`
+          UPDATE cars SET deleted_at = CURRENT_TIMESTAMP
+          WHERE region = ${region} AND deleted_at IS NULL
+        `;
+        return { success: true, carsFound: 0, slotsFound: 0, carsMarkedDeleted: dbCars.rows.length };
+      }
+      return { success: true, carsFound: 0, slotsFound: 0, carsMarkedDeleted: 0 };
     }
     
     if (!carsResult.items) {
-      return { success: true, carsFound: 0, slotsFound: 0 };
+      return { success: true, carsFound: 0, slotsFound: 0, carsMarkedDeleted: 0 };
     }
     
     let carsFound = 0;
@@ -281,6 +301,9 @@ export async function syncRegion(region: string): Promise<{
       const carRootPath = carFolder.path;
       
       console.log(`[Sync] Found car: ${make} ${model} ${vin}`);
+      
+      // Track this VIN as found
+      foundCarVins.add(vin.toUpperCase());
       
       // Upsert car in database
       const carId = await upsertCarFromDisk(region, make, model, vin, carRootPath);
@@ -345,15 +368,29 @@ export async function syncRegion(region: string): Promise<{
       }
     }
     
-    console.log(`[Sync] Completed sync for region ${region}: ${carsFound} cars, ${slotsFound} slots`);
+    // Mark cars that are in DB but not found on disk as deleted
+    let carsMarkedDeleted = 0;
+    for (const vinUpper of dbCarVins) {
+      if (!foundCarVins.has(vinUpper)) {
+        console.log(`[Sync] Car ${vinUpper} not found on disk, marking as deleted`);
+        await sql`
+          UPDATE cars SET deleted_at = CURRENT_TIMESTAMP
+          WHERE region = ${region} AND UPPER(vin) = ${vinUpper} AND deleted_at IS NULL
+        `;
+        carsMarkedDeleted++;
+      }
+    }
     
-    return { success: true, carsFound, slotsFound };
+    console.log(`[Sync] Completed sync for region ${region}: ${carsFound} cars, ${slotsFound} slots, ${carsMarkedDeleted} marked deleted`);
+    
+    return { success: true, carsFound, slotsFound, carsMarkedDeleted };
   } catch (error) {
     console.error(`[Sync] Error syncing region ${region}:`, error);
     return { 
       success: false, 
       carsFound: 0, 
       slotsFound: 0,
+      carsMarkedDeleted: 0,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
