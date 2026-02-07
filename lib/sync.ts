@@ -9,11 +9,28 @@
  * - Disk is SSOT for `locked` state (presence of _LOCK.json)
  * - Database `used` flag is business logic only
  * - Sync discovers cars and slots from disk structure
+ * - TTL-based caching prevents redundant syncs (30 seconds default)
  */
 
 import { sql } from './db';
 import { getBasePath } from './diskPaths';
-import { listFolder, exists } from './yandexDisk';
+import { listFolder, exists, downloadFile } from './yandexDisk';
+
+// TTL-based sync cache (30 seconds by default)
+const SYNC_TTL_MS = 30 * 1000; // 30 seconds
+
+interface SyncCacheEntry {
+  timestamp: number;
+  data: {
+    success: boolean;
+    carsFound: number;
+    slotsFound: number;
+    carsMarkedDeleted: number;
+  };
+}
+
+// In-memory cache by region
+const syncCache = new Map<string, SyncCacheEntry>();
 
 /**
  * Parse car folder name to extract make, model, and VIN
@@ -99,9 +116,37 @@ function parseSlotSubfolderName(folderName: string, slotType: string): number | 
 
 /**
  * Count files and calculate total size in a folder
+ * Optimized: tries to read from _LOCK.json first if available
  */
 async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
+    // Try to read _LOCK.json first for optimization
+    const lockPath = `${slotPath}/_LOCK.json`;
+    const lockExists = await exists(lockPath);
+    
+    if (lockExists) {
+      try {
+        const lockFile = await downloadFile(lockPath);
+        if (lockFile.success && lockFile.data) {
+          const lockContent = lockFile.data.toString('utf-8');
+          const lockData = JSON.parse(lockContent);
+          
+          // If _LOCK.json contains file_count and total_size_mb, use them
+          if (lockData.file_count !== undefined && lockData.total_size_mb !== undefined) {
+            console.log(`[Sync] Using cached stats from _LOCK.json for ${slotPath}`);
+            return {
+              fileCount: lockData.file_count,
+              totalSizeMB: lockData.total_size_mb,
+            };
+          }
+        }
+      } catch (error) {
+        // If _LOCK.json parsing fails, fall back to listing
+        console.warn(`[Sync] Failed to parse _LOCK.json for ${slotPath}, falling back to listing:`, error);
+      }
+    }
+    
+    // Fallback: list folder and calculate
     const result = await listFolder(slotPath);
     if (!result.success || !result.items) {
       return { fileCount: 0, totalSizeMB: 0 };
@@ -237,21 +282,39 @@ async function upsertSlotFromDisk(
  * Sync a single region from Yandex Disk
  * Scans the disk structure and updates the database cache
  * Marks cars as deleted if they're in DB but not on disk
+ * Uses TTL-based caching to prevent redundant syncs
  * 
  * @param region - Region code to sync (e.g., "MSK", "SPB")
+ * @param forceFresh - Force a fresh sync, bypassing cache
  */
-export async function syncRegion(region: string): Promise<{ 
+export async function syncRegion(region: string, forceFresh = false): Promise<{ 
   success: boolean; 
   carsFound: number;
   slotsFound: number;
   carsMarkedDeleted: number;
+  fromCache?: boolean;
   error?: string;
 }> {
+  // Check cache first (unless forceFresh)
+  if (!forceFresh) {
+    const cached = syncCache.get(region);
+    if (cached) {
+      const age = Date.now() - cached.timestamp;
+      if (age < SYNC_TTL_MS) {
+        console.log(`[Sync] Using cached sync for region ${region} (age: ${Math.round(age / 1000)}s)`);
+        return {
+          ...cached.data,
+          fromCache: true,
+        };
+      }
+    }
+  }
+  
   try {
     const basePath = getBasePath();
     const regionPath = `${basePath}/${region}`;
     
-    console.log(`[Sync] Starting sync for region: ${region} at ${regionPath}`);
+    console.log(`[Sync] Starting fresh sync for region: ${region} at ${regionPath}`);
     
     // Get all cars in DB for this region (not deleted)
     const dbCars = await sql`
@@ -383,7 +446,15 @@ export async function syncRegion(region: string): Promise<{
     
     console.log(`[Sync] Completed sync for region ${region}: ${carsFound} cars, ${slotsFound} slots, ${carsMarkedDeleted} marked deleted`);
     
-    return { success: true, carsFound, slotsFound, carsMarkedDeleted };
+    const result = { success: true, carsFound, slotsFound, carsMarkedDeleted };
+    
+    // Store in cache
+    syncCache.set(region, {
+      timestamp: Date.now(),
+      data: result,
+    });
+    
+    return result;
   } catch (error) {
     console.error(`[Sync] Error syncing region ${region}:`, error);
     return { 

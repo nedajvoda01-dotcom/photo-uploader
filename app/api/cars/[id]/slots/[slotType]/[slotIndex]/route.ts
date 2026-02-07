@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
+import { requireAdmin, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/models/carSlots";
 import { validateSlot, type SlotType } from "@/lib/diskPaths";
@@ -16,21 +16,13 @@ export async function PATCH(
   request: NextRequest,
   context: RouteContext
 ) {
-  const authResult = await requireAuth();
+  const authResult = await requireAdmin();
   
   if ('error' in authResult) {
     return authResult.error;
   }
   
   const { session } = authResult;
-  
-  // Check if user is admin
-  if (session.role !== 'admin') {
-    return NextResponse.json(
-      { error: "Forbidden - admin access required" },
-      { status: 403 }
-    );
-  }
   
   const params = await context.params;
   const carId = parseInt(params.id, 10);

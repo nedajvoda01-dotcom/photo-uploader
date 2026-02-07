@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/apiHelpers";
+import { requireAuth, requireAdmin } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
 import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
@@ -45,21 +45,13 @@ export async function GET() {
  * Create a new car with all slots (ADMIN ONLY)
  */
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth();
+  const authResult = await requireAdmin();
   
   if ('error' in authResult) {
     return authResult.error;
   }
   
   const { session } = authResult;
-  
-  // RBAC: Only admins can create cars
-  if (session.role !== 'admin') {
-    return NextResponse.json(
-      { error: "Forbidden - only admins can create cars" },
-      { status: 403 }
-    );
-  }
   
   try {
     const body = await request.json();
