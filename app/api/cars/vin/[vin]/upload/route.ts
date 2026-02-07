@@ -4,6 +4,7 @@ import { getCarByVin } from "@/lib/models/cars";
 import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
 import { uploadToYandexDisk, uploadText, exists } from "@/lib/yandexDisk";
 import { getLockMarkerPath, validateSlot, type SlotType } from "@/lib/diskPaths";
+import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD } from "@/lib/config";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -134,7 +135,33 @@ export async function POST(
       );
     }
     
-    // Validate files
+    // Validate file size limits BEFORE reading files into memory
+    if (files.length > MAX_FILES_PER_UPLOAD) {
+      return NextResponse.json(
+        { error: `Too many files. Maximum ${MAX_FILES_PER_UPLOAD} files per upload` },
+        { status: 413 }
+      );
+    }
+    
+    let totalSize = 0;
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        return NextResponse.json(
+          { error: `File ${file.name} exceeds ${MAX_FILE_SIZE_MB}MB limit` },
+          { status: 413 }
+        );
+      }
+      totalSize += file.size;
+    }
+    
+    if (totalSize > MAX_TOTAL_UPLOAD_SIZE_MB * 1024 * 1024) {
+      return NextResponse.json(
+        { error: `Total upload size exceeds ${MAX_TOTAL_UPLOAD_SIZE_MB}MB limit` },
+        { status: 413 }
+      );
+    }
+    
+    // Validate file types
     for (const file of files) {
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
         return NextResponse.json(
