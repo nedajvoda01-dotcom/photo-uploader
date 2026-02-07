@@ -3,7 +3,7 @@ import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
 import { uploadToYandexDisk, uploadText, exists } from "@/lib/yandexDisk";
-import { getLockMarkerPath, validateSlot, type SlotType } from "@/lib/diskPaths";
+import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/diskPaths";
 import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD } from "@/lib/config";
 
 interface RouteContext {
@@ -165,7 +165,10 @@ export async function POST(
     for (const file of files) {
       const arrayBuffer = await file.arrayBuffer();
       const bytes = Buffer.from(arrayBuffer);
-      const filePath = `${slot.disk_slot_path}/${file.name}`;
+      
+      // Sanitize filename to prevent directory traversal
+      const safeFilename = sanitizeFilename(file.name);
+      const filePath = `${slot.disk_slot_path}/${safeFilename}`;
       
       const result = await uploadToYandexDisk({
         path: filePath,
@@ -181,7 +184,7 @@ export async function POST(
       }
       
       uploadedFiles.push({
-        name: file.name,
+        name: safeFilename, // Store sanitized name
         size: file.size,
       });
     }

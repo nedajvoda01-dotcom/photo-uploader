@@ -239,3 +239,38 @@ export function getSlotTypeNumber(slotType: SlotType): number {
       return 0;
   }
 }
+
+/**
+ * Sanitize a path segment to prevent directory traversal
+ * - Remove/replace dangerous characters: / \ .. : * ? " < > |
+ * - Limit length to 255 chars
+ * - Trim whitespace
+ * 
+ * @param segment - Path segment to sanitize
+ * @returns Sanitized path segment
+ */
+export function sanitizePathSegment(segment: string): string {
+  return segment
+    .replace(/[\/\\:\*\?"<>\|]/g, '_') // replace dangerous chars
+    .replace(/\.\.+/g, '.') // collapse multiple dots
+    .trim()
+    .substring(0, 255); // filesystem limit
+}
+
+/**
+ * Sanitize filename for Yandex Disk upload
+ * Preserves file extension but sanitizes the name
+ * 
+ * @param filename - Original filename
+ * @returns Sanitized filename
+ */
+export function sanitizeFilename(filename: string): string {
+  const parts = filename.split('.');
+  const ext = parts.length > 1 ? parts.pop() : '';
+  const name = parts.join('.');
+  
+  const safeName = sanitizePathSegment(name);
+  const safeExt = ext ? sanitizePathSegment(ext) : '';
+  
+  return safeExt ? `${safeName}.${safeExt}` : safeName;
+}

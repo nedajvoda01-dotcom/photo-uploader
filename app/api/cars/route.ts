@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getEffectiveRegion } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin, getCarByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
-import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
+import { carRoot, getAllSlotPaths, sanitizePathSegment } from "@/lib/diskPaths";
 import { createFolder, uploadText } from "@/lib/yandexDisk";
 import { syncRegion } from "@/lib/sync";
 import { ensureDbSchema } from "@/lib/db";
@@ -176,8 +176,13 @@ export async function POST(request: NextRequest) {
       }, { status: 200 });
     }
     
-    // Generate root path
-    const rootPath = carRoot(effectiveRegion, make, model, vin);
+    // Sanitize path segments to prevent directory traversal
+    const safeMake = sanitizePathSegment(make);
+    const safeModel = sanitizePathSegment(model);
+    const safeVin = sanitizePathSegment(vin);
+    
+    // Generate root path with sanitized segments
+    const rootPath = carRoot(effectiveRegion, safeMake, safeModel, safeVin);
     
     // DISK-FIRST: Create car root folder on Yandex Disk (source of truth)
     console.log(`[API] Creating car folder on disk: ${rootPath}`);
@@ -211,8 +216,8 @@ export async function POST(request: NextRequest) {
       // Continue anyway - this is metadata only
     }
     
-    // Get all slot paths (14 total)
-    const slotPaths = getAllSlotPaths(effectiveRegion, make, model, vin);
+    // Get all slot paths (14 total) - use sanitized values
+    const slotPaths = getAllSlotPaths(effectiveRegion, safeMake, safeModel, safeVin);
     
     // Create all 14 slot folders on Yandex Disk (DISK-FIRST)
     console.log(`[API] Creating ${slotPaths.length} slot folders on disk`);
