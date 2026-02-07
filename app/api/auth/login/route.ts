@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { checkBootstrapAdmin, getUserByEmail } from "@/lib/userAuth";
+import { checkBootstrapAdmin, checkRegionUser, getUserByEmail } from "@/lib/userAuth";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
 import { AUTH_DEBUG, ADMIN_REGION } from "@/lib/config";
 
@@ -79,7 +79,56 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
-    // Step 2: Find user in database or file/env
+    // Step 2: Check region users from ENV (REGION_USERS + USER_PASSWORD_MAP)
+    const regionUserResult = await checkRegionUser(email, password);
+    
+    if (regionUserResult.isBootstrapAdmin && regionUserResult.user) {
+      // Region user login successful
+      let token: string;
+      try {
+        token = await signSession({
+          userId: regionUserResult.user.id,
+          email: regionUserResult.user.email,
+          region: regionUserResult.user.region,
+          role: regionUserResult.user.role,
+        });
+      } catch (error) {
+        if (AUTH_DEBUG && debugInfo) {
+          debugInfo.result = "fail";
+          debugInfo.reasonCode = "jwt_sign_error";
+          console.warn("[AUTH_DEBUG] Login attempt failed - JWT signing error:", debugInfo);
+        }
+        console.error("JWT signing error:", error);
+        return NextResponse.json(
+          { error: "Internal server error" },
+          { status: 500 }
+        );
+      }
+
+      const response = NextResponse.json(
+        { success: true, message: "Login successful" },
+        { status: 200 }
+      );
+
+      const isProduction = process.env.NODE_ENV === "production";
+      response.cookies.set(getSessionCookieName(), token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProduction,
+        maxAge: getSessionTTL(),
+        path: "/",
+      });
+
+      if (AUTH_DEBUG && debugInfo) {
+        debugInfo.result = "ok";
+        debugInfo.reasonCode = "region_user";
+        console.info("[AUTH_DEBUG] Region user login successful:", debugInfo);
+      }
+
+      return response;
+    }
+
+    // Step 3: Find user in database or file/env
     const user = await getUserByEmail(email);
     if (!user) {
       if (AUTH_DEBUG && debugInfo) {

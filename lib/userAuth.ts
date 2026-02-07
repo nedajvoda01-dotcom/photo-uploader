@@ -4,7 +4,7 @@
 import { checkDatabaseConnection } from "./db";
 import { getUserByEmail as getUserByEmailDB } from "./models/users";
 import { getUserByEmail as getUserByEmailFile } from "./users";
-import { getBootstrapAdmins, ADMIN_REGION } from "./config";
+import { getBootstrapAdmins, getAllRegionUsers, getRegionForUser, ADMIN_REGION } from "./config";
 import bcrypt from "bcryptjs";
 import { timingSafeEqual } from "crypto";
 
@@ -108,6 +108,66 @@ export async function checkBootstrapAdmin(
     }
   }
 
+  return { isBootstrapAdmin: false };
+}
+
+/**
+ * Check if credentials match a region user from ENV (REGION_USERS + USER_PASSWORD_MAP)
+ * Region users are checked AFTER bootstrap admins but BEFORE database/file
+ */
+export async function checkRegionUser(
+  email: string,
+  password: string
+): Promise<BootstrapAdminCheckResult> {
+  const regionUsers = getAllRegionUsers();
+  
+  for (const user of regionUsers) {
+    if (user.email !== email) {
+      continue;
+    }
+    
+    // Check plain password (5 digits)
+    try {
+      const passwordBuffer = Buffer.from(password, 'utf8');
+      const userPasswordBuffer = Buffer.from(user.password, 'utf8');
+      
+      let isValid = false;
+      if (passwordBuffer.length === userPasswordBuffer.length) {
+        isValid = timingSafeEqual(passwordBuffer, userPasswordBuffer);
+      } else {
+        // Perform dummy comparison to maintain constant time
+        const dummyBuffer1 = Buffer.alloc(32, 0);
+        const dummyBuffer2 = Buffer.alloc(32, 1);
+        try {
+          timingSafeEqual(dummyBuffer1, dummyBuffer2);
+        } catch {
+          // Expected to throw
+        }
+      }
+      
+      if (isValid) {
+        return {
+          isBootstrapAdmin: true, // Reusing this flag for ENV users
+          user: {
+            id: 0, // ENV users use ID 0 like bootstrap admins
+            email: user.email,
+            region: user.region,
+            role: user.role,
+          },
+        };
+      }
+    } catch {
+      // Error during comparison - continue
+      const dummyBuffer1 = Buffer.alloc(32, 0);
+      const dummyBuffer2 = Buffer.alloc(32, 1);
+      try {
+        timingSafeEqual(dummyBuffer1, dummyBuffer2);
+      } catch {
+        // Expected to throw
+      }
+    }
+  }
+  
   return { isBootstrapAdmin: false };
 }
 
