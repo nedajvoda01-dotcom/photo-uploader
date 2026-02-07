@@ -4,7 +4,9 @@ import { getCarByRegionAndVin, deleteCarByVin } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
 import { syncRegion } from "@/lib/sync";
-import { deleteFolder } from "@/lib/yandexDisk";
+import { moveFolder } from "@/lib/yandexDisk";
+import { ensureDbSchema } from "@/lib/db";
+import { getBasePath } from "@/lib/diskPaths";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -38,6 +40,9 @@ export async function GET(
   }
   
   try {
+    // Ensure database schema exists (idempotent, auto-creates tables)
+    await ensureDbSchema();
+    
     // Sync region from disk first (DB as cache, Disk as truth)
     console.log(`[API] Syncing region ${session.region} before getting car ${vin}`);
     await syncRegion(session.region);
@@ -81,8 +86,8 @@ export async function GET(
 
 /**
  * DELETE /api/cars/vin/:vin
- * Delete a car (ADMIN ONLY)
- * Marks as deleted in DB and removes folder from Yandex Disk
+ * Archive a car (ADMIN ONLY)
+ * Marks as deleted in DB and moves folder to /Фото/ALL/ archive
  */
 export async function DELETE(
   request: NextRequest,
@@ -115,7 +120,7 @@ export async function DELETE(
   }
   
   try {
-    // Get car to find its disk path
+    // Get car to find its disk path and details
     const car = await getCarByRegionAndVin(session.region, vin);
     
     if (!car) {
@@ -131,11 +136,18 @@ export async function DELETE(
       return regionCheck.error;
     }
     
-    // Delete folder on Yandex Disk
-    const deleteResult = await deleteFolder(car.disk_root_path);
-    if (!deleteResult.success) {
-      console.error(`Failed to delete folder on Yandex Disk: ${deleteResult.error}`);
-      // Continue anyway - mark as deleted in DB even if disk deletion fails
+    // Archive: Move folder to /Фото/ALL/ instead of deleting
+    // Archive path format: /Фото/ALL/{region}_{make}_{model}_{vin}
+    const basePath = getBasePath();
+    const archiveName = `${car.region}_${car.make}_${car.model}_${vin}`.replace(/\s+/g, '_');
+    const archivePath = `${basePath}/ALL/${archiveName}`;
+    
+    console.log(`[Archive] Moving car from ${car.disk_root_path} to ${archivePath}`);
+    
+    const moveResult = await moveFolder(car.disk_root_path, archivePath, false);
+    if (!moveResult.success) {
+      console.error(`Failed to archive folder on Yandex Disk: ${moveResult.error}`);
+      // Continue anyway - mark as deleted in DB even if disk move fails
     }
     
     // Mark as deleted in database (soft delete with deleted_at)
@@ -143,12 +155,13 @@ export async function DELETE(
     
     return NextResponse.json({
       success: true,
-      message: "Car deleted successfully",
+      message: "Car archived successfully",
+      archivePath,
     });
   } catch (error) {
-    console.error("Error deleting car:", error);
+    console.error("Error archiving car:", error);
     return NextResponse.json(
-      { error: "Failed to delete car" },
+      { error: "Failed to archive car" },
       { status: 500 }
     );
   }

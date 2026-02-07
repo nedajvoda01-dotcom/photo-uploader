@@ -19,20 +19,90 @@ interface Car {
   empty_slots: number;
 }
 
+interface UserInfo {
+  userId: number;
+  email: string;
+  region: string;
+  role: string;
+}
+
 export default function CarsPage() {
   const router = useRouter();
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [activeRegion, setActiveRegion] = useState<string>("");
+  const [availableRegions, setAvailableRegions] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchCars();
+    fetchAvailableRegions();
+    fetchUserInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchCars = async () => {
+  useEffect(() => {
+    if (activeRegion) {
+      fetchCars();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRegion]);
+
+  const fetchAvailableRegions = async () => {
     try {
-      const response = await fetch("/api/cars");
+      const response = await fetch("/api/config/regions");
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableRegions(data.regions || []);
+      }
+    } catch (err) {
+      console.error("Error fetching regions:", err);
+      // Fallback to hardcoded list if API fails
+      setAvailableRegions(["R1", "R2", "R3", "K1", "V", "S1", "S2"]);
+    }
+  };
+
+  const fetchUserInfo = async () => {
+    try {
+      const response = await fetch("/api/me");
+      if (response.ok) {
+        const data = await response.json();
+        setUserInfo(data);
+        // Set initial active region
+        if (data.role === "admin") {
+          // Admin: default to first region if region is ALL
+          // Wait for availableRegions to be loaded
+          if (data.region === "ALL" && availableRegions.length > 0) {
+            setActiveRegion(availableRegions[0]);
+          } else if (data.region !== "ALL") {
+            setActiveRegion(data.region);
+          }
+        } else {
+          // User: use their assigned region
+          setActiveRegion(data.region);
+        }
+      } else if (response.status === 401) {
+        router.push("/login");
+      }
+    } catch (err) {
+      console.error("Error fetching user info:", err);
+    }
+  };
+
+  // Set default region for admin once availableRegions is loaded
+  useEffect(() => {
+    if (userInfo?.role === "admin" && userInfo.region === "ALL" && availableRegions.length > 0 && !activeRegion) {
+      setActiveRegion(availableRegions[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableRegions, userInfo]);
+
+  const fetchCars = async () => {
+    if (!activeRegion) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/cars?region=${activeRegion}`);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -88,15 +158,49 @@ export default function CarsPage() {
     );
   }
 
+  const isAdmin = userInfo?.role === "admin";
+
   return (
     <div className={styles.page}>
       <div className={styles.container}>
         <header className={styles.header}>
-          <h1 className={styles.title}>My Cars</h1>
+          <div className={styles.titleSection}>
+            <h1 className={styles.title}>My Cars</h1>
+            {isAdmin && activeRegion && (
+              <div className={styles.regionSelector}>
+                <label htmlFor="region-select" className={styles.regionLabel}>
+                  Region:
+                </label>
+                <select
+                  id="region-select"
+                  value={activeRegion}
+                  onChange={(e) => setActiveRegion(e.target.value)}
+                  className={styles.regionSelect}
+                >
+                  {availableRegions.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {!isAdmin && userInfo && (
+              <div className={styles.regionBadge}>
+                Region: {userInfo.region}
+              </div>
+            )}
+          </div>
           <div className={styles.headerActions}>
-            <Link href="/cars/new" className={styles.newButton}>
-              + New Car
-            </Link>
+            {/* Changed: Both users and admins can create cars now */}
+            {activeRegion && (
+              <Link 
+                href={`/cars/new?region=${activeRegion}`} 
+                className={styles.newButton}
+              >
+                + New Car
+              </Link>
+            )}
             <button onClick={handleLogout} className={styles.logoutButton}>
               Logout
             </button>

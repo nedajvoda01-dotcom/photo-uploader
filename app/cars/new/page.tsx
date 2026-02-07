@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, FormEvent, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import styles from "./new.module.css";
 
-export default function NewCarPage() {
+function NewCarForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
   const [vin, setVin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // Get region from query parameter (passed from cars page)
+  const region = searchParams.get("region") || "";
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,7 +35,12 @@ export default function NewCarPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ make, model, vin: vin.toUpperCase() }),
+        body: JSON.stringify({ 
+          make, 
+          model, 
+          vin: vin.toUpperCase(),
+          region: region || undefined, // Include region for admins
+        }),
       });
 
       const data = await response.json();
@@ -50,7 +59,7 @@ export default function NewCarPage() {
       }
 
       // Success - redirect to car details
-      router.push(`/cars/${data.car.id}`);
+      router.push(`/cars/${data.car.vin}`);
     } catch (err) {
       console.error("Error creating car:", err);
       setError("An error occurred. Please try again.");
@@ -145,5 +154,13 @@ export default function NewCarPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NewCarPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
+      <NewCarForm />
+    </Suspense>
   );
 }
