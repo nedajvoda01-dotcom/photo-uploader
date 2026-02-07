@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSessionCookieName, verifySession, SessionPayload } from "./auth";
+import { hasRegionAccess } from "./config";
 
 /**
  * Get the current user session from the request
@@ -63,8 +64,30 @@ export async function requireRole(
 }
 
 /**
- * Check if a session belongs to a specific region
+ * Check if a session has access to a specific region
+ * Admin (region=ALL) has access to all regions
+ * Regular users can only access their own region
  */
-export function checkRegion(session: SessionPayload, requiredRegion: string): boolean {
-  return session.region === requiredRegion;
+export function checkRegionAccess(session: SessionPayload, targetRegion: string): boolean {
+  return hasRegionAccess(session.region, targetRegion);
+}
+
+/**
+ * Require region access for an API endpoint
+ * Returns error if user doesn't have access to the target region
+ */
+export function requireRegionAccess(
+  session: SessionPayload,
+  targetRegion: string
+): { success: true } | { error: NextResponse } {
+  if (!checkRegionAccess(session, targetRegion)) {
+    return {
+      error: NextResponse.json(
+        { error: "Forbidden - region access denied" },
+        { status: 403 }
+      )
+    };
+  }
+  
+  return { success: true };
 }

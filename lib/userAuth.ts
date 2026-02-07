@@ -4,6 +4,9 @@
 import { checkDatabaseConnection } from "./db";
 import { getUserByEmail as getUserByEmailDB } from "./models/users";
 import { getUserByEmail as getUserByEmailFile } from "./users";
+import { getBootstrapAdmins, ADMIN_REGION } from "./config";
+import bcrypt from "bcryptjs";
+import { timingSafeEqual } from "crypto";
 
 export interface User {
   id?: number;
@@ -11,6 +14,90 @@ export interface User {
   passwordHash: string;
   region?: string;
   role?: string;
+}
+
+export interface BootstrapAdminCheckResult {
+  isBootstrapAdmin: boolean;
+  user?: {
+    id: number;
+    email: string;
+    region: string;
+    role: string;
+  };
+}
+
+/**
+ * Check if credentials match a bootstrap admin from ENV
+ * Bootstrap admins are checked FIRST before database/file lookup
+ */
+export async function checkBootstrapAdmin(
+  email: string,
+  password: string
+): Promise<BootstrapAdminCheckResult> {
+  const bootstrapAdmins = getBootstrapAdmins();
+
+  for (const admin of bootstrapAdmins) {
+    if (admin.email !== email) {
+      continue;
+    }
+
+    // Check plain password first (takes priority)
+    if (admin.password) {
+      try {
+        const passwordBuffer = Buffer.from(password, 'utf8');
+        const adminPasswordBuffer = Buffer.from(admin.password, 'utf8');
+        
+        // timingSafeEqual requires buffers of equal length
+        let isValid = false;
+        if (passwordBuffer.length === adminPasswordBuffer.length) {
+          isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
+        } else {
+          // Perform dummy comparison to maintain constant time
+          const dummyBuffer1 = Buffer.alloc(32);
+          const dummyBuffer2 = Buffer.alloc(32);
+          timingSafeEqual(dummyBuffer1, dummyBuffer2);
+        }
+
+        if (isValid) {
+          return {
+            isBootstrapAdmin: true,
+            user: {
+              id: 0, // Bootstrap admins use ID 0
+              email: admin.email,
+              region: admin.region,
+              role: admin.role,
+            },
+          };
+        }
+      } catch {
+        // Error during comparison - continue to next admin
+        const dummyBuffer = Buffer.alloc(32);
+        timingSafeEqual(dummyBuffer, dummyBuffer);
+      }
+    }
+
+    // Check bcrypt hash
+    if (admin.passwordHash) {
+      try {
+        const isValid = await bcrypt.compare(password, admin.passwordHash);
+        if (isValid) {
+          return {
+            isBootstrapAdmin: true,
+            user: {
+              id: 0, // Bootstrap admins use ID 0
+              email: admin.email,
+              region: admin.region,
+              role: admin.role,
+            },
+          };
+        }
+      } catch {
+        // Error during bcrypt compare - continue to next admin
+      }
+    }
+  }
+
+  return { isBootstrapAdmin: false };
 }
 
 /**
@@ -44,7 +131,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     return {
       email: fileUser.email,
       passwordHash: fileUser.passwordHash,
-      region: process.env.DEFAULT_REGION || 'MSK',
+      region: ADMIN_REGION, // Use ADMIN_REGION instead of DEFAULT_REGION
       role: 'admin', // File-based users are admins by default
     };
   }

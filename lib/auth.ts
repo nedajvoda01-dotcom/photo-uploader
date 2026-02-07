@@ -1,14 +1,10 @@
 import { SignJWT, jwtVerify } from "jose";
+import { AUTH_SECRET } from "./config";
 
-const SECRET_KEY = process.env.AUTH_SECRET;
 const COOKIE_NAME = "session";
 const TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 
-if (!SECRET_KEY) {
-  throw new Error("AUTH_SECRET environment variable is required");
-}
-
-const secret = new TextEncoder().encode(SECRET_KEY);
+const secret = new TextEncoder().encode(AUTH_SECRET);
 
 export interface SessionPayload {
   userId: number;
