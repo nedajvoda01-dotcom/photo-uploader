@@ -265,11 +265,15 @@ export async function POST(request: NextRequest) {
       dbCacheOk = false;
       // Disk creation succeeded, so we'll trigger sync and return success
       car = {
-        id: 0, // Placeholder, will be populated on next sync
+        id: -1, // Sentinel: no DB record (use -1 to clearly indicate missing DB entry)
         region: effectiveRegion,
         make,
         model,
         vin,
+        disk_root_path: rootPath,
+        created_by: session.email || session.userId?.toString() || null,
+        created_at: new Date(),
+        deleted_at: null,
       };
     }
     

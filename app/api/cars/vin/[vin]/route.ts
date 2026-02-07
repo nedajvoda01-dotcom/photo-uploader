@@ -8,6 +8,10 @@ import { moveFolder, listFolder, exists } from "@/lib/yandexDisk";
 import { ensureDbSchema } from "@/lib/db";
 import { getBasePath, getAllSlotPaths, getLockMarkerPath } from "@/lib/diskPaths";
 
+// Constants
+const EXPECTED_SLOT_COUNT = 14; // 1 dealer + 8 buyout + 5 dummies
+const NO_DB_RECORD_ID = -1; // Sentinel value indicating record not in database
+
 interface RouteContext {
   params: Promise<{ vin: string }>;
 }
@@ -71,7 +75,7 @@ export async function GET(
               const make = parts[0];
               
               car = {
-                id: 0, // No DB record
+                id: NO_DB_RECORD_ID, // Sentinel: no DB record
                 region: session.region,
                 make,
                 model,
@@ -107,9 +111,9 @@ export async function GET(
     // Get slots - if no DB records, construct from disk structure
     let slots = car.id > 0 ? await listCarSlots(car.id) : [];
     
-    // Ensure we always return 14 slots (1 dealer + 8 buyout + 5 dummies)
-    if (slots.length < 14) {
-      console.log(`[API] Only ${slots.length} slots in DB, constructing full 14-slot structure from disk`);
+    // Ensure we always return expected slot count (1 dealer + 8 buyout + 5 dummies)
+    if (slots.length < EXPECTED_SLOT_COUNT) {
+      console.log(`[API] Only ${slots.length} slots in DB, constructing full ${EXPECTED_SLOT_COUNT}-slot structure from disk`);
       
       const fullSlots = [];
       const slotPaths = getAllSlotPaths(car.region, car.make, car.model, car.vin);
@@ -128,7 +132,7 @@ export async function GET(
           const lockExists = await exists(lockMarkerPath);
           
           fullSlots.push({
-            id: 0, // No DB record
+            id: NO_DB_RECORD_ID, // Sentinel: no DB record
             car_id: car.id,
             slot_type: slotPath.slotType,
             slot_index: slotPath.slotIndex,
