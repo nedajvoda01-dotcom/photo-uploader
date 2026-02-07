@@ -195,9 +195,14 @@ export default function CarsPage() {
                       {region}
                     </option>
                   ))}
+                  <option value="ALL">ALL (Archive Only)</option>
                 </select>
                 <div className={styles.regionNote}>
-                  ALL is archive only, not for actions
+                  {activeRegion === 'ALL' ? (
+                    <span style={{color: '#f59e0b'}}>⚠️ ALL is archive only - no create/upload/edit actions allowed</span>
+                  ) : (
+                    <span>Active region for viewing and creating cars</span>
+                  )}
                 </div>
               </div>
             )}
@@ -209,13 +214,17 @@ export default function CarsPage() {
             )}
           </div>
           <div className={styles.headerActions}>
-            {activeRegion ? (
+            {activeRegion && activeRegion !== 'ALL' ? (
               <Link 
                 href={`/cars/new?region=${activeRegion}`} 
                 className={styles.newButton}
               >
                 + New Car
               </Link>
+            ) : activeRegion === 'ALL' ? (
+              <button className={styles.newButtonDisabled} disabled title="ALL is archive only - select a specific region to create cars">
+                + New Car (ALL is Archive Only)
+              </button>
             ) : (
               <button className={styles.newButtonDisabled} disabled title="Select a region first">
                 + New Car (Select Region)

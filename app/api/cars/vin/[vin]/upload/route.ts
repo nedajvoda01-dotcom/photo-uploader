@@ -58,6 +58,18 @@ export async function POST(
       return regionCheck.error;
     }
     
+    // Block uploads to ALL region (archive only)
+    if (car.region === 'ALL') {
+      return NextResponse.json(
+        { 
+          error: "Cannot upload to cars in ALL region",
+          code: "REGION_ALL_FORBIDDEN",
+          message: "ALL region is for archive only. Cannot upload or modify cars in archive."
+        },
+        { status: 400 }
+      );
+    }
+    
     // Parse form data
     const formData = await request.formData();
     const slotType = formData.get("slotType") as string;
