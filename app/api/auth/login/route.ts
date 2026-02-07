@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
       if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "ok";
-        debugInfo.reasonCode = "region_user";
+        debugInfo.reasonCode = "env_region_user";
         console.info("[AUTH_DEBUG] Region user login successful:", debugInfo);
       }
 

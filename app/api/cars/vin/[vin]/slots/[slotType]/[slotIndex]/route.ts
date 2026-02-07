@@ -125,7 +125,11 @@ export async function GET(
     // Set up response headers for streaming
     const headers = new Headers();
     headers.set('Content-Type', 'application/zip');
-    headers.set('Content-Disposition', `attachment; filename="${car.make}_${car.model}_${vin}_${slotType}_${slotIndex}.zip"`);
+    
+    // Sanitize filename components (remove special characters)
+    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${sanitize(car.make)}_${sanitize(car.model)}_${sanitize(vin)}_${slotType}_${slotIndex}.zip`;
+    headers.set('Content-Disposition', `attachment; filename="${filename}"`);
     
     // Create a readable stream from archiver
     const { readable, writable } = new TransformStream();

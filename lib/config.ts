@@ -70,6 +70,7 @@ if (!isBuildTime && !hasAdmin1 && !hasAdmin2 && !POSTGRES_URL) {
 }
 
 // Auth configuration
+// AUTH_DEBUG accepts both "1" (legacy) and "true" for flexibility
 export const AUTH_DEBUG = process.env.AUTH_DEBUG === "1" || process.env.AUTH_DEBUG === "true";
 
 // Region-based user mappings (REGION_<REGION>_USERS)
