@@ -35,7 +35,7 @@ interface CarSlot {
 interface CarLink {
   id: number;
   car_id: number;
-  title: string;
+  label: string;
   url: string;
   created_by: number;
   created_at: string;
@@ -296,7 +296,7 @@ export default function CarDetailPage() {
   const [links, setLinks] = useState<CarLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [newLinkTitle, setNewLinkTitle] = useState("");
+  const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
@@ -351,18 +351,18 @@ export default function CarDetailPage() {
   };
 
   const handleAddLink = async () => {
-    if (!newLinkTitle || !newLinkUrl) return;
+    if (!newLinkLabel || !newLinkUrl) return;
 
     setAddingLink(true);
     try {
       const response = await fetch(`/api/cars/vin/${vin}/links`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newLinkTitle, url: newLinkUrl }),
+        body: JSON.stringify({ label: newLinkLabel, url: newLinkUrl }),
       });
 
       if (response.ok) {
-        setNewLinkTitle("");
+        setNewLinkLabel("");
         setNewLinkUrl("");
         fetchCarData();
       }
@@ -429,7 +429,7 @@ export default function CarDetailPage() {
             {links.map((link) => (
               <div key={link.id} className={styles.linkItem}>
                 <a href={link.url} target="_blank" rel="noopener noreferrer" className={styles.linkUrl}>
-                  {link.title}
+                  {link.label}
                 </a>
                 <button onClick={() => handleDeleteLink(link.id)} className={styles.deleteLinkButton}>
                   ×
@@ -440,9 +440,9 @@ export default function CarDetailPage() {
           <div className={styles.addLinkForm}>
             <input
               type="text"
-              placeholder="Link title"
-              value={newLinkTitle}
-              onChange={(e) => setNewLinkTitle(e.target.value)}
+              placeholder="Link label"
+              value={newLinkLabel}
+              onChange={(e) => setNewLinkLabel(e.target.value)}
               className={styles.linkInput}
             />
             <input
