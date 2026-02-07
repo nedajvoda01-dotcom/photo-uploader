@@ -92,7 +92,7 @@ List all cars in the authenticated user's region with progress information.
 
 #### POST /api/cars
 
-Create a new car with all 14 slots.
+Create a new car with all 14 slots. **Idempotent:** Returns success if car already exists.
 
 **Authentication:** Required
 
@@ -101,39 +101,62 @@ Create a new car with all 14 slots.
 {
   "make": "Toyota",
   "model": "Camry",
-  "vin": "1HGBH41JXMN109186"
+  "vin": "1HGBH41JXMN109186",
+  "region": "MSK"  // Optional, admin only
 }
 ```
 
-**Response (201 Created):**
+**Response (201 Created - New Car):**
 ```json
 {
-  "success": true,
+  "ok": true,
   "car": {
     "id": 1,
     "region": "MSK",
     "make": "Toyota",
     "model": "Camry",
-    "vin": "1HGBH41JXMN109186",
-    "disk_root_path": "/Фото/MSK/Toyota Camry 1HGBH41JXMN109186",
-    "created_by": 5,
-    "created_at": "2024-01-15T10:00:00Z"
+    "vin": "1HGBH41JXMN109186"
   }
 }
 ```
 
-**Response (409 Conflict):**
+**Response (200 OK - Car Already Exists):**
 ```json
 {
-  "error": "Car with this VIN already exists in this region"
+  "ok": true,
+  "car": {
+    "id": 1,
+    "region": "MSK",
+    "make": "Toyota",
+    "model": "Camry",
+    "vin": "1HGBH41JXMN109186"
+  }
 }
 ```
+
+**Response (400 Bad Request):**
+```json
+{
+  "ok": false,
+  "code": "validation_error",
+  "message": "make, model, and vin are required",
+  "status": 400
+}
+```
+
+**Error Codes:**
+- `validation_error`: Missing required fields
+- `invalid_vin`: VIN is not exactly 17 characters
+- `region_required`: Admin must specify region
+- `disk_error`: Failed to create folder on Yandex Disk
+- `server_error`: Internal server error
 
 **Notes:**
 - VIN must be exactly 17 characters
 - Creates folder structure on Yandex Disk
 - Creates 14 slots in database (1 dealer + 8 buyout + 5 dummies)
-- Checks uniqueness by `(region, vin)` where region comes from session
+- **Idempotent behavior:** If car already exists, returns 200 with existing car data
+- Region comes from user session (photographers) or request body (admins)
 
 ---
 
