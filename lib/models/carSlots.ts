@@ -17,6 +17,9 @@ export interface CarSlot {
   is_used: boolean;
   marked_used_at: Date | null;
   marked_used_by: number | null;
+  file_count: number;
+  total_size_mb: number;
+  last_sync_at: Date | null;
 }
 
 export interface CreateCarSlotParams {
@@ -50,7 +53,7 @@ export async function createCarSlot(params: CreateCarSlotParams): Promise<CarSlo
     const result = await sql<CarSlot>`
       INSERT INTO car_slots (car_id, slot_type, slot_index, disk_slot_path, status)
       VALUES (${car_id}, ${slot_type}, ${slot_index}, ${disk_slot_path}, 'empty')
-      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
     `;
     
     return result.rows[0];
@@ -70,7 +73,7 @@ export async function getCarSlot(
 ): Promise<CarSlot | null> {
   try {
     const result = await sql<CarSlot>`
-      SELECT id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      SELECT id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
       FROM car_slots
       WHERE car_id = ${car_id} AND slot_type = ${slot_type} AND slot_index = ${slot_index}
       LIMIT 1
@@ -89,7 +92,7 @@ export async function getCarSlot(
 export async function listCarSlots(car_id: number): Promise<CarSlot[]> {
   try {
     const result = await sql<CarSlot>`
-      SELECT id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      SELECT id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
       FROM car_slots
       WHERE car_id = ${car_id}
       ORDER BY slot_type, slot_index
@@ -120,7 +123,7 @@ export async function lockCarSlot(
           locked_by = ${locked_by},
           lock_meta_json = ${JSON.stringify(lock_metadata)}
       WHERE car_id = ${car_id} AND slot_type = ${slot_type} AND slot_index = ${slot_index}
-      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
     `;
     
     if (result.rows.length === 0) {
@@ -150,7 +153,7 @@ export async function unlockCarSlot(
           locked_by = NULL,
           lock_meta_json = NULL
       WHERE car_id = ${car_id} AND slot_type = ${slot_type} AND slot_index = ${slot_index}
-      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
     `;
     
     if (result.rows.length === 0) {
@@ -178,7 +181,7 @@ export async function setSlotPublicUrl(
       UPDATE car_slots
       SET public_url = ${public_url}
       WHERE car_id = ${car_id} AND slot_type = ${slot_type} AND slot_index = ${slot_index}
-      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
     `;
     
     if (result.rows.length === 0) {
@@ -208,7 +211,7 @@ export async function markSlotAsUsed(
           marked_used_at = CURRENT_TIMESTAMP,
           marked_used_by = ${marked_by}
       WHERE car_id = ${car_id} AND slot_type = ${slot_type} AND slot_index = ${slot_index}
-      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
     `;
     
     if (result.rows.length === 0) {
@@ -237,7 +240,7 @@ export async function markSlotAsUnused(
           marked_used_at = NULL,
           marked_used_by = NULL
       WHERE car_id = ${car_id} AND slot_type = ${slot_type} AND slot_index = ${slot_index}
-      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by
+      RETURNING id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
     `;
     
     if (result.rows.length === 0) {
