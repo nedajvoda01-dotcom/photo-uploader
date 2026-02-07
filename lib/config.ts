@@ -70,7 +70,87 @@ if (!isBuildTime && !hasAdmin1 && !hasAdmin2 && !POSTGRES_URL) {
 }
 
 // Auth configuration
-export const AUTH_DEBUG = process.env.AUTH_DEBUG === "1";
+// AUTH_DEBUG accepts both "1" (legacy) and "true" for flexibility
+export const AUTH_DEBUG = process.env.AUTH_DEBUG === "1" || process.env.AUTH_DEBUG === "true";
+
+// Region-based user mappings (REGION_<REGION>_USERS)
+// Format: email1@x.com,email2@x.com (no spaces)
+interface RegionUsers {
+  [region: string]: string[];
+}
+
+export const REGION_USERS: RegionUsers = {};
+
+if (!isBuildTime) {
+  for (const region of REGIONS) {
+    const envKey = `REGION_${region}_USERS`;
+    const usersEnv = process.env[envKey];
+    if (usersEnv) {
+      REGION_USERS[region] = usersEnv.split(',').map(email => email.trim()).filter(email => email.length > 0);
+    } else {
+      REGION_USERS[region] = [];
+    }
+  }
+}
+
+// User password map (USER_PASSWORD_MAP)
+// Format: email1:12345,email2:54321
+// Password must be 5 digits
+interface UserPasswordMap {
+  [email: string]: string;
+}
+
+export const USER_PASSWORD_MAP: UserPasswordMap = {};
+
+if (!isBuildTime) {
+  const passwordMapEnv = process.env.USER_PASSWORD_MAP;
+  if (passwordMapEnv) {
+    const pairs = passwordMapEnv.split(',');
+    for (const pair of pairs) {
+      const [email, password] = pair.split(':').map(s => s.trim());
+      if (email && password) {
+        // Validate password format (5 digits)
+        if (!/^\d{5}$/.test(password)) {
+          throw new Error(`Invalid password format for ${email}: must be exactly 5 digits`);
+        }
+        USER_PASSWORD_MAP[email] = password;
+      }
+    }
+  }
+}
+
+// Validation: Each email in REGION_*_USERS must have a password and belong to exactly one region
+if (!isBuildTime) {
+  const allRegionUsers: string[] = [];
+  const emailToRegion: Map<string, string[]> = new Map();
+  
+  for (const [region, users] of Object.entries(REGION_USERS)) {
+    for (const email of users) {
+      allRegionUsers.push(email);
+      
+      // Track which regions this email appears in
+      if (!emailToRegion.has(email)) {
+        emailToRegion.set(email, []);
+      }
+      emailToRegion.get(email)!.push(region);
+      
+      // Check if email has a password in USER_PASSWORD_MAP
+      if (!USER_PASSWORD_MAP[email]) {
+        throw new Error(`User ${email} in region ${region} does not have a password in USER_PASSWORD_MAP`);
+      }
+    }
+  }
+  
+  // Check that each email belongs to exactly one region
+  for (const [email, regions] of emailToRegion.entries()) {
+    if (regions.length > 1) {
+      throw new Error(`User ${email} belongs to multiple regions: ${regions.join(', ')}. Each user must belong to exactly one region.`);
+    }
+  }
+}
+
+// Database configuration - support both pooled and non-pooled
+export const POSTGRES_URL_NON_POOLING = process.env.POSTGRES_URL_NON_POOLING || null;
 
 // Legacy ENV (kept for backward compatibility but not SSOT)
 // UPLOAD_DIR is legacy - new code should use YANDEX_DISK_BASE_DIR
@@ -114,6 +194,48 @@ export function getBootstrapAdmins(): Array<{
   }
 
   return admins;
+}
+
+/**
+ * Get region for a user email from REGION_USERS mappings
+ * Returns region code if found, null otherwise
+ */
+export function getRegionForUser(email: string): string | null {
+  for (const [region, users] of Object.entries(REGION_USERS)) {
+    if (users.includes(email)) {
+      return region;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get all users from REGION_USERS and USER_PASSWORD_MAP
+ * Returns array of user configurations
+ */
+export function getAllRegionUsers(): Array<{
+  email: string;
+  password: string;
+  region: string;
+  role: string;
+}> {
+  const users = [];
+  
+  for (const [region, emails] of Object.entries(REGION_USERS)) {
+    for (const email of emails) {
+      const password = USER_PASSWORD_MAP[email];
+      if (password) {
+        users.push({
+          email,
+          password,
+          region,
+          role: 'user',
+        });
+      }
+    }
+  }
+  
+  return users;
 }
 
 /**
@@ -164,7 +286,10 @@ export function getConfigSummary() {
     regions: REGIONS,
     adminRegion: ADMIN_REGION,
     hasPostgresUrl: !!POSTGRES_URL,
+    hasPostgresUrlNonPooling: !!POSTGRES_URL_NON_POOLING,
     bootstrapAdminCount: getBootstrapAdmins().length,
+    regionUserCount: Object.keys(REGION_USERS).reduce((sum, region) => sum + REGION_USERS[region].length, 0),
+    userPasswordMapCount: Object.keys(USER_PASSWORD_MAP).length,
     zipMaxFiles: ZIP_MAX_FILES,
     zipMaxTotalMB: ZIP_MAX_TOTAL_MB,
     authDebug: AUTH_DEBUG,

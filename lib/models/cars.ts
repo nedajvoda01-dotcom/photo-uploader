@@ -109,6 +109,7 @@ export async function carExistsByRegionAndVin(region: string, vin: string): Prom
 
 /**
  * List cars by region with progress
+ * Excludes soft-deleted cars (deleted_at IS NOT NULL)
  */
 export async function listCarsByRegion(region: string): Promise<CarWithProgress[]> {
   try {
@@ -120,7 +121,7 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
         SUM(CASE WHEN cs.status = 'empty' THEN 1 ELSE 0 END) as empty_slots
       FROM cars c
       LEFT JOIN car_slots cs ON c.id = cs.car_id
-      WHERE c.region = ${region}
+      WHERE c.region = ${region} AND c.deleted_at IS NULL
       GROUP BY c.id
       ORDER BY c.created_at DESC
     `;
@@ -142,6 +143,23 @@ export async function deleteCar(id: number): Promise<void> {
     `;
   } catch (error) {
     console.error('Error deleting car:', error);
+    throw error;
+  }
+}
+
+/**
+ * Soft delete car by VIN (sets deleted_at timestamp)
+ * Preferred method for deletion to preserve audit trail
+ */
+export async function deleteCarByVin(region: string, vin: string): Promise<void> {
+  try {
+    await sql`
+      UPDATE cars 
+      SET deleted_at = NOW()
+      WHERE region = ${region} AND UPPER(vin) = UPPER(${vin})
+    `;
+  } catch (error) {
+    console.error('Error soft deleting car by VIN:', error);
     throw error;
   }
 }

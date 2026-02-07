@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/apiHelpers";
+import { requireAuth, isAdmin } from "@/lib/apiHelpers";
 import { getCarLinkById, deleteCarLink } from "@/lib/models/carLinks";
 import { getCarById } from "@/lib/models/cars";
 
@@ -9,7 +9,7 @@ interface RouteContext {
 
 /**
  * DELETE /api/links/:linkId
- * Delete a specific link
+ * Delete a specific link (ADMIN ONLY)
  */
 export async function DELETE(
   request: NextRequest,
@@ -22,6 +22,15 @@ export async function DELETE(
   }
   
   const { session } = authResult;
+  
+  // RBAC: Only admins can delete links
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can delete links" },
+      { status: 403 }
+    );
+  }
+  
   const params = await context.params;
   const linkId = parseInt(params.linkId, 10);
   

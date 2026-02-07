@@ -6,7 +6,7 @@ import { sql } from '../db';
 export interface CarLink {
   id: number;
   car_id: number;
-  title: string;
+  label: string;
   url: string;
   created_by: number;
   created_at: Date;
@@ -14,7 +14,7 @@ export interface CarLink {
 
 export interface CreateCarLinkParams {
   car_id: number;
-  title: string;
+  label: string;
   url: string;
   created_by: number;
 }
@@ -24,12 +24,12 @@ export interface CreateCarLinkParams {
  */
 export async function createCarLink(params: CreateCarLinkParams): Promise<CarLink> {
   try {
-    const { car_id, title, url, created_by } = params;
+    const { car_id, label, url, created_by } = params;
     
     const result = await sql<CarLink>`
-      INSERT INTO car_links (car_id, title, url, created_by)
-      VALUES (${car_id}, ${title}, ${url}, ${created_by})
-      RETURNING id, car_id, title, url, created_by, created_at
+      INSERT INTO car_links (car_id, label, url, created_by)
+      VALUES (${car_id}, ${label}, ${url}, ${created_by})
+      RETURNING id, car_id, label, url, created_by, created_at
     `;
     
     return result.rows[0];
@@ -45,7 +45,7 @@ export async function createCarLink(params: CreateCarLinkParams): Promise<CarLin
 export async function getCarLinkById(id: number): Promise<CarLink | null> {
   try {
     const result = await sql<CarLink>`
-      SELECT id, car_id, title, url, created_by, created_at
+      SELECT id, car_id, label, url, created_by, created_at
       FROM car_links
       WHERE id = ${id}
       LIMIT 1
@@ -64,7 +64,7 @@ export async function getCarLinkById(id: number): Promise<CarLink | null> {
 export async function listCarLinks(car_id: number): Promise<CarLink[]> {
   try {
     const result = await sql<CarLink>`
-      SELECT id, car_id, title, url, created_by, created_at
+      SELECT id, car_id, label, url, created_by, created_at
       FROM car_links
       WHERE car_id = ${car_id}
       ORDER BY created_at DESC

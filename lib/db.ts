@@ -3,6 +3,40 @@
  */
 import { sql } from '@vercel/postgres';
 
+// Log database connection configuration at module load time
+const POSTGRES_URL = process.env.POSTGRES_URL;
+const POSTGRES_URL_NON_POOLING = process.env.POSTGRES_URL_NON_POOLING;
+
+// Determine connection type for logging
+let connectionType = 'none';
+let connectionSource = 'none';
+
+if (POSTGRES_URL_NON_POOLING) {
+  connectionType = 'direct (non-pooling)';
+  connectionSource = 'POSTGRES_URL_NON_POOLING';
+} else if (POSTGRES_URL) {
+  // Check if URL contains pooler indicators
+  if (POSTGRES_URL.includes('-pooler') || POSTGRES_URL.includes('pooler')) {
+    connectionType = 'pooled';
+    connectionSource = 'POSTGRES_URL (detected as pooled)';
+  } else {
+    connectionType = 'direct';
+    connectionSource = 'POSTGRES_URL (detected as direct)';
+  }
+} else {
+  connectionType = 'not configured';
+  connectionSource = 'none';
+}
+
+// Log connection info (without sensitive data)
+if (typeof window === 'undefined') { // Only log on server side
+  console.log('[Database] Connection configuration:');
+  console.log(`  - Type: ${connectionType}`);
+  console.log(`  - Source: ${connectionSource}`);
+  console.log(`  - Has POSTGRES_URL: ${!!POSTGRES_URL}`);
+  console.log(`  - Has POSTGRES_URL_NON_POOLING: ${!!POSTGRES_URL_NON_POOLING}`);
+}
+
 export { sql };
 
 /**
@@ -44,11 +78,40 @@ export async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS car_links (
         id SERIAL PRIMARY KEY,
         car_id INTEGER REFERENCES cars(id) ON DELETE CASCADE,
-        title VARCHAR(255) NOT NULL,
+        label VARCHAR(255) NOT NULL,
         url TEXT NOT NULL,
         created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `;
+
+    // Idempotent migration: title → label
+    // Handles 3 cases:
+    // 1. Only title exists → rename to label
+    // 2. Both exist → copy data to label, drop title
+    // 3. Only label exists → do nothing
+    await sql`
+      DO $$ 
+      BEGIN 
+        -- Check if title column exists
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='car_links' AND column_name='title'
+        ) THEN
+          -- Check if label column also exists
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='car_links' AND column_name='label'
+          ) THEN
+            -- Both exist: copy data from title to label where label is NULL, then drop title
+            UPDATE car_links SET label = COALESCE(label, title) WHERE label IS NULL OR label = '';
+            ALTER TABLE car_links DROP COLUMN title;
+          ELSE
+            -- Only title exists: rename it to label
+            ALTER TABLE car_links RENAME COLUMN title TO label;
+          END IF;
+        END IF;
+      END $$;
     `;
 
     // Create car_slots table
@@ -59,6 +122,7 @@ export async function initializeDatabase() {
         slot_type VARCHAR(50) NOT NULL,
         slot_index INTEGER NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'empty',
+        locked BOOLEAN DEFAULT FALSE,
         locked_at TIMESTAMP,
         locked_by INTEGER REFERENCES users(id),
         lock_meta_json TEXT,
@@ -72,6 +136,19 @@ export async function initializeDatabase() {
         last_sync_at TIMESTAMP,
         UNIQUE(car_id, slot_type, slot_index)
       )
+    `;
+
+    // Add locked column if it doesn't exist (migration)
+    await sql`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='car_slots' AND column_name='locked'
+        ) THEN
+          ALTER TABLE car_slots ADD COLUMN locked BOOLEAN DEFAULT FALSE;
+        END IF;
+      END $$;
     `;
 
     console.log('Database schema initialized successfully');

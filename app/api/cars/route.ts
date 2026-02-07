@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
 import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
-import { createFolder } from "@/lib/yandexDisk";
+import { createFolder, uploadText } from "@/lib/yandexDisk";
 import { syncRegion } from "@/lib/sync";
 
 /**
@@ -42,7 +42,7 @@ export async function GET() {
 
 /**
  * POST /api/cars
- * Create a new car with all slots
+ * Create a new car with all slots (ADMIN ONLY)
  */
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth();
@@ -52,6 +52,14 @@ export async function POST(request: NextRequest) {
   }
   
   const { session } = authResult;
+  
+  // RBAC: Only admins can create cars
+  if (session.role !== 'admin') {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can create cars" },
+      { status: 403 }
+    );
+  }
   
   try {
     const body = await request.json();
@@ -84,6 +92,32 @@ export async function POST(request: NextRequest) {
     
     // Generate root path
     const rootPath = carRoot(session.region, make, model, vin);
+    
+    // Create car root folder on Yandex Disk
+    const rootFolderResult = await createFolder(rootPath);
+    if (!rootFolderResult.success) {
+      console.error(`Failed to create car root folder:`, rootFolderResult.error);
+      return NextResponse.json(
+        { error: "Failed to create car folder on Yandex Disk" },
+        { status: 500 }
+      );
+    }
+    
+    // Create _CAR.json metadata file in car root
+    const carMetadata = {
+      region: session.region,
+      make,
+      model,
+      vin,
+      created_at: new Date().toISOString(),
+      created_by: session.email || session.userId,
+    };
+    
+    const carJsonResult = await uploadText(`${rootPath}/_CAR.json`, carMetadata);
+    if (!carJsonResult.success) {
+      console.error(`Failed to create _CAR.json:`, carJsonResult.error);
+      // Continue anyway - this is metadata only
+    }
     
     // Create car in database
     const car = await createCar({

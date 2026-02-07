@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin } from "@/lib/models/cars";
+import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
+import { getCarByRegionAndVin, deleteCarByVin } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
 import { syncRegion } from "@/lib/sync";
+import { deleteFolder } from "@/lib/yandexDisk";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -73,6 +74,81 @@ export async function GET(
     console.error("Error getting car details by VIN:", error);
     return NextResponse.json(
       { error: "Failed to get car details" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/cars/vin/:vin
+ * Delete a car (ADMIN ONLY)
+ * Marks as deleted in DB and removes folder from Yandex Disk
+ */
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext
+) {
+  const authResult = await requireAuth();
+  
+  if ('error' in authResult) {
+    return authResult.error;
+  }
+  
+  const { session } = authResult;
+  
+  // RBAC: Only admins can delete cars
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can delete cars" },
+      { status: 403 }
+    );
+  }
+  
+  const params = await context.params;
+  const vin = params.vin.toUpperCase();
+  
+  if (!vin || vin.length !== 17) {
+    return NextResponse.json(
+      { error: "Invalid VIN format. VIN must be exactly 17 characters" },
+      { status: 400 }
+    );
+  }
+  
+  try {
+    // Get car to find its disk path
+    const car = await getCarByRegionAndVin(session.region, vin);
+    
+    if (!car) {
+      return NextResponse.json(
+        { error: "Car not found in your region" },
+        { status: 404 }
+      );
+    }
+    
+    // Check region permission
+    const regionCheck = requireRegionAccess(session, car.region);
+    if ('error' in regionCheck) {
+      return regionCheck.error;
+    }
+    
+    // Delete folder on Yandex Disk
+    const deleteResult = await deleteFolder(car.disk_root_path);
+    if (!deleteResult.success) {
+      console.error(`Failed to delete folder on Yandex Disk: ${deleteResult.error}`);
+      // Continue anyway - mark as deleted in DB even if disk deletion fails
+    }
+    
+    // Mark as deleted in database (soft delete with deleted_at)
+    await deleteCarByVin(car.region, vin);
+    
+    return NextResponse.json({
+      success: true,
+      message: "Car deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting car:", error);
+    return NextResponse.json(
+      { error: "Failed to delete car" },
       { status: 500 }
     );
   }

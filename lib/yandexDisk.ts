@@ -381,3 +381,79 @@ export async function getDownloadLink(path: string): Promise<{ success: boolean;
     };
   }
 }
+
+/**
+ * Delete a file or folder (permanently)
+ * @param path Path to delete
+ */
+export async function deleteFolder(path: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}&permanently=true`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
+        },
+      }
+    );
+    
+    // 204 = deleted successfully
+    // 202 = deletion in progress (async)
+    // 404 = not found (acceptable, already deleted)
+    if (response.status === 204 || response.status === 202 || response.status === 404) {
+      return { success: true };
+    }
+    
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      error: `Failed to delete: ${response.status} ${JSON.stringify(errorData)}`
+    };
+  } catch (error) {
+    console.error("Error deleting path:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
+}
+
+/**
+ * Download file content from Yandex Disk
+ * @param path Path to file on Yandex Disk
+ * @returns File content as Buffer
+ */
+export async function downloadFile(path: string): Promise<{ success: boolean; data?: Buffer; error?: string }> {
+  try {
+    // First, get download link
+    const linkResult = await getDownloadLink(path);
+    if (!linkResult.success || !linkResult.url) {
+      return {
+        success: false,
+        error: linkResult.error || "Failed to get download link"
+      };
+    }
+    
+    // Download file content
+    const response = await fetch(linkResult.url);
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Failed to download file: ${response.status}`
+      };
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    return {
+      success: true,
+      data: Buffer.from(arrayBuffer)
+    };
+  } catch (error) {
+    console.error("Error downloading file:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
+}
