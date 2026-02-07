@@ -64,6 +64,21 @@ export async function requireRole(
 }
 
 /**
+ * Require admin role for an API endpoint
+ * This is a convenience function that requires 'admin' role
+ */
+export async function requireAdmin(): Promise<{ session: SessionPayload } | { error: NextResponse }> {
+  return requireRole('admin');
+}
+
+/**
+ * Check if session is an admin
+ */
+export function isAdmin(session: SessionPayload): boolean {
+  return session.role === 'admin';
+}
+
+/**
  * Check if a session has access to a specific region
  * Admin (region=ALL) has access to all regions
  * Regular users can only access their own region

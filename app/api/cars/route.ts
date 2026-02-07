@@ -42,7 +42,7 @@ export async function GET() {
 
 /**
  * POST /api/cars
- * Create a new car with all slots
+ * Create a new car with all slots (ADMIN ONLY)
  */
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth();
@@ -52,6 +52,14 @@ export async function POST(request: NextRequest) {
   }
   
   const { session } = authResult;
+  
+  // RBAC: Only admins can create cars
+  if (session.role !== 'admin') {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can create cars" },
+      { status: 403 }
+    );
+  }
   
   try {
     const body = await request.json();

@@ -44,11 +44,24 @@ export async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS car_links (
         id SERIAL PRIMARY KEY,
         car_id INTEGER REFERENCES cars(id) ON DELETE CASCADE,
-        title VARCHAR(255) NOT NULL,
+        label VARCHAR(255) NOT NULL,
         url TEXT NOT NULL,
         created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `;
+
+    // Rename title to label if needed (migration)
+    await sql`
+      DO $$ 
+      BEGIN 
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='car_links' AND column_name='title'
+        ) THEN
+          ALTER TABLE car_links RENAME COLUMN title TO label;
+        END IF;
+      END $$;
     `;
 
     // Create car_slots table
@@ -59,6 +72,7 @@ export async function initializeDatabase() {
         slot_type VARCHAR(50) NOT NULL,
         slot_index INTEGER NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'empty',
+        locked BOOLEAN DEFAULT FALSE,
         locked_at TIMESTAMP,
         locked_by INTEGER REFERENCES users(id),
         lock_meta_json TEXT,
@@ -72,6 +86,19 @@ export async function initializeDatabase() {
         last_sync_at TIMESTAMP,
         UNIQUE(car_id, slot_type, slot_index)
       )
+    `;
+
+    // Add locked column if it doesn't exist (migration)
+    await sql`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='car_slots' AND column_name='locked'
+        ) THEN
+          ALTER TABLE car_slots ADD COLUMN locked BOOLEAN DEFAULT FALSE;
+        END IF;
+      END $$;
     `;
 
     console.log('Database schema initialized successfully');
