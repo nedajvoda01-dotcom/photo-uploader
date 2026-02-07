@@ -120,26 +120,39 @@ curl http://localhost:3000/api/cars
 - Cars list updates on region change
 - Query param `?region=X` is passed to API
 
-### 5. Create Car (Admin) ✅
+### 5. Create Car (User or Admin) ✅
 
-**Test:** Admin can create a car in selected region.
+**Test:** Both users and admins can create cars.
 
-1. Login as admin
-2. Select region "R1"
-3. Click "+ New Car"
-4. Enter:
+**User Creates Car:**
+1. Login as user (r1@photouploader.ru)
+2. Click "+ New Car" button
+3. Enter:
    - Make: `Toyota`
    - Model: `Camry`
    - VIN: `1HGBH41JXMN109186`
-5. Click "Create Car"
+4. Click "Create Car"
 
 **Expected:**
-- Creates car in R1
+- Creates car in user's region (R1)
+- User cannot specify different region
 - Creates folder on Yandex Disk: `/Фото/Фото/R1/Toyota Camry 1HGBH41JXMN109186/`
 - Creates 14 slot folders (1 dealer + 8 buyout + 5 dummies)
 - Creates `_CAR.json` metadata file
 - Redirects to car details page
-- Shows 14 empty slots
+
+**Admin Creates Car:**
+1. Login as admin
+2. Select region "R2" from dropdown
+3. Click "+ New Car"
+4. Enter car details with different VIN
+5. Click "Create Car"
+
+**Expected:**
+- Creates car in selected region (R2)
+- Admin can select different region
+- Creates folder in R2 path
+- Same structure as user creation
 
 ### 6. Upload Photos (User) ✅
 
@@ -190,7 +203,30 @@ curl http://localhost:3000/api/cars
 - Button changes to "Mark as Unused"
 - Regular users don't see this button
 
-### 9. Links Management (Admin Only) ✅
+### 9. Archive Car (Admin Only) ✅
+
+**Test:** Admin can archive (delete) car - moves to /Фото/ALL/.
+
+1. Login as admin
+2. Open a car
+3. Click "Delete Car" button (if available in UI)
+4. Confirm deletion
+
+**Expected:**
+- Car marked as deleted in database (sets `deleted_at`)
+- Folder **moved** to `/Фото/ALL/{region}_{make}_{model}_{vin}/`
+- Example: `/Фото/ALL/R1_Toyota_Camry_1HGBH41JXMN109186/`
+- CASCADE deletes slots and links in DB
+- Car disappears from list
+- Archived folder preserves all structure and files
+- Can be manually restored by moving folder back
+
+**Verify on Yandex Disk:**
+- Original location: Empty (folder moved)
+- Archive location: `/Фото/ALL/R1_Toyota_Camry_1HGBH41JXMN109186/`
+- Archive contains: All slot folders, photos, and `_CAR.json`
+
+### 10. Links Management (Admin Only) ✅
 
 **Test:** Admin can add/delete external links.
 
@@ -207,21 +243,6 @@ curl http://localhost:3000/api/cars
 - Clickable and opens in new tab
 - Can delete with × button
 - Regular users don't see links section
-
-### 10. Delete Car (Admin Only) ✅
-
-**Test:** Admin can delete car.
-
-1. Login as admin
-2. Open a car
-3. Click "Delete Car" (if button exists)
-4. Confirm deletion
-
-**Expected:**
-- Soft deletes car in database (sets `deleted_at`)
-- Removes folder from Yandex Disk
-- CASCADE deletes slots and links
-- Car disappears from list
 
 ### 11. On-Read Sync ✅
 
