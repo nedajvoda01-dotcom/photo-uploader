@@ -69,6 +69,26 @@ export async function getCarById(id: number): Promise<Car | null> {
 }
 
 /**
+ * Get car by region and VIN
+ * VIN is the canonical identifier within a region
+ */
+export async function getCarByRegionAndVin(region: string, vin: string): Promise<Car | null> {
+  try {
+    const result = await sql<Car>`
+      SELECT id, region, make, model, vin, disk_root_path, created_by, created_at
+      FROM cars
+      WHERE region = ${region} AND vin = ${vin}
+      LIMIT 1
+    `;
+    
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('Error getting car by region and vin:', error);
+    throw error;
+  }
+}
+
+/**
  * Check if car exists by region and VIN
  */
 export async function carExistsByRegionAndVin(region: string, vin: string): Promise<boolean> {
