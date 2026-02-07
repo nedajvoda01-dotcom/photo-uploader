@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { listCarLinks, createCarLink } from "@/lib/models/carLinks";
 
@@ -9,7 +9,7 @@ interface RouteContext {
 
 /**
  * GET /api/cars/:id/links
- * List all links for a car
+ * List all links for a car (ADMIN ONLY)
  */
 export async function GET(
   request: NextRequest,
@@ -22,6 +22,15 @@ export async function GET(
   }
   
   const { session } = authResult;
+  
+  // RBAC: Only admins can view links
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can view links" },
+      { status: 403 }
+    );
+  }
+  
   const params = await context.params;
   const carId = parseInt(params.id, 10);
   
@@ -65,7 +74,7 @@ export async function GET(
 
 /**
  * POST /api/cars/:id/links
- * Create a new link for a car
+ * Create a new link for a car (ADMIN ONLY)
  */
 export async function POST(
   request: NextRequest,
@@ -78,6 +87,15 @@ export async function POST(
   }
   
   const { session } = authResult;
+  
+  // RBAC: Only admins can create links
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Forbidden - only admins can create links" },
+      { status: 403 }
+    );
+  }
+  
   const params = await context.params;
   const carId = parseInt(params.id, 10);
   
