@@ -279,6 +279,118 @@ async function upsertSlotFromDisk(
 }
 
 /**
+ * Sync a single car from Yandex Disk
+ * Updates the car and its slots in the database based on disk state
+ * 
+ * @param region - Region code
+ * @param vin - VIN of the car to sync
+ */
+export async function syncCar(region: string, vin: string): Promise<{
+  success: boolean;
+  slotsUpdated: number;
+  error?: string;
+}> {
+  try {
+    await ensureDbSchema();
+    
+    console.log(`[Sync] Starting sync for car: ${region}/${vin}`);
+    
+    // Find the car in database
+    const carResult = await sql`
+      SELECT id, disk_root_path FROM cars
+      WHERE region = ${region} AND UPPER(vin) = UPPER(${vin})
+      LIMIT 1
+    `;
+    
+    if (carResult.rows.length === 0) {
+      console.log(`[Sync] Car not found in DB: ${region}/${vin}`);
+      return { success: false, slotsUpdated: 0, error: 'Car not found in database' };
+    }
+    
+    const car = carResult.rows[0];
+    const carRootPath = car.disk_root_path;
+    
+    // Verify car folder exists on disk
+    const carFolderExists = await exists(carRootPath);
+    if (!carFolderExists) {
+      console.log(`[Sync] Car folder not found on disk: ${carRootPath}, marking as deleted`);
+      await sql`
+        UPDATE cars SET deleted_at = CURRENT_TIMESTAMP
+        WHERE id = ${car.id} AND deleted_at IS NULL
+      `;
+      return { success: true, slotsUpdated: 0 };
+    }
+    
+    // List slot type folders
+    const slotTypesResult = await listFolder(carRootPath);
+    if (!slotTypesResult.success || !slotTypesResult.items) {
+      return { success: true, slotsUpdated: 0 };
+    }
+    
+    let slotsUpdated = 0;
+    
+    // Process each slot type folder
+    for (const slotTypeFolder of slotTypesResult.items) {
+      if (slotTypeFolder.type !== 'dir') {
+        continue;
+      }
+      
+      const slotTypeInfo = parseSlotTypeFolderName(slotTypeFolder.name);
+      if (!slotTypeInfo) {
+        continue;
+      }
+      
+      const { slotType } = slotTypeInfo;
+      
+      // List slot subfolders
+      const slotsResult = await listFolder(slotTypeFolder.path);
+      if (!slotsResult.success || !slotsResult.items) {
+        continue;
+      }
+      
+      for (const slotFolder of slotsResult.items) {
+        if (slotFolder.type !== 'dir') {
+          continue;
+        }
+        
+        const slotIndex = parseSlotSubfolderName(slotFolder.name, slotType);
+        if (!slotIndex) {
+          continue;
+        }
+        
+        // Check if slot is locked
+        const locked = await isSlotLocked(slotFolder.path);
+        
+        // Get file stats
+        const stats = await getSlotStats(slotFolder.path);
+        
+        // Upsert slot in database
+        await upsertSlotFromDisk(
+          car.id,
+          slotType,
+          slotIndex,
+          slotFolder.path,
+          locked,
+          stats.fileCount,
+          Math.round(stats.totalSizeMB * 100) / 100
+        );
+        slotsUpdated++;
+      }
+    }
+    
+    console.log(`[Sync] Completed sync for car ${region}/${vin}: ${slotsUpdated} slots updated`);
+    return { success: true, slotsUpdated };
+  } catch (error) {
+    console.error(`[Sync] Error syncing car ${region}/${vin}:`, error);
+    return {
+      success: false,
+      slotsUpdated: 0,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Sync a single region from Yandex Disk
  * Scans the disk structure and updates the database cache
  * Marks cars as deleted if they're in DB but not on disk

@@ -7,6 +7,73 @@ import { getSessionCookieName, verifySession, SessionPayload } from "./auth";
 import { hasRegionAccess } from "./config";
 
 /**
+ * Standard error codes for API responses
+ */
+export const ErrorCodes = {
+  // Authentication & Authorization
+  UNAUTHORIZED: 'unauthorized',
+  FORBIDDEN: 'forbidden',
+  REGION_ACCESS_DENIED: 'region_access_denied',
+  REGION_ALL_FORBIDDEN: 'REGION_ALL_FORBIDDEN',
+  
+  // Validation
+  VALIDATION_ERROR: 'validation_error',
+  INVALID_VIN: 'invalid_vin',
+  INVALID_INPUT: 'invalid_input',
+  REGION_REQUIRED: 'region_required',
+  
+  // Business Logic
+  CAR_NOT_FOUND: 'car_not_found',
+  SLOT_NOT_FOUND: 'slot_not_found',
+  ALREADY_EXISTS: 'already_exists',
+  SLOT_LOCKED: 'slot_locked',
+  
+  // System Errors
+  SERVER_ERROR: 'server_error',
+  DISK_ERROR: 'disk_error',
+  DB_ERROR: 'db_error',
+} as const;
+
+/**
+ * Create a standardized error response
+ * Format: { ok: false, code: "...", message: "...", status: xxx }
+ */
+export function errorResponse(
+  code: string,
+  message: string,
+  status: number = 500,
+  additionalData?: Record<string, any>
+): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      code,
+      message,
+      status,
+      ...additionalData,
+    },
+    { status }
+  );
+}
+
+/**
+ * Create a standardized success response
+ * Format: { ok: true, ...data }
+ */
+export function successResponse(
+  data: Record<string, any>,
+  status: number = 200
+): NextResponse {
+  return NextResponse.json(
+    {
+      ok: true,
+      ...data,
+    },
+    { status }
+  );
+}
+
+/**
  * Get the current user session from the request
  */
 export async function getSession(): Promise<SessionPayload | null> {
@@ -29,9 +96,10 @@ export async function requireAuth(): Promise<{ session: SessionPayload } | { err
   
   if (!session) {
     return {
-      error: NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+      error: errorResponse(
+        ErrorCodes.UNAUTHORIZED,
+        "Необходима авторизация",
+        401
       )
     };
   }
@@ -53,9 +121,10 @@ export async function requireRole(
   
   if (authResult.session.role !== role) {
     return {
-      error: NextResponse.json(
-        { error: "Forbidden - insufficient permissions" },
-        { status: 403 }
+      error: errorResponse(
+        ErrorCodes.FORBIDDEN,
+        "Недостаточно прав доступа",
+        403
       )
     };
   }
@@ -127,9 +196,28 @@ export function requireRegionAccess(
 ): { success: true } | { error: NextResponse } {
   if (!checkRegionAccess(session, targetRegion)) {
     return {
-      error: NextResponse.json(
-        { error: "Forbidden - region access denied" },
-        { status: 403 }
+      error: errorResponse(
+        ErrorCodes.REGION_ACCESS_DENIED,
+        "Нет доступа к этому региону",
+        403
+      )
+    };
+  }
+  
+  return { success: true };
+}
+
+/**
+ * Validate that a region is not ALL (for create/upload/lock operations)
+ * Returns error if region is ALL
+ */
+export function validateNotAllRegion(region: string): { success: true } | { error: NextResponse } {
+  if (region === 'ALL') {
+    return {
+      error: errorResponse(
+        ErrorCodes.REGION_ALL_FORBIDDEN,
+        "Нельзя создавать, загружать или блокировать в регионе ALL. Регион ALL предназначен только для архивирования. Выберите конкретный регион.",
+        400
       )
     };
   }

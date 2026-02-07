@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
 import { getCarByRegionAndVin, getCarByVin, deleteCarByVin } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
-import { syncRegion } from "@/lib/sync";
+import { syncRegion, syncCar } from "@/lib/sync";
 import { moveFolder, listFolder, exists } from "@/lib/yandexDisk";
 import { ensureDbSchema } from "@/lib/db";
 import { getBasePath, getAllSlotPaths, getLockMarkerPath } from "@/lib/diskPaths";
@@ -38,9 +38,10 @@ export async function GET(
   const vin = params.vin.toUpperCase(); // VINs are case-insensitive, normalize to uppercase
   
   if (!vin || vin.length !== 17) {
-    return NextResponse.json(
-      { error: "Invalid VIN format. VIN must be exactly 17 characters" },
-      { status: 400 }
+    return errorResponse(
+      ErrorCodes.INVALID_VIN,
+      "Неверный формат VIN. VIN должен содержать ровно 17 символов",
+      400
     );
   }
   
@@ -52,9 +53,16 @@ export async function GET(
     // This allows admin with region=ALL to find the car before checking permissions
     let car = await getCarByVin(vin);
     
-    // If car not found in DB, try to sync and construct from disk
+    // If car found, sync it from disk
+    if (car && !car.deleted_at) {
+      console.log(`[API] Syncing car ${car.region}/${vin} from disk`);
+      await syncCar(car.region, vin);
+      // Reload car after sync
+      car = await getCarByVin(vin);
+    }
+    
+    // If car not found in DB, try to sync region and look again
     if (!car) {
-      // Sync region from disk first (DB as cache, Disk as truth)
       console.log(`[API] Car ${vin} not in DB, syncing region ${session.region}`);
       await syncRegion(session.region);
       
@@ -100,9 +108,10 @@ export async function GET(
         
         // If still not found, return 404
         if (!car) {
-          return NextResponse.json(
-            { error: "Car not found" },
-            { status: 404 }
+          return errorResponse(
+            ErrorCodes.CAR_NOT_FOUND,
+            "Автомобиль не найден",
+            404
           );
         }
       }
@@ -164,17 +173,25 @@ export async function GET(
     // Get links
     const links = car.id > 0 ? await listCarLinks(car.id) : [];
     
-    return NextResponse.json({
-      success: true,
+    // Find the most recent last_sync_at from slots
+    const lastSyncAt = slots.reduce((latest, slot) => {
+      if (!slot.last_sync_at) return latest;
+      if (!latest) return slot.last_sync_at;
+      return slot.last_sync_at > latest ? slot.last_sync_at : latest;
+    }, null as Date | null);
+    
+    return successResponse({
       car,
       slots,
       links,
+      last_sync_at: lastSyncAt,
     });
   } catch (error) {
     console.error("Error getting car details by VIN:", error);
-    return NextResponse.json(
-      { error: "Failed to get car details" },
-      { status: 500 }
+    return errorResponse(
+      ErrorCodes.SERVER_ERROR,
+      error instanceof Error ? error.message : "Не удалось получить данные автомобиля",
+      500
     );
   }
 }
