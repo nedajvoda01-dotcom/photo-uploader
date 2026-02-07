@@ -90,7 +90,7 @@ if (!isBuildTime) {
     const envKey = `REGION_${region}_USERS`;
     const usersEnv = process.env[envKey];
     if (usersEnv) {
-      REGION_USERS[region] = usersEnv.split(',').map(email => email.trim()).filter(email => email.length > 0);
+      REGION_USERS[region] = usersEnv.split(',').map(email => email.trim().toLowerCase()).filter(email => email.length > 0);
     } else {
       REGION_USERS[region] = [];
     }
@@ -117,7 +117,8 @@ if (!isBuildTime) {
         if (!/^\d{5}$/.test(password)) {
           throw new Error(`Invalid password format for ${email}: must be exactly 5 digits`);
         }
-        USER_PASSWORD_MAP[email] = password;
+        // Normalize email to lowercase
+        USER_PASSWORD_MAP[email.toLowerCase()] = password;
       }
     }
   }
@@ -179,7 +180,7 @@ export function getBootstrapAdmins(): Array<{
 
   if (ADMIN_EMAIL && (ADMIN_PASSWORD || ADMIN_PASSWORD_HASH)) {
     admins.push({
-      email: ADMIN_EMAIL,
+      email: ADMIN_EMAIL.trim().toLowerCase(),
       password: ADMIN_PASSWORD || undefined,
       passwordHash: ADMIN_PASSWORD_HASH || undefined,
       region: ADMIN_REGION,
@@ -189,7 +190,7 @@ export function getBootstrapAdmins(): Array<{
 
   if (ADMIN_EMAIL_2 && (ADMIN_PASSWORD_2 || ADMIN_PASSWORD_HASH_2)) {
     admins.push({
-      email: ADMIN_EMAIL_2,
+      email: ADMIN_EMAIL_2.trim().toLowerCase(),
       password: ADMIN_PASSWORD_2 || undefined,
       passwordHash: ADMIN_PASSWORD_HASH_2 || undefined,
       region: ADMIN_REGION,

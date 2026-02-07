@@ -1,7 +1,7 @@
 /**
  * User model for database operations
  */
-import { sql } from '../db';
+import { sql, ensureDbSchema } from '../db';
 
 export interface User {
   id: number;
@@ -24,10 +24,13 @@ export interface CreateUserParams {
  */
 export async function getUserByEmail(email: string): Promise<User | null> {
   try {
+    await ensureDbSchema();
+    // Normalize email for database lookup
+    const normalizedEmail = email.trim().toLowerCase();
     const result = await sql<User>`
       SELECT id, email, password_hash, region, role, created_at
       FROM users
-      WHERE email = ${email}
+      WHERE LOWER(email) = ${normalizedEmail}
       LIMIT 1
     `;
     
@@ -43,6 +46,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
  */
 export async function getUserById(id: number): Promise<User | null> {
   try {
+    await ensureDbSchema();
     const result = await sql<User>`
       SELECT id, email, password_hash, region, role, created_at
       FROM users
@@ -62,7 +66,10 @@ export async function getUserById(id: number): Promise<User | null> {
  */
 export async function createUser(params: CreateUserParams): Promise<User> {
   try {
-    const { email, password_hash, region, role = 'user' } = params;
+    await ensureDbSchema();
+    const { password_hash, region, role = 'user' } = params;
+    // Normalize email when creating user
+    const email = params.email.trim().toLowerCase();
     
     const result = await sql<User>`
       INSERT INTO users (email, password_hash, region, role)
@@ -82,6 +89,7 @@ export async function createUser(params: CreateUserParams): Promise<User> {
  */
 export async function listUsers(): Promise<User[]> {
   try {
+    await ensureDbSchema();
     const result = await sql<User>`
       SELECT id, email, password_hash, region, role, created_at
       FROM users

@@ -1,7 +1,7 @@
 /**
  * Car links model for database operations
  */
-import { sql } from '../db';
+import { sql, ensureDbSchema } from '../db';
 
 export interface CarLink {
   id: number;
@@ -24,6 +24,7 @@ export interface CreateCarLinkParams {
  */
 export async function createCarLink(params: CreateCarLinkParams): Promise<CarLink> {
   try {
+    await ensureDbSchema();
     const { car_id, label, url, created_by } = params;
     
     const result = await sql<CarLink>`
@@ -44,6 +45,7 @@ export async function createCarLink(params: CreateCarLinkParams): Promise<CarLin
  */
 export async function getCarLinkById(id: number): Promise<CarLink | null> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarLink>`
       SELECT id, car_id, label, url, created_by, created_at
       FROM car_links
@@ -63,6 +65,7 @@ export async function getCarLinkById(id: number): Promise<CarLink | null> {
  */
 export async function listCarLinks(car_id: number): Promise<CarLink[]> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarLink>`
       SELECT id, car_id, label, url, created_by, created_at
       FROM car_links
@@ -82,6 +85,7 @@ export async function listCarLinks(car_id: number): Promise<CarLink[]> {
  */
 export async function deleteCarLink(id: number): Promise<void> {
   try {
+    await ensureDbSchema();
     await sql`
       DELETE FROM car_links WHERE id = ${id}
     `;

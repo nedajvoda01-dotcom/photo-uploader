@@ -1,7 +1,7 @@
 /**
  * Car slots model for database operations
  */
-import { sql } from '../db';
+import { sql, ensureDbSchema } from '../db';
 
 export interface CarSlot {
   id: number;
@@ -48,6 +48,7 @@ export interface LockMetadata {
  */
 export async function createCarSlot(params: CreateCarSlotParams): Promise<CarSlot> {
   try {
+    await ensureDbSchema();
     const { car_id, slot_type, slot_index, disk_slot_path } = params;
     
     const result = await sql<CarSlot>`
@@ -72,6 +73,7 @@ export async function getCarSlot(
   slot_index: number
 ): Promise<CarSlot | null> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarSlot>`
       SELECT id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
       FROM car_slots
@@ -91,6 +93,7 @@ export async function getCarSlot(
  */
 export async function listCarSlots(car_id: number): Promise<CarSlot[]> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarSlot>`
       SELECT id, car_id, slot_type, slot_index, status, locked_at, locked_by, lock_meta_json, disk_slot_path, public_url, is_used, marked_used_at, marked_used_by, file_count, total_size_mb, last_sync_at
       FROM car_slots
@@ -116,6 +119,7 @@ export async function lockCarSlot(
   lock_metadata: LockMetadata
 ): Promise<CarSlot> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarSlot>`
       UPDATE car_slots
       SET status = 'locked',
@@ -146,6 +150,7 @@ export async function unlockCarSlot(
   slot_index: number
 ): Promise<CarSlot> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarSlot>`
       UPDATE car_slots
       SET status = 'empty',
@@ -177,6 +182,7 @@ export async function setSlotPublicUrl(
   public_url: string
 ): Promise<CarSlot> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarSlot>`
       UPDATE car_slots
       SET public_url = ${public_url}
@@ -205,6 +211,7 @@ export async function markSlotAsUsed(
   marked_by: number
 ): Promise<CarSlot> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarSlot>`
       UPDATE car_slots
       SET is_used = TRUE,
@@ -234,6 +241,7 @@ export async function markSlotAsUnused(
   slot_index: number
 ): Promise<CarSlot> {
   try {
+    await ensureDbSchema();
     const result = await sql<CarSlot>`
       UPDATE car_slots
       SET is_used = FALSE,

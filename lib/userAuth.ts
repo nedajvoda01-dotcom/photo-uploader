@@ -35,9 +35,12 @@ export async function checkBootstrapAdmin(
   password: string
 ): Promise<BootstrapAdminCheckResult> {
   const bootstrapAdmins = getBootstrapAdmins();
+  
+  // Normalize email for comparison
+  const normalizedEmail = email.trim().toLowerCase();
 
   for (const admin of bootstrapAdmins) {
-    if (admin.email !== email) {
+    if (admin.email !== normalizedEmail) {
       continue;
     }
 
@@ -121,8 +124,11 @@ export async function checkRegionUser(
 ): Promise<BootstrapAdminCheckResult> {
   const regionUsers = getAllRegionUsers();
   
+  // Normalize email for comparison
+  const normalizedEmail = email.trim().toLowerCase();
+  
   for (const user of regionUsers) {
-    if (user.email !== email) {
+    if (user.email !== normalizedEmail) {
       continue;
     }
     
@@ -175,12 +181,15 @@ export async function checkRegionUser(
  * Get user by email from database or fallback to file-based auth
  */
 export async function getUserByEmail(email: string): Promise<User | null> {
+  // Normalize email for lookup
+  const normalizedEmail = email.trim().toLowerCase();
+  
   // Try database first
   const hasDB = await checkDatabaseConnection();
   
   if (hasDB) {
     try {
-      const dbUser = await getUserByEmailDB(email);
+      const dbUser = await getUserByEmailDB(normalizedEmail);
       if (dbUser) {
         return {
           id: dbUser.id,
@@ -196,7 +205,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   }
   
   // Fallback to file/env based auth
-  const fileUser = getUserByEmailFile(email);
+  const fileUser = getUserByEmailFile(normalizedEmail);
   if (fileUser) {
     // For file-based auth, we'll use default values for region and role
     return {
