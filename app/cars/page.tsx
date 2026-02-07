@@ -26,9 +26,6 @@ interface UserInfo {
   role: string;
 }
 
-// Available regions from ENV
-const AVAILABLE_REGIONS = ["R1", "R2", "R3", "K1", "V", "S1", "S2"];
-
 export default function CarsPage() {
   const router = useRouter();
   const [cars, setCars] = useState<Car[]>([]);
@@ -36,8 +33,10 @@ export default function CarsPage() {
   const [error, setError] = useState("");
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [activeRegion, setActiveRegion] = useState<string>("");
+  const [availableRegions, setAvailableRegions] = useState<string[]>([]);
 
   useEffect(() => {
+    fetchAvailableRegions();
     fetchUserInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -49,6 +48,20 @@ export default function CarsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRegion]);
 
+  const fetchAvailableRegions = async () => {
+    try {
+      const response = await fetch("/api/config/regions");
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableRegions(data.regions || []);
+      }
+    } catch (err) {
+      console.error("Error fetching regions:", err);
+      // Fallback to hardcoded list if API fails
+      setAvailableRegions(["R1", "R2", "R3", "K1", "V", "S1", "S2"]);
+    }
+  };
+
   const fetchUserInfo = async () => {
     try {
       const response = await fetch("/api/me");
@@ -58,7 +71,12 @@ export default function CarsPage() {
         // Set initial active region
         if (data.role === "admin") {
           // Admin: default to first region if region is ALL
-          setActiveRegion(data.region === "ALL" ? AVAILABLE_REGIONS[0] : data.region);
+          // Wait for availableRegions to be loaded
+          if (data.region === "ALL" && availableRegions.length > 0) {
+            setActiveRegion(availableRegions[0]);
+          } else if (data.region !== "ALL") {
+            setActiveRegion(data.region);
+          }
         } else {
           // User: use their assigned region
           setActiveRegion(data.region);
@@ -70,6 +88,14 @@ export default function CarsPage() {
       console.error("Error fetching user info:", err);
     }
   };
+
+  // Set default region for admin once availableRegions is loaded
+  useEffect(() => {
+    if (userInfo?.role === "admin" && userInfo.region === "ALL" && availableRegions.length > 0 && !activeRegion) {
+      setActiveRegion(availableRegions[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableRegions, userInfo]);
 
   const fetchCars = async () => {
     if (!activeRegion) return;
@@ -151,7 +177,7 @@ export default function CarsPage() {
                   onChange={(e) => setActiveRegion(e.target.value)}
                   className={styles.regionSelect}
                 >
-                  {AVAILABLE_REGIONS.map((region) => (
+                  {availableRegions.map((region) => (
                     <option key={region} value={region}>
                       {region}
                     </option>
