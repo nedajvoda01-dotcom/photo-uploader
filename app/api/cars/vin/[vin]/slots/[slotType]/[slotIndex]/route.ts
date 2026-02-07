@@ -261,7 +261,7 @@ export async function PATCH(
     
     // Mark slot as used or unused
     const updatedSlot = isUsed
-      ? await markSlotAsUsed(car.id, slotType, slotIndex, session.userId)
+      ? await markSlotAsUsed(car.id, slotType, slotIndex, session.email || session.userId?.toString() || 'unknown')
       : await markSlotAsUnused(car.id, slotType, slotIndex);
     
     return NextResponse.json({

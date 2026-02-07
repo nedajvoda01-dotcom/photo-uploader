@@ -136,7 +136,7 @@ export async function POST(
       car_id: carId,
       label,
       url,
-      created_by: session.userId,
+      created_by: session.email || session.userId?.toString() || null,
     });
     
     return NextResponse.json({

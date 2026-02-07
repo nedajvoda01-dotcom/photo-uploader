@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
       model,
       vin,
       disk_root_path: rootPath,
-      created_by: session.userId,
+      created_by: session.email || session.userId?.toString() || null,
     });
     
     // Get all slot paths (14 total)

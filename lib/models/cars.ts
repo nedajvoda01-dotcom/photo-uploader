@@ -10,7 +10,7 @@ export interface Car {
   model: string;
   vin: string;
   disk_root_path: string;
-  created_by: number;
+  created_by: string | null;
   created_at: Date;
   deleted_at: Date | null;
 }
@@ -21,7 +21,7 @@ export interface CreateCarParams {
   model: string;
   vin: string;
   disk_root_path: string;
-  created_by: number;
+  created_by?: string | null;
 }
 
 export interface CarWithProgress extends Car {

@@ -164,7 +164,7 @@ export async function POST(
       carId: car.id,
       slotType: slotType,
       slotIndex: slotIndex,
-      uploadedBy: session.userId,
+      uploadedBy: session.email || session.userId?.toString() || 'unknown',
       uploadedAt: new Date().toISOString(),
       fileCount: uploadedFiles.length,
       files: uploadedFiles,
@@ -185,7 +185,7 @@ export async function POST(
       car.id,
       slotType,
       slotIndex,
-      session.userId,
+      session.email || session.userId?.toString() || 'unknown',
       lockMetadata
     );
     
