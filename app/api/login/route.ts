@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { checkBootstrapAdmin, getUserByEmail } from "@/lib/userAuth";
+import { checkBootstrapAdmin } from "@/lib/userAuth";
+import { getUserByEmail } from "@/lib/users";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
-import { AUTH_DEBUG } from "@/lib/config";
+import { AUTH_DEBUG, ADMIN_REGION } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -128,8 +129,8 @@ export async function POST(request: NextRequest) {
       token = await signSession({ 
         userId: 0, // Legacy file-based user
         email: user.email,
-        region: user.region || "MSK",
-        role: user.role || 'admin'
+        region: ADMIN_REGION, // Use ADMIN_REGION instead of hardcoded
+        role: 'admin' // File-based users are admins by default
       });
     } catch (error) {
       if (AUTH_DEBUG && debugInfo) {

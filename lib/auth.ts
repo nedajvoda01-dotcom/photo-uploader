@@ -4,7 +4,18 @@ import { AUTH_SECRET } from "./config";
 const COOKIE_NAME = "session";
 const TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 
-const secret = new TextEncoder().encode(AUTH_SECRET);
+// Lazy initialization of secret to avoid build-time errors
+let secret: Uint8Array | null = null;
+
+function getSecret(): Uint8Array {
+  if (!secret) {
+    if (!AUTH_SECRET) {
+      throw new Error("AUTH_SECRET environment variable is required");
+    }
+    secret = new TextEncoder().encode(AUTH_SECRET);
+  }
+  return secret;
+}
 
 export interface SessionPayload {
   userId: number;
@@ -24,7 +35,7 @@ export async function signSession(payload: SessionPayload): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(secret);
+    .sign(getSecret());
 
   return token;
 }
@@ -38,7 +49,7 @@ export async function verifySession(
   token: string
 ): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload as SessionPayload;
   } catch (error) {
     console.error("Session verification failed:", error);

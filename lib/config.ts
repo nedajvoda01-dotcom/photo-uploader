@@ -3,16 +3,21 @@
  * This module validates and exports all environment configuration
  */
 
-// Critical ENV variables (fail-fast if missing)
+// Critical ENV variables (fail-fast if missing at runtime, not at build time)
 const AUTH_SECRET = process.env.AUTH_SECRET;
 const YANDEX_DISK_TOKEN = process.env.YANDEX_DISK_TOKEN;
 
-if (!AUTH_SECRET) {
-  throw new Error("AUTH_SECRET environment variable is required");
-}
+// Only fail-fast in non-build environments
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
 
-if (!YANDEX_DISK_TOKEN) {
-  throw new Error("YANDEX_DISK_TOKEN environment variable is required");
+if (!isBuildTime) {
+  if (!AUTH_SECRET) {
+    throw new Error("AUTH_SECRET environment variable is required");
+  }
+
+  if (!YANDEX_DISK_TOKEN) {
+    throw new Error("YANDEX_DISK_TOKEN environment variable is required");
+  }
 }
 
 // Database configuration
@@ -27,12 +32,12 @@ export const ZIP_MAX_TOTAL_MB = parseInt(process.env.ZIP_MAX_TOTAL_MB || "1500",
 
 // Regions configuration (required)
 const REGIONS_ENV = process.env.REGIONS;
-if (!REGIONS_ENV) {
+if (!isBuildTime && !REGIONS_ENV) {
   throw new Error("REGIONS environment variable is required (comma-separated list, e.g., 'R1,R2,R3,K1,V,S1,S2')");
 }
-export const REGIONS = REGIONS_ENV.split(",").map(r => r.trim()).filter(r => r.length > 0);
+export const REGIONS = REGIONS_ENV ? REGIONS_ENV.split(",").map(r => r.trim()).filter(r => r.length > 0) : [];
 
-if (REGIONS.length === 0) {
+if (!isBuildTime && REGIONS.length === 0) {
   throw new Error("REGIONS must contain at least one region");
 }
 
@@ -54,7 +59,7 @@ export const ADMIN_PASSWORD_HASH_2 = process.env.ADMIN_PASSWORD_HASH_2 || null;
 const hasAdmin1 = ADMIN_EMAIL && (ADMIN_PASSWORD || ADMIN_PASSWORD_HASH);
 const hasAdmin2 = ADMIN_EMAIL_2 && (ADMIN_PASSWORD_2 || ADMIN_PASSWORD_HASH_2);
 
-if (!hasAdmin1 && !hasAdmin2 && !POSTGRES_URL) {
+if (!isBuildTime && !hasAdmin1 && !hasAdmin2 && !POSTGRES_URL) {
   console.warn(
     "WARNING: No bootstrap admin configured and no database connection. " +
     "You must configure at least one of: " +
@@ -72,8 +77,11 @@ export const AUTH_DEBUG = process.env.AUTH_DEBUG === "1";
 export const LEGACY_UPLOAD_DIR = process.env.UPLOAD_DIR || "/mvp_uploads";
 export const UPLOAD_MAX_MB = parseInt(process.env.UPLOAD_MAX_MB || "20", 10);
 
-// Export AUTH_SECRET as named export (not default)
+// Export AUTH_SECRET and YANDEX_DISK_TOKEN as named exports
+// Provide fallback empty strings for build time
 export { AUTH_SECRET, YANDEX_DISK_TOKEN };
+export const _AUTH_SECRET = AUTH_SECRET || '';
+export const _YANDEX_DISK_TOKEN = YANDEX_DISK_TOKEN || '';
 
 /**
  * Get all bootstrap admin credentials
