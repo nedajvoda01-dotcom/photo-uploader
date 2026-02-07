@@ -13,9 +13,26 @@ function NewCarForm() {
   const [vin, setVin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [userInfo, setUserInfo] = useState<{role: string; region: string; email: string} | null>(null);
   
   // Get region from query parameter (passed from cars page)
   const region = searchParams.get("region") || "";
+
+  useEffect(() => {
+    fetchUserInfo();
+  }, []);
+
+  const fetchUserInfo = async () => {
+    try {
+      const response = await fetch("/api/me");
+      if (response.ok) {
+        const data = await response.json();
+        setUserInfo(data);
+      }
+    } catch (err) {
+      console.error("Error fetching user info:", err);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -75,9 +92,39 @@ function NewCarForm() {
             <Link href="/cars" className={styles.backButton}>
               ← Back to Cars
             </Link>
+            {userInfo && (
+              <div className={styles.userBadge}>
+                <span className={`${styles.roleBadge} ${userInfo.role === 'admin' ? styles.roleAdmin : styles.rolePhotographer}`}>
+                  {userInfo.role === 'admin' ? '👑 Admin' : '📷 Photographer'}
+                </span>
+              </div>
+            )}
           </div>
 
           <h1 className={styles.title}>Add New Car</h1>
+          
+          {/* Show target region prominently */}
+          {region ? (
+            <div className={styles.regionDisplay}>
+              <div className={styles.regionLabel}>Creating in region:</div>
+              <div className={styles.regionValue}>{region}</div>
+              {userInfo?.role === 'admin' && (
+                <div className={styles.regionNote}>
+                  ✓ Admin creating car in selected active region
+                </div>
+              )}
+              {userInfo?.role === 'user' && (
+                <div className={styles.regionNote}>
+                  ✓ Creating car in your assigned region
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={styles.regionWarning}>
+              ⚠️ No region selected. Please go back and select a region first.
+            </div>
+          )}
+
           <p className={styles.subtitle}>
             Enter the car details to start uploading photos
           </p>
@@ -145,7 +192,7 @@ function NewCarForm() {
               <button
                 type="submit"
                 className={styles.submitButton}
-                disabled={loading || vin.length !== 17}
+                disabled={loading || vin.length !== 17 || !region}
               >
                 {loading ? "Creating..." : "Create Car"}
               </button>
