@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarByRegionAndVin, deleteCarByVin } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
@@ -86,7 +86,10 @@ export async function GET(
 
 /**
  * DELETE /api/cars/vin/:vin
- * Archive a car (ADMIN ONLY)
+ * Archive a car
+ * Available to both users and admins
+ * - Users can archive cars in their own region
+ * - Admins can archive cars in any region they have access to
  * Marks as deleted in DB and moves folder to /Фото/ALL/ archive
  */
 export async function DELETE(
@@ -100,15 +103,6 @@ export async function DELETE(
   }
   
   const { session } = authResult;
-  
-  // RBAC: Only admins can delete cars
-  if (!isAdmin(session)) {
-    return NextResponse.json(
-      { error: "Forbidden - only admins can delete cars" },
-      { status: 403 }
-    );
-  }
-  
   const params = await context.params;
   const vin = params.vin.toUpperCase();
   
@@ -130,7 +124,7 @@ export async function DELETE(
       );
     }
     
-    // Check region permission
+    // Check region permission - both users and admins can archive in their allowed regions
     const regionCheck = requireRegionAccess(session, car.region);
     if ('error' in regionCheck) {
       return regionCheck.error;

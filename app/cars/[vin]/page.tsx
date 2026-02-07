@@ -300,6 +300,8 @@ export default function CarDetailPage() {
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     if (vin) {
@@ -315,6 +317,7 @@ export default function CarDetailPage() {
       if (response.ok) {
         const data = await response.json();
         setUserRole(data.role || "");
+        setUserEmail(data.email || "");
       }
     } catch (err) {
       console.error("Error fetching user role:", err);
@@ -374,11 +377,43 @@ export default function CarDetailPage() {
   };
 
   const handleDeleteLink = async (linkId: number) => {
+    if (!confirm("Delete this link?")) return;
+    
     try {
       await fetch(`/api/links/${linkId}`, { method: "DELETE" });
       fetchCarData();
     } catch (err) {
       console.error("Error deleting link:", err);
+    }
+  };
+
+  const handleArchiveCar = async () => {
+    if (!confirm(
+      `Archive "${car?.make} ${car?.model}" (VIN: ${car?.vin})?\n\n` +
+      `This will move the car to the archive (/Фото/ALL/) and mark it as deleted. ` +
+      `This action is reversible by an admin.`
+    )) {
+      return;
+    }
+
+    setArchiving(true);
+    try {
+      const response = await fetch(`/api/cars/vin/${vin}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        alert("Car archived successfully");
+        router.push("/cars");
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to archive car");
+      }
+    } catch (err) {
+      console.error("Error archiving car:", err);
+      alert("Failed to archive car");
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -407,20 +442,66 @@ export default function CarDetailPage() {
   const buyoutSlots = slots.filter((s) => s.slot_type === "buyout");
   const dummiesSlots = slots.filter((s) => s.slot_type === "dummies");
 
+  const isAdmin = userRole === "admin";
+  const lockedCount = slots.filter(s => s.status === "locked").length;
+  const totalSlots = 14;
+  const progress = Math.round((lockedCount / totalSlots) * 100);
+
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        <div className={styles.headerBar}>
-          <Link href="/cars" className={styles.backLink}>
-            ← Back to Cars
-          </Link>
+        {/* Top Bar */}
+        <div className={styles.topBar}>
+          <div className={styles.topBarLeft}>
+            <Link href="/cars" className={styles.backLink}>
+              ← Back to Cars
+            </Link>
+          </div>
+          <div className={styles.topBarRight}>
+            <span className={styles.userEmail}>{userEmail}</span>
+            <span className={`${styles.roleBadge} ${isAdmin ? styles.roleAdmin : styles.rolePhotographer}`}>
+              {isAdmin ? '👑 Admin' : '📷 Photographer'}
+            </span>
+          </div>
         </div>
 
         <div className={styles.carHeader}>
-          <h1 className={styles.carTitle}>
-            {car.make} {car.model}
-          </h1>
-          <p className={styles.carVin}>VIN: {car.vin}</p>
+          <div className={styles.carHeaderMain}>
+            <div className={styles.carTitleSection}>
+              <h1 className={styles.carTitle}>
+                {car.make} {car.model}
+              </h1>
+              <p className={styles.carVin}>VIN: {car.vin}</p>
+            </div>
+            <div className={styles.carBadges}>
+              <span className={styles.regionBadge}>{car.region}</span>
+            </div>
+          </div>
+          
+          <div className={styles.carStats}>
+            <div className={styles.statItem}>
+              <span className={styles.statLabel}>Progress</span>
+              <span className={styles.statValue}>{progress}%</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statLabel}>Filled Slots</span>
+              <span className={styles.statValue}>{lockedCount}/{totalSlots}</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statLabel}>Links</span>
+              <span className={styles.statValue}>{links.length}</span>
+            </div>
+          </div>
+
+          <div className={styles.carActions}>
+            <button 
+              onClick={handleArchiveCar} 
+              className={styles.archiveButton}
+              disabled={archiving}
+            >
+              {archiving ? "Archiving..." : "📦 Archive Car"}
+            </button>
+          </div>
         </div>
 
         <div className={styles.linksSection}>
