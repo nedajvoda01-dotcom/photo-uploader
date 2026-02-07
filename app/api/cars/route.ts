@@ -181,6 +181,19 @@ export async function POST(request: NextRequest) {
     const safeModel = sanitizePathSegment(model);
     const safeVin = sanitizePathSegment(vin);
     
+    // Validate sanitized values are not empty
+    if (!safeMake || !safeModel || !safeVin) {
+      return NextResponse.json(
+        { 
+          ok: false,
+          code: "invalid_input",
+          message: "Make, model, and VIN must contain valid characters after sanitization",
+          status: 400
+        },
+        { status: 400 }
+      );
+    }
+    
     // Generate root path with sanitized segments
     const rootPath = carRoot(effectiveRegion, safeMake, safeModel, safeVin);
     

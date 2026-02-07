@@ -7,6 +7,7 @@ import { syncRegion } from "@/lib/sync";
 import { moveFolder, listFolder, exists } from "@/lib/yandexDisk";
 import { ensureDbSchema } from "@/lib/db";
 import { getBasePath, getAllSlotPaths, getLockMarkerPath } from "@/lib/diskPaths";
+import { ARCHIVE_RETRY_DELAY_MS } from "@/lib/config";
 
 // Constants
 const EXPECTED_SLOT_COUNT = 14; // 1 dealer + 8 buyout + 5 dummies
@@ -248,7 +249,7 @@ export async function DELETE(
       console.error(`[Archive] Move attempt ${attempt} failed:`, lastError);
       
       if (attempt < 3) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // wait 1s before retry
+        await new Promise(resolve => setTimeout(resolve, ARCHIVE_RETRY_DELAY_MS)); // configurable retry delay
       }
     }
     

@@ -182,6 +182,12 @@ export async function POST(
         
         // Sanitize filename to prevent directory traversal
         const safeFilename = sanitizeFilename(file.name);
+        
+        // Validate sanitized filename is not empty
+        if (!safeFilename || safeFilename.length === 0) {
+          throw new Error(`Invalid filename after sanitization: ${file.name}`);
+        }
+        
         const filePath = `${slot.disk_slot_path}/${safeFilename}`;
         
         const result = await uploadToYandexDisk({

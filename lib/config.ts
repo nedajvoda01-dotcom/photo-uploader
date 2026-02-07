@@ -35,6 +35,9 @@ export const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB || "50", 1
 export const MAX_TOTAL_UPLOAD_SIZE_MB = parseInt(process.env.MAX_TOTAL_UPLOAD_SIZE_MB || "200", 10); // per request
 export const MAX_FILES_PER_UPLOAD = parseInt(process.env.MAX_FILES_PER_UPLOAD || "50", 10);
 
+// Archive retry configuration
+export const ARCHIVE_RETRY_DELAY_MS = parseInt(process.env.ARCHIVE_RETRY_DELAY_MS || "1000", 10);
+
 // Regions configuration (required)
 const REGIONS_ENV = process.env.REGIONS;
 if (!isBuildTime && !REGIONS_ENV) {
