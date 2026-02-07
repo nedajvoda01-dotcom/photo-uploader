@@ -12,7 +12,7 @@
  * - TTL-based caching prevents redundant syncs (30 seconds default)
  */
 
-import { sql } from './db';
+import { sql, ensureDbSchema } from './db';
 import { getBasePath, getLockMarkerPath } from './diskPaths';
 import { listFolder, exists, downloadFile } from './yandexDisk';
 
@@ -311,6 +311,9 @@ export async function syncRegion(region: string, forceFresh = false): Promise<{
   }
   
   try {
+    // Ensure DB schema exists before any operations
+    await ensureDbSchema();
+    
     const basePath = getBasePath();
     const regionPath = `${basePath}/${region}`;
     
