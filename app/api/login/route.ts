@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { timingSafeEqual } from "crypto";
+import { checkBootstrapAdmin } from "@/lib/userAuth";
 import { getUserByEmail } from "@/lib/users";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
+import { AUTH_DEBUG, ADMIN_REGION } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,89 +18,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Debug diagnostics (only if AUTH_DEBUG=1)
-    const isDebugMode = process.env.AUTH_DEBUG === "1";
     let debugInfo: Record<string, boolean | string | number> | null = null;
     
-    // Capture env vars once to avoid redundant reads
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
-    const authSecret = process.env.AUTH_SECRET;
-    
-    if (isDebugMode) {
+    if (AUTH_DEBUG) {
       debugInfo = {
-        hasAdminEmail: !!adminEmail,
-        hasAdminPassword: !!adminPassword,
-        hasAdminPasswordHash: !!adminPasswordHash,
-        hasAuthSecret: !!authSecret,
         inputEmailPresent: !!email,
         inputPasswordPresent: !!password,
-        emailEqualsAdmin: !!(adminEmail && email === adminEmail),
-        emailTrimEqualsAdminTrim: !!(adminEmail && email && email.trim() === adminEmail.trim()),
-        usingPlain: !!(adminPassword && adminEmail && email === adminEmail),
-        usingHash: !!adminPasswordHash,
-        // Technical metrics (lengths only, no actual values)
-        envAdminEmailLength: adminEmail?.length ?? 0,
-        envAdminPasswordLength: adminPassword?.length ?? 0,
         inputEmailLength: email?.length ?? 0,
         inputPasswordLength: password?.length ?? 0,
-        result: "unknown", // Will be set later
-        reasonCode: "unknown", // Will be set on failure
+        result: "unknown",
+        reasonCode: "unknown",
       };
     }
 
-    // Check plain admin credentials BEFORE checking users.json
-    // This fixes the issue where plain admin login was failing with "user_not_found"
-    if (adminPassword && adminEmail && email === adminEmail) {
-      // Verify password using constant-time comparison
-      let isValid = false;
-      try {
-        const passwordBuffer = Buffer.from(password, 'utf8');
-        const adminPasswordBuffer = Buffer.from(adminPassword, 'utf8');
-        
-        // timingSafeEqual requires buffers of equal length
-        if (passwordBuffer.length === adminPasswordBuffer.length) {
-          isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
-        } else {
-          // Lengths differ, password is incorrect
-          // Perform a dummy comparison with fixed-size buffers to maintain constant time
-          const dummyBuffer1 = Buffer.alloc(32);
-          const dummyBuffer2 = Buffer.alloc(32);
-          timingSafeEqual(dummyBuffer1, dummyBuffer2);
-          isValid = false;
-        }
-      } catch {
-        // Error during comparison (e.g., Buffer creation failed)
-        // Perform dummy comparison to maintain timing consistency
-        const dummyBuffer = Buffer.alloc(32);
-        timingSafeEqual(dummyBuffer, dummyBuffer);
-        isValid = false;
-      }
-
-      if (!isValid) {
-        // Password mismatch for plain admin
-        if (isDebugMode && debugInfo) {
-          debugInfo.result = "fail";
-          debugInfo.reasonCode = "password_mismatch_plain";
-          console.warn("[AUTH_DEBUG] Login attempt failed - plain admin password mismatch:", debugInfo);
-        }
-        return NextResponse.json(
-          { error: "Invalid email or password" },
-          { status: 401 }
-        );
-      }
-
-      // Plain admin login successful - create session and return
+    // Step 1: Check bootstrap admins FIRST (from ENV)
+    const bootstrapResult = await checkBootstrapAdmin(email, password);
+    
+    if (bootstrapResult.isBootstrapAdmin && bootstrapResult.user) {
+      // Bootstrap admin login successful
       let token: string;
       try {
-        token = await signSession({ 
-          userId: 0, // Legacy admin has ID 0
-          email: adminEmail,
-          region: process.env.DEFAULT_REGION || 'MSK',
-          role: 'admin'
+        token = await signSession({
+          userId: bootstrapResult.user.id,
+          email: bootstrapResult.user.email,
+          region: bootstrapResult.user.region,
+          role: bootstrapResult.user.role,
         });
       } catch (error) {
-        if (isDebugMode && debugInfo) {
+        if (AUTH_DEBUG && debugInfo) {
           debugInfo.result = "fail";
           debugInfo.reasonCode = "jwt_sign_error";
           console.warn("[AUTH_DEBUG] Login attempt failed - JWT signing error:", debugInfo);
@@ -111,7 +57,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Set cookie
       const response = NextResponse.json(
         { success: true, message: "Login successful" },
         { status: 200 }
@@ -126,31 +71,22 @@ export async function POST(request: NextRequest) {
         path: "/",
       });
 
-      // Log debug info on success
-      if (isDebugMode && debugInfo) {
+      if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "ok";
-        console.info("[AUTH_DEBUG] Plain admin login successful:", debugInfo);
+        debugInfo.reasonCode = "bootstrap_admin";
+        console.info("[AUTH_DEBUG] Bootstrap admin login successful:", debugInfo);
       }
 
       return response;
     }
 
-    // Find user by email (users.json or ADMIN_PASSWORD_HASH)
+    // Step 2: Find user in file/env (this is the legacy /api/login route, doesn't check DB)
+    // For database users, use /api/auth/login instead
     const user = getUserByEmail(email);
     if (!user) {
-      // Log debug info on failure
-      if (isDebugMode && debugInfo) {
+      if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
-        // Determine reason code
-        if (!adminEmail) {
-          debugInfo.reasonCode = "missing_env_admin_email";
-        } else if (email !== adminEmail) {
-          debugInfo.reasonCode = "email_mismatch";
-        } else if (!adminPassword && !adminPasswordHash) {
-          debugInfo.reasonCode = "missing_env_admin_password";
-        } else {
-          debugInfo.reasonCode = "user_not_found";
-        }
+        debugInfo.reasonCode = "user_not_found";
         console.warn("[AUTH_DEBUG] Login attempt failed - user not found:", debugInfo);
       }
       return NextResponse.json(
@@ -159,13 +95,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password using bcrypt hash
-    // This path handles bcrypt hash authentication (plain admin already returned above if matched)
+    // Step 3: Verify password using bcrypt hash
     let isValid = false;
     try {
       isValid = await bcrypt.compare(password, user.passwordHash);
     } catch {
-      if (isDebugMode && debugInfo) {
+      if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
         debugInfo.reasonCode = "hash_compare_error";
         console.warn("[AUTH_DEBUG] Login attempt failed - bcrypt compare error:", debugInfo);
@@ -177,8 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isValid) {
-      // Log debug info on failure
-      if (isDebugMode && debugInfo) {
+      if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
         debugInfo.reasonCode = "password_mismatch_hash";
         console.warn("[AUTH_DEBUG] Login attempt failed - invalid password:", debugInfo);
@@ -189,18 +123,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session token with extended payload
+    // Step 4: Create session token
     let token: string;
     try {
-      const defaultRegion = process.env.DEFAULT_REGION || 'MSK';
       token = await signSession({ 
         userId: 0, // Legacy file-based user
         email: user.email,
-        region: defaultRegion,
-        role: 'admin'
+        region: ADMIN_REGION, // Use ADMIN_REGION instead of hardcoded
+        role: 'admin' // File-based users are admins by default
       });
     } catch (error) {
-      if (isDebugMode && debugInfo) {
+      if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
         debugInfo.reasonCode = "jwt_sign_error";
         console.warn("[AUTH_DEBUG] Login attempt failed - JWT signing error:", debugInfo);
@@ -212,7 +145,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set cookie
     const response = NextResponse.json(
       { success: true, message: "Login successful" },
       { status: 200 }
@@ -227,8 +159,7 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    // Log debug info on success
-    if (isDebugMode && debugInfo) {
+    if (AUTH_DEBUG && debugInfo) {
       debugInfo.result = "ok";
       console.info("[AUTH_DEBUG] Login successful:", debugInfo);
     }
@@ -237,7 +168,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Login error:", error);
     
-    // Check if it's the users.json not found error
     if (error instanceof Error && error.message.includes("Users file not found")) {
       return NextResponse.json(
         { error: error.message },

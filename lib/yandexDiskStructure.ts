@@ -1,16 +1,17 @@
 /**
  * Yandex Disk structure helpers for canonical folder paths
  */
+import { YANDEX_DISK_BASE_DIR } from "./config";
 
 export type SlotType = 'dealer' | 'buyout' | 'dummies';
 
 /**
  * Generate root path for a car on Yandex Disk
- * Format: Фото/<REGION>/<Марка> <Модель> <VIN>
- * Example: Фото/MSK/Toyota Camry ABC123XYZ
+ * Format: <YANDEX_DISK_BASE_DIR>/<REGION>/<Марка> <Модель> <VIN>
+ * Example: /Фото/MSK/Toyota Camry ABC123XYZ
  */
 export function carRoot(region: string, make: string, model: string, vin: string): string {
-  return `/Фото/${region}/${make} ${model} ${vin}`;
+  return `${YANDEX_DISK_BASE_DIR}/${region}/${make} ${model} ${vin}`;
 }
 
 /**

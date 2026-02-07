@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToYandexDisk } from "@/lib/yandexDisk";
+import { LEGACY_UPLOAD_DIR, UPLOAD_MAX_MB } from "@/lib/config";
 
-// Get configuration from environment
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/mvp_uploads";
-const UPLOAD_MAX_MB = parseInt(process.env.UPLOAD_MAX_MB || "20", 10);
 const MAX_FILE_SIZE = UPLOAD_MAX_MB * 1024 * 1024; // Convert MB to bytes
 
 // Allowed image MIME types
@@ -58,7 +56,7 @@ export async function POST(request: NextRequest) {
     };
     const extension = mimeToExtension[file.type] || "jpg";
     const filename = `photo_${timestamp}.${extension}`;
-    const remotePath = `${UPLOAD_DIR}/${filename}`;
+    const remotePath = `${LEGACY_UPLOAD_DIR}/${filename}`;
 
     // Upload to Yandex.Disk
     const result = await uploadToYandexDisk({

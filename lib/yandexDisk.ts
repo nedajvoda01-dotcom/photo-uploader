@@ -1,6 +1,7 @@
 /**
  * Yandex.Disk API integration for uploading files and managing folders
  */
+import { YANDEX_DISK_TOKEN } from "./config";
 
 const YANDEX_DISK_API_BASE = "https://cloud-api.yandex.net/v1/disk";
 const MAX_RETRIES = 3;
@@ -74,12 +75,6 @@ async function withRetry<T>(
  * @returns Promise that resolves when directory exists or is created
  */
 async function ensureDir(path: string): Promise<void> {
-  const token = process.env.YANDEX_DISK_TOKEN;
-
-  if (!token) {
-    throw new Error("YANDEX_DISK_TOKEN environment variable is not set");
-  }
-
   // Split the path into segments and recursively create each directory
   const segments = path.split("/").filter((seg) => seg.length > 0);
   
@@ -92,7 +87,7 @@ async function ensureDir(path: string): Promise<void> {
         {
           method: "PUT",
           headers: {
-            Authorization: `OAuth ${token}`,
+            Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
           },
         }
       );
@@ -130,14 +125,6 @@ export async function uploadToYandexDisk(
   params: UploadParams
 ): Promise<UploadResult> {
   const { path, bytes, contentType } = params;
-  const token = process.env.YANDEX_DISK_TOKEN;
-
-  if (!token) {
-    return {
-      success: false,
-      error: "YANDEX_DISK_TOKEN environment variable is not set",
-    };
-  }
 
   try {
     // Step 1: Ensure the directory exists
@@ -154,7 +141,7 @@ export async function uploadToYandexDisk(
       {
         method: "GET",
         headers: {
-          Authorization: `OAuth ${token}`,
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
         },
       }
     );
@@ -215,18 +202,12 @@ export async function uploadToYandexDisk(
  */
 export async function createFolder(path: string): Promise<{ success: boolean; error?: string }> {
   return withRetry(async () => {
-    const token = process.env.YANDEX_DISK_TOKEN;
-    
-    if (!token) {
-      throw new Error("YANDEX_DISK_TOKEN environment variable is not set");
-    }
-    
     const response = await fetch(
       `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
       {
         method: "PUT",
         headers: {
-          Authorization: `OAuth ${token}`,
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
         },
       }
     );
@@ -250,18 +231,12 @@ export async function createFolder(path: string): Promise<{ success: boolean; er
  */
 export async function exists(path: string): Promise<boolean> {
   try {
-    const token = process.env.YANDEX_DISK_TOKEN;
-    
-    if (!token) {
-      throw new Error("YANDEX_DISK_TOKEN environment variable is not set");
-    }
-    
     const response = await fetch(
       `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
       {
         method: "GET",
         headers: {
-          Authorization: `OAuth ${token}`,
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
         },
       }
     );
@@ -279,25 +254,16 @@ export async function exists(path: string): Promise<boolean> {
  */
 export async function listFolder(path: string): Promise<{ 
   success: boolean; 
-  items?: Array<{ name: string; type: string; path: string }>; 
+  items?: Array<{ name: string; type: string; path: string; size?: number }>; 
   error?: string 
 }> {
   try {
-    const token = process.env.YANDEX_DISK_TOKEN;
-    
-    if (!token) {
-      return {
-        success: false,
-        error: "YANDEX_DISK_TOKEN environment variable is not set"
-      };
-    }
-    
     const response = await fetch(
       `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
       {
         method: "GET",
         headers: {
-          Authorization: `OAuth ${token}`,
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
         },
       }
     );
@@ -346,21 +312,12 @@ export async function uploadText(path: string, content: string | object): Promis
  */
 export async function publish(path: string): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const token = process.env.YANDEX_DISK_TOKEN;
-    
-    if (!token) {
-      return {
-        success: false,
-        error: "YANDEX_DISK_TOKEN environment variable is not set"
-      };
-    }
-    
     const response = await fetch(
       `${YANDEX_DISK_API_BASE}/resources/publish?path=${encodeURIComponent(path)}`,
       {
         method: "PUT",
         headers: {
-          Authorization: `OAuth ${token}`,
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
         },
       }
     );
@@ -393,21 +350,12 @@ export async function publish(path: string): Promise<{ success: boolean; url?: s
  */
 export async function getDownloadLink(path: string): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const token = process.env.YANDEX_DISK_TOKEN;
-    
-    if (!token) {
-      return {
-        success: false,
-        error: "YANDEX_DISK_TOKEN environment variable is not set"
-      };
-    }
-    
     const response = await fetch(
       `${YANDEX_DISK_API_BASE}/resources/download?path=${encodeURIComponent(path)}`,
       {
         method: "GET",
         headers: {
-          Authorization: `OAuth ${token}`,
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
         },
       }
     );

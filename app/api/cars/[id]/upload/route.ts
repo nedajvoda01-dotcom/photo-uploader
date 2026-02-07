@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
 import { uploadToYandexDisk, uploadText, exists } from "@/lib/yandexDisk";
@@ -52,11 +52,10 @@ export async function POST(
       );
     }
     
-    if (car.region !== session.region) {
-      return NextResponse.json(
-        { error: "Access denied - region mismatch" },
-        { status: 403 }
-      );
+    // Check region permission (admin with region=ALL can access all regions)
+    const regionCheck = requireRegionAccess(session, car.region);
+    if ('error' in regionCheck) {
+      return regionCheck.error;
     }
     
     // Parse form data

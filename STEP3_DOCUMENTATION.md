@@ -74,11 +74,16 @@ Mark a slot as used or unused (admin only).
 
 ### GET /api/cars/:id/download?slotType=X&slotIndex=Y
 
-Get file list for downloading slot contents.
+Download file list for a slot (with ZIP limits enforced).
 
 **Query Parameters:**
 - `slotType`: dealer, buyout, or dummies
 - `slotIndex`: 1 for dealer, 1-8 for buyout, 1-5 for dummies
+
+**Requirements:**
+- Slot must be locked (status='locked') - returns 409 if not locked
+- File count must not exceed ZIP_MAX_FILES - returns 413 if exceeded
+- Total size must not exceed ZIP_MAX_TOTAL_MB - returns 413 if exceeded
 
 **Response:**
 ```json
@@ -87,9 +92,15 @@ Get file list for downloading slot contents.
   "files": [
     {
       "name": "photo1.jpg",
-      "path": "/Фото/MSK/Toyota Camry ABC123/..."
+      "path": "${YANDEX_DISK_BASE_DIR}/MSK/Toyota Camry ABC123/...",
+      "size": 1024000
     }
   ],
+  "stats": {
+    "fileCount": 12,
+    "totalSizeMB": 45,
+    "totalSizeBytes": 47185920
+  },
   "slotInfo": {
     "car": "Toyota Camry",
     "vin": "ABC123",
@@ -99,7 +110,11 @@ Get file list for downloading slot contents.
 }
 ```
 
-**Access**: Requires region permission
+**Access**: Requires region permission (admin with region=ALL can access all)
+
+**Error Codes:**
+- `409` - Slot not locked
+- `413` - Limits exceeded (too many files or too large)
 
 ### GET /api/me
 
@@ -329,21 +344,32 @@ npx tsx scripts/init-db.ts
 
 ### Environment Variables
 
-No new environment variables required. Uses existing:
+Step 3 uses these environment variables for ZIP download limits:
+- `ZIP_MAX_FILES` - Maximum files in ZIP (default: 500)
+- `ZIP_MAX_TOTAL_MB` - Maximum total size in MB (default: 1500)
+
+Also requires existing variables:
 - `AUTH_SECRET` - For JWT verification
-- `POSTGRES_*` - For database access
 - `YANDEX_DISK_TOKEN` - For file access
+- `YANDEX_DISK_BASE_DIR` - Base directory on Yandex Disk (default: /Фото)
+- `REGIONS` - Comma-separated list of regions
+- `POSTGRES_URL` - For database access (if using Postgres)
 
 ### Deployment Steps
 
 1. Deploy code to Vercel
-2. Run migration script:
+2. Configure environment variables:
+   ```bash
+   ZIP_MAX_FILES=500
+   ZIP_MAX_TOTAL_MB=1500
+   ```
+3. Run migration script (if needed):
    ```bash
    vercel env pull .env.local
    npx tsx scripts/migrate-step3.ts
    ```
-3. Test admin access
-4. Test download functionality
+4. Test admin access
+5. Test download functionality with limits
 
 ### Rollback Plan
 
