@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarById } from "@/lib/models/cars";
+import { getCarByRegionAndVin } from "@/lib/models/cars";
 import { getCarSlot, setSlotPublicUrl } from "@/lib/models/carSlots";
 import { publish } from "@/lib/yandexDisk";
 import { validateSlot, type SlotType } from "@/lib/diskPaths";
 
 interface RouteContext {
-  params: Promise<{ id: string }>;
+  params: Promise<{ vin: string }>;
 }
 
 /**
- * GET /api/cars/:id/share?slotType=<type>&slotIndex=<index>
- * Get or create a public share link for a slot
+ * GET /api/cars/vin/:vin/share?slotType=<type>&slotIndex=<index>
+ * Get or create a public share link for a slot by VIN
  */
 export async function GET(
   request: NextRequest,
@@ -25,11 +25,11 @@ export async function GET(
   
   const { session } = authResult;
   const params = await context.params;
-  const carId = parseInt(params.id, 10);
+  const vin = params.vin.toUpperCase();
   
-  if (isNaN(carId)) {
+  if (!vin || vin.length !== 17) {
     return NextResponse.json(
-      { error: "Invalid car ID" },
+      { error: "Invalid VIN format. VIN must be exactly 17 characters" },
       { status: 400 }
     );
   }
@@ -55,22 +55,22 @@ export async function GET(
   }
   
   try {
-    const car = await getCarById(carId);
+    const car = await getCarByRegionAndVin(session.region, vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found" },
+        { error: "Car not found in your region" },
         { status: 404 }
       );
     }
     
-    // Check region permission (admin with region=ALL can access all regions)
+    // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
     if ('error' in regionCheck) {
       return regionCheck.error;
     }
     
-    const slot = await getCarSlot(carId, slotType, slotIndex);
+    const slot = await getCarSlot(car.id, slotType, slotIndex);
     
     if (!slot) {
       return NextResponse.json(
@@ -99,7 +99,7 @@ export async function GET(
     }
     
     // Save the public URL in database
-    await setSlotPublicUrl(carId, slotType, slotIndex, publishResult.url);
+    await setSlotPublicUrl(car.id, slotType, slotIndex, publishResult.url);
     
     return NextResponse.json({
       success: true,
@@ -107,7 +107,7 @@ export async function GET(
       cached: false,
     });
   } catch (error) {
-    console.error("Error creating share link:", error);
+    console.error("Error creating share link by VIN:", error);
     return NextResponse.json(
       { error: "Failed to create share link" },
       { status: 500 }

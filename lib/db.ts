@@ -34,6 +34,7 @@ export async function initializeDatabase() {
         disk_root_path TEXT NOT NULL,
         created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP,
         UNIQUE(region, vin)
       )
     `;
@@ -66,6 +67,9 @@ export async function initializeDatabase() {
         is_used BOOLEAN DEFAULT FALSE,
         marked_used_at TIMESTAMP,
         marked_used_by INTEGER REFERENCES users(id),
+        file_count INTEGER DEFAULT 0,
+        total_size_mb NUMERIC(10,2) DEFAULT 0,
+        last_sync_at TIMESTAMP,
         UNIQUE(car_id, slot_type, slot_index)
       )
     `;

@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
-import { carRoot, getAllSlotPaths } from "@/lib/yandexDiskStructure";
+import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
 import { createFolder } from "@/lib/yandexDisk";
+import { syncRegion } from "@/lib/sync";
 
 /**
  * GET /api/cars
  * List all cars for the user's region with progress breakdown
+ * Syncs from disk before returning data
  */
 export async function GET() {
   const authResult = await requireAuth();
@@ -19,6 +21,10 @@ export async function GET() {
   const { session } = authResult;
   
   try {
+    // Sync region from disk first (DB as cache, Disk as truth)
+    console.log(`[API] Syncing region ${session.region} before listing cars`);
+    await syncRegion(session.region);
+    
     const cars = await listCarsByRegion(session.region);
     
     return NextResponse.json({

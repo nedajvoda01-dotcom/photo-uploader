@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarById } from "@/lib/models/cars";
+import { getCarByRegionAndVin } from "@/lib/models/cars";
 import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
 import { uploadToYandexDisk, uploadText, exists } from "@/lib/yandexDisk";
 import { getLockMarkerPath, validateSlot, type SlotType } from "@/lib/diskPaths";
 
 interface RouteContext {
-  params: Promise<{ id: string }>;
+  params: Promise<{ vin: string }>;
 }
 
 const ALLOWED_IMAGE_TYPES = [
@@ -17,8 +17,8 @@ const ALLOWED_IMAGE_TYPES = [
 ];
 
 /**
- * POST /api/cars/:id/upload
- * Upload files to a specific slot
+ * POST /api/cars/vin/:vin/upload
+ * Upload files to a specific slot using VIN
  */
 export async function POST(
   request: NextRequest,
@@ -32,27 +32,27 @@ export async function POST(
   
   const { session } = authResult;
   const params = await context.params;
-  const carId = parseInt(params.id, 10);
+  const vin = params.vin.toUpperCase();
   
-  if (isNaN(carId)) {
+  if (!vin || vin.length !== 17) {
     return NextResponse.json(
-      { error: "Invalid car ID" },
+      { error: "Invalid VIN format. VIN must be exactly 17 characters" },
       { status: 400 }
     );
   }
   
   try {
-    // Get car and verify region
-    const car = await getCarById(carId);
+    // Get car by VIN
+    const car = await getCarByRegionAndVin(session.region, vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found" },
+        { error: "Car not found in your region" },
         { status: 404 }
       );
     }
     
-    // Check region permission (admin with region=ALL can access all regions)
+    // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
     if ('error' in regionCheck) {
       return regionCheck.error;
@@ -79,7 +79,7 @@ export async function POST(
     }
     
     // Get slot from database
-    const slot = await getCarSlot(carId, slotType, slotIndex);
+    const slot = await getCarSlot(car.id, slotType, slotIndex);
     
     if (!slot) {
       return NextResponse.json(
@@ -128,7 +128,7 @@ export async function POST(
         return NextResponse.json(
           { error: `Invalid file type: ${file.type}. Only images are allowed` },
           { status: 400 }
-        );
+      );
       }
     }
     
@@ -161,7 +161,7 @@ export async function POST(
     
     // Create lock metadata
     const lockMetadata: LockMetadata = {
-      carId: carId,
+      carId: car.id,
       slotType: slotType,
       slotIndex: slotIndex,
       uploadedBy: session.userId,
@@ -182,7 +182,7 @@ export async function POST(
     
     // Update database
     const updatedSlot = await lockCarSlot(
-      carId,
+      car.id,
       slotType,
       slotIndex,
       session.userId,
@@ -196,7 +196,7 @@ export async function POST(
       uploadedFiles,
     });
   } catch (error) {
-    console.error("Error uploading files:", error);
+    console.error("Error uploading files by VIN:", error);
     return NextResponse.json(
       { error: "Failed to upload files" },
       { status: 500 }

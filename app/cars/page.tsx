@@ -150,7 +150,7 @@ export default function CarsPage() {
                   </div>
 
                   <Link
-                    href={`/cars/${car.id}`}
+                    href={`/cars/${car.vin}`}
                     className={styles.openButton}
                   >
                     Open

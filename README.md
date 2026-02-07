@@ -320,10 +320,14 @@ The application uses PostgreSQL with the following tables:
 
 ### Yandex Disk Structure
 
-The application follows a strict folder structure on Yandex Disk. All paths are constructed from `YANDEX_DISK_BASE_DIR` as the Single Source of Truth:
+The application follows a strict folder structure on Yandex Disk. All paths are constructed from `YANDEX_DISK_BASE_DIR` as the Single Source of Truth. **VIN (Vehicle Identification Number)** serves as the canonical unique identifier for cars within each region.
+
+**📖 Complete documentation:** See [DISK_STRUCTURE.md](./DISK_STRUCTURE.md) for the canonical reference.
+
+**Path Builder:** All code must use `lib/diskPaths.ts` for path construction.
 
 ```
-${YANDEX_DISK_BASE_DIR}/          # Default: /Фото
+${YANDEX_DISK_BASE_DIR}/Фото/          # Base path
 └── <REGION>/
     └── <Марка> <Модель> <VIN>/
         ├── 1. Дилер фото/
@@ -342,15 +346,21 @@ ${YANDEX_DISK_BASE_DIR}/          # Default: /Фото
 
 **Key Points:**
 - `YANDEX_DISK_BASE_DIR` is the SSOT for all path construction
-- Each region has its own folder under the base directory
+- Base path: `${YANDEX_DISK_BASE_DIR}/Фото` (e.g., `/Фото/Фото`)
+- Each region has its own folder under the base path
 - Car folders are named: `<Марка> <Модель> <VIN>`
+- **VIN is unique within each region** and serves as the primary identifier
 - 14 slots per car: 1 dealer + 8 buyout + 5 dummies
+- All API endpoints support VIN-based access (canonical) and ID-based access (legacy)
+- **All path construction must use `lib/diskPaths.ts`** - never construct paths manually
 
 Each slot folder contains:
 - Uploaded photo files
 - `_LOCK.json` - Lock marker file (SSOT for slot status)
 
 ### API Endpoints
+
+All car operations support both legacy ID-based endpoints and **canonical VIN-based endpoints**.
 
 #### Authentication
 
@@ -372,14 +382,16 @@ Each slot folder contains:
 - Creates folder structure on Yandex Disk
 - Checks uniqueness by `(region, vin)`
 
-**GET /api/cars/:id**
+**GET /api/cars/:id** (legacy) or **GET /api/cars/vin/:vin** (canonical)
 - Get car details with all slots and links
+- **VIN-based endpoint is preferred**
 - Verifies region permission
 
 #### Photo Upload
 
-**POST /api/cars/:id/upload**
+**POST /api/cars/:id/upload** (legacy) or **POST /api/cars/vin/:vin/upload** (canonical)
 - Upload photos to a specific slot
+- **VIN-based endpoint is preferred**
 - Form data: `slotType`, `slotIndex`, `file1`, `file2`, ...
 - Validates:
   - Region permission
@@ -390,10 +402,10 @@ Each slot folder contains:
 
 #### Links Management
 
-**GET /api/cars/:id/links**
+**GET /api/cars/:id/links** (legacy) or **GET /api/cars/vin/:vin/links** (canonical)
 - List all links for a car
 
-**POST /api/cars/:id/links**
+**POST /api/cars/:id/links** (legacy) or **POST /api/cars/vin/:vin/links** (canonical)
 - Create a new link for a car
 - Body: `{ title, url }`
 
@@ -402,7 +414,7 @@ Each slot folder contains:
 
 #### Sharing
 
-**GET /api/cars/:id/share?slotType=<type>&slotIndex=<index>**
+**GET /api/cars/:id/share?slotType=<type>&slotIndex=<index>** (legacy) or **GET /api/cars/vin/:vin/share?slotType=<type>&slotIndex=<index>** (canonical)
 - Get public share URL for a slot folder
 - Publishes folder on Yandex Disk if not already published
 - Caches URL in database

@@ -54,6 +54,12 @@ Login with email and password.
 
 ### Cars
 
+**Note:** VIN-based endpoints are now the preferred API. All endpoints are available in both formats:
+- **Legacy (ID-based):** `/api/cars/:id/...` 
+- **Canonical (VIN-based):** `/api/cars/vin/:vin/...`
+
+VIN-based endpoints accept the 17-character VIN code directly in the URL, making it the Single Source of Truth for car identification within a region.
+
 #### GET /api/cars
 
 List all cars in the authenticated user's region with progress information.
@@ -187,6 +193,60 @@ Get detailed information about a car including all slots and links.
 
 ---
 
+#### GET /api/cars/vin/:vin
+
+Get detailed information about a car by VIN including all slots and links.
+
+**Authentication:** Required
+
+**URL Parameters:**
+- `vin` (string): 17-character VIN code (case-insensitive)
+
+**Example:**
+```
+GET /api/cars/vin/1HGBH41JXMN109186
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "car": {
+    "id": 1,
+    "region": "MSK",
+    "make": "Toyota",
+    "model": "Camry",
+    "vin": "1HGBH41JXMN109186",
+    "disk_root_path": "/Фото/MSK/Toyota Camry 1HGBH41JXMN109186",
+    "created_by": 5,
+    "created_at": "2024-01-15T10:00:00Z"
+  },
+  "slots": [...],
+  "links": [...]
+}
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "error": "Invalid VIN format. VIN must be exactly 17 characters"
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "error": "Car not found in your region"
+}
+```
+
+**Notes:**
+- VIN is case-insensitive and normalized to uppercase
+- Only returns car if it exists in the user's region
+- Admins with region=ALL can access all regions
+
+---
+
 ### Photo Upload
 
 #### POST /api/cars/:id/upload
@@ -248,6 +308,44 @@ curl -X POST http://localhost:3000/api/cars/1/upload \
 - Checks slot is not locked in database
 - Checks `_LOCK.json` does not exist on disk (SSOT)
 - Uploads all files to slot folder
+- Creates `_LOCK.json` marker after successful upload
+- Updates slot status to `locked` in database
+
+---
+
+#### POST /api/cars/vin/:vin/upload
+
+Upload photos to a specific slot using VIN.
+
+**Authentication:** Required
+
+**URL Parameters:**
+- `vin` (string): 17-character VIN code (case-insensitive)
+
+**Content-Type:** `multipart/form-data`
+
+**Form Data:**
+- `slotType` (string): One of "dealer", "buyout", "dummies"
+- `slotIndex` (number): Slot index (dealer: 1, buyout: 1-8, dummies: 1-5)
+- `file1`, `file2`, ... (files): Image files to upload
+
+**Example using curl:**
+```bash
+curl -X POST http://localhost:3000/api/cars/vin/1HGBH41JXMN109186/upload \
+  -F "slotType=buyout" \
+  -F "slotIndex=3" \
+  -F "file1=@photo1.jpg" \
+  -F "file2=@photo2.jpg" \
+  -H "Cookie: session=..."
+```
+
+**Response:** Same as ID-based endpoint
+
+**Notes:**
+- VIN is the canonical identifier - preferred over ID-based endpoint
+- All validations and behavior identical to ID-based endpoint
+
+---
 - Creates `_LOCK.json` marker file
 - Updates slot status to `locked` in database
 
@@ -597,3 +695,81 @@ All Yandex Disk operations include automatic retry with exponential backoff:
 - Initial delay: 1 second
 - Delay multiplier: 2x per retry
 - 4xx errors are not retried
+
+---
+
+## VIN-Based API Endpoints (Canonical)
+
+All car-related operations are now available via VIN-based endpoints, which serve as the canonical API. VIN (Vehicle Identification Number) is the Single Source of Truth for car identification within a region.
+
+### Available VIN-Based Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/cars/vin/:vin` | GET | Get car details, slots, and links by VIN |
+| `/api/cars/vin/:vin/upload` | POST | Upload photos to a slot |
+| `/api/cars/vin/:vin/links` | GET | Get car links |
+| `/api/cars/vin/:vin/links` | POST | Create a new link |
+| `/api/cars/vin/:vin/share` | GET | Get/create public share URL for a slot |
+| `/api/cars/vin/:vin/download` | GET | Download slot photos as ZIP |
+| `/api/cars/vin/:vin/slots/:slotType/:slotIndex` | PATCH | Mark slot as used/unused (admin) |
+
+### Benefits of VIN-Based API
+
+1. **Single Source of Truth**: VIN is unique within a region and serves as the canonical identifier
+2. **Human-Readable URLs**: VINs are more meaningful than database IDs
+3. **Region-Scoped**: VIN uniqueness is scoped to user's region from session
+4. **Backward Compatible**: ID-based endpoints remain functional for existing integrations
+
+### VIN Requirements
+
+- Must be exactly 17 characters
+- Case-insensitive (automatically normalized to uppercase)
+- Unique within a region (enforced by database constraint)
+- Used in Yandex Disk folder structure: `/Фото/{region}/{Make} {Model} {VIN}`
+
+### Migration Path
+
+**For API Clients:**
+1. Update code to use `/api/cars/vin/:vin` instead of `/api/cars/:id`
+2. Use car's VIN from the car object instead of database ID
+3. Test with existing cars to ensure compatibility
+
+**For Frontend:**
+- URLs now use VIN: `/cars/:vin` instead of `/cars/:id`
+- More user-friendly and shareable links
+- Direct navigation to car using VIN
+
+### Example: Complete Workflow with VIN
+
+```bash
+# 1. Create a car (returns VIN)
+curl -X POST http://localhost:3000/api/cars \
+  -H "Content-Type: application/json" \
+  -d '{"make":"Toyota","model":"Camry","vin":"1HGBH41JXMN109186"}'
+
+# 2. Get car details using VIN
+curl http://localhost:3000/api/cars/vin/1HGBH41JXMN109186
+
+# 3. Upload photos using VIN
+curl -X POST http://localhost:3000/api/cars/vin/1HGBH41JXMN109186/upload \
+  -F "slotType=dealer" \
+  -F "slotIndex=1" \
+  -F "file1=@photo1.jpg"
+
+# 4. Get share link using VIN
+curl "http://localhost:3000/api/cars/vin/1HGBH41JXMN109186/share?slotType=dealer&slotIndex=1"
+
+# 5. Add link using VIN
+curl -X POST http://localhost:3000/api/cars/vin/1HGBH41JXMN109186/links \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Auction","url":"https://example.com/auction"}'
+```
+
+### Frontend URLs
+
+- **Car list**: `/cars` (unchanged)
+- **Car details**: `/cars/:vin` (changed from `/cars/:id`)
+- **Example**: `/cars/1HGBH41JXMN109186`
+
+All frontend components now use VIN for navigation and API calls.
