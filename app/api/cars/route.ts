@@ -67,16 +67,18 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/cars
- * Create a new car with all slots (ADMIN ONLY)
+ * Create a new car with all slots
+ * Available to both users and admins
  * 
  * Body:
  * - make: string (required)
  * - model: string (required)
  * - vin: string (required, 17 characters)
- * - region: string (optional, admin can specify, defaults to session region)
+ * - region: string (optional, admin can specify, users use their own region)
  */
 export async function POST(request: NextRequest) {
-  const authResult = await requireAdmin();
+  // Changed from requireAdmin() to requireAuth() - users can now create cars
+  const authResult = await requireAuth();
   
   if ('error' in authResult) {
     return authResult.error;
@@ -108,7 +110,11 @@ export async function POST(request: NextRequest) {
     }
     
     // Determine effective region for car creation
-    const effectiveRegion = getEffectiveRegion(session, bodyRegion);
+    // Users: always use their own region (ignore bodyRegion)
+    // Admins: can specify region via bodyRegion, or it's validated
+    const effectiveRegion = session.role === 'admin' 
+      ? (bodyRegion || getEffectiveRegion(session, bodyRegion))
+      : session.region;
     
     if (!effectiveRegion) {
       return NextResponse.json(

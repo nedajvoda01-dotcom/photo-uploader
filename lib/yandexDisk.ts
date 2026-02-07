@@ -420,6 +420,56 @@ export async function deleteFolder(path: string): Promise<{ success: boolean; er
 }
 
 /**
+ * Move/rename a folder or file on Yandex Disk
+ * @param fromPath Source path on Yandex Disk
+ * @param toPath Destination path on Yandex Disk
+ * @param overwrite Whether to overwrite if destination exists (default: false)
+ * @returns Promise with success status
+ */
+export async function moveFolder(
+  fromPath: string, 
+  toPath: string, 
+  overwrite: boolean = false
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Ensure destination parent directory exists
+    const destParent = toPath.substring(0, toPath.lastIndexOf('/'));
+    if (destParent) {
+      await ensureDir(destParent);
+    }
+    
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources/move?from=${encodeURIComponent(fromPath)}&path=${encodeURIComponent(toPath)}&overwrite=${overwrite}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
+        },
+      }
+    );
+    
+    // 201 = moved successfully
+    // 202 = move in progress (async)
+    if (response.status === 201 || response.status === 202) {
+      return { success: true };
+    }
+    
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      error: `Failed to move folder: ${response.status} - ${JSON.stringify(errorData)}`
+    };
+  } catch (error) {
+    console.error("Error moving folder:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
+}
+
+
+/**
  * Download file content from Yandex Disk
  * @param path Path to file on Yandex Disk
  * @returns File content as Buffer

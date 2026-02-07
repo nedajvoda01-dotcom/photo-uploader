@@ -192,7 +192,8 @@ export default function CarsPage() {
             )}
           </div>
           <div className={styles.headerActions}>
-            {isAdmin && (
+            {/* Changed: Both users and admins can create cars now */}
+            {activeRegion && (
               <Link 
                 href={`/cars/new?region=${activeRegion}`} 
                 className={styles.newButton}
