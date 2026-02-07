@@ -13,7 +13,7 @@
  */
 
 import { sql } from './db';
-import { getBasePath } from './diskPaths';
+import { getBasePath, getLockMarkerPath } from './diskPaths';
 import { listFolder, exists, downloadFile } from './yandexDisk';
 
 // TTL-based sync cache (30 seconds by default)
@@ -121,7 +121,7 @@ function parseSlotSubfolderName(folderName: string, slotType: string): number | 
 async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
     // Try to read _LOCK.json first for optimization
-    const lockPath = `${slotPath}/_LOCK.json`;
+    const lockPath = getLockMarkerPath(slotPath);
     const lockExists = await exists(lockPath);
     
     if (lockExists) {

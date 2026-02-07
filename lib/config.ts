@@ -303,12 +303,22 @@ export function getConfigSummary() {
 /**
  * Log startup configuration summary (without secrets)
  * Should be called once at application startup
+ * 
+ * Note: This function is safe to call in both server and edge environments,
+ * but will only log in traditional Node.js server environments.
  */
 export function logStartupConfig() {
-  if (typeof window !== 'undefined') {
-    // Skip on client side
-    return;
-  }
+  // Skip in browser and edge runtime environments
+  try {
+    // Check if we're in a server environment where console.log is meaningful
+    if (typeof window !== 'undefined') {
+      return;
+    }
+    
+    // Check if we have access to process (may not exist in Edge Runtime)
+    if (typeof process === 'undefined') {
+      return;
+    }
 
   console.log('\n========================================');
   console.log('APPLICATION CONFIGURATION');
@@ -360,4 +370,8 @@ export function logStartupConfig() {
   console.log(`  Max Files: ${ZIP_MAX_FILES}`);
   console.log(`  Max Total Size: ${ZIP_MAX_TOTAL_MB} MB`);
   console.log('========================================\n');
+  } catch (error) {
+    // Silently fail if logging is not available (e.g., in Edge Runtime)
+    return;
+  }
 }
