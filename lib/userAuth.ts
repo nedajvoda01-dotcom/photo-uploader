@@ -4,7 +4,7 @@
 import { checkDatabaseConnection } from "./db";
 import { getUserByEmail as getUserByEmailDB } from "./models/users";
 import { getUserByEmail as getUserByEmailFile } from "./users";
-import { getBootstrapAdmins, getAllRegionUsers, getRegionForUser, ADMIN_REGION } from "./config";
+import { getBootstrapAdmins, getAllRegionUsers, ADMIN_REGION } from "./config";
 import bcrypt from "bcryptjs";
 import { timingSafeEqual } from "crypto";
 

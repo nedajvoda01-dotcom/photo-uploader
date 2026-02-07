@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { ADMIN_EMAIL, ADMIN_PASSWORD_HASH, IS_PRODUCTION } from "./config";
 
 export interface User {
   email: string;
@@ -13,6 +14,11 @@ const USERS_FILE = path.join(process.cwd(), "data", "users.json");
  * @returns Array of users or null if file doesn't exist
  */
 function loadUsers(): User[] | null {
+  // Only load users.json in development mode
+  if (IS_PRODUCTION) {
+    return null;
+  }
+
   if (!fs.existsSync(USERS_FILE)) {
     return null;
   }
@@ -45,7 +51,7 @@ function loadUsers(): User[] | null {
  * @returns User object if found, undefined otherwise
  */
 export function getUserByEmail(email: string): User | undefined {
-  // Try to load users from file first (priority over env)
+  // Try to load users from file first (priority over env, dev only)
   const users = loadUsers();
   
   if (users !== null) {
@@ -53,14 +59,11 @@ export function getUserByEmail(email: string): User | undefined {
     return users.find((user) => user.email === email);
   }
   
-  // Fallback to environment variables (for Vercel deployment)
-  const adminEmail = process.env.ADMIN_EMAIL;
-  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
-  
-  if (adminEmail && adminPasswordHash && email === adminEmail) {
+  // Fallback to environment variables (from config)
+  if (ADMIN_EMAIL && ADMIN_PASSWORD_HASH && email === ADMIN_EMAIL) {
     return {
-      email: adminEmail,
-      passwordHash: adminPasswordHash,
+      email: ADMIN_EMAIL,
+      passwordHash: ADMIN_PASSWORD_HASH,
     };
   }
   

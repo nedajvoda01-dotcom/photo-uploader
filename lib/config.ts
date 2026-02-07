@@ -73,6 +73,10 @@ if (!isBuildTime && !hasAdmin1 && !hasAdmin2 && !POSTGRES_URL) {
 // AUTH_DEBUG accepts both "1" (legacy) and "true" for flexibility
 export const AUTH_DEBUG = process.env.AUTH_DEBUG === "1" || process.env.AUTH_DEBUG === "true";
 
+// Node environment (development or production)
+export const NODE_ENV = process.env.NODE_ENV || 'development';
+export const IS_PRODUCTION = NODE_ENV === 'production';
+
 // Region-based user mappings (REGION_<REGION>_USERS)
 // Format: email1@x.com,email2@x.com (no spaces)
 interface RegionUsers {
@@ -294,4 +298,80 @@ export function getConfigSummary() {
     zipMaxTotalMB: ZIP_MAX_TOTAL_MB,
     authDebug: AUTH_DEBUG,
   };
+}
+
+/**
+ * Log startup configuration summary (without secrets)
+ * Should be called once at application startup
+ * 
+ * Note: This function is safe to call in both server and edge environments,
+ * but will only log in traditional Node.js server environments.
+ */
+export function logStartupConfig() {
+  // Skip in browser and edge runtime environments
+  try {
+    // Check if we're in a server environment where console.log is meaningful
+    if (typeof window !== 'undefined') {
+      return;
+    }
+    
+    // Check if we have access to process (may not exist in Edge Runtime)
+    if (typeof process === 'undefined') {
+      return;
+    }
+
+  console.log('\n========================================');
+  console.log('APPLICATION CONFIGURATION');
+  console.log('========================================');
+  console.log(`Environment: ${NODE_ENV}`);
+  console.log(`Auth Debug: ${AUTH_DEBUG ? 'ENABLED' : 'disabled'}`);
+  console.log('');
+  
+  // Database mode
+  const dbMode = POSTGRES_URL || POSTGRES_URL_NON_POOLING ? 'Database' : 'File/ENV';
+  console.log(`Auth Mode: ${dbMode}`);
+  if (POSTGRES_URL) {
+    console.log('  - Using POSTGRES_URL (pooled)');
+  }
+  if (POSTGRES_URL_NON_POOLING) {
+    console.log('  - Using POSTGRES_URL_NON_POOLING (direct)');
+  }
+  console.log('');
+  
+  // Users and regions
+  const bootstrapAdmins = getBootstrapAdmins();
+  const regionUsers = getAllRegionUsers();
+  
+  console.log(`Bootstrap Admins: ${bootstrapAdmins.length}`);
+  bootstrapAdmins.forEach((admin, i) => {
+    console.log(`  ${i + 1}. ${admin.email} (region: ${admin.region})`);
+  });
+  console.log('');
+  
+  console.log(`Regions: ${REGIONS.length}`);
+  console.log(`  ${REGIONS.join(', ')}`);
+  console.log('');
+  
+  console.log(`Region Users: ${regionUsers.length}`);
+  REGIONS.forEach(region => {
+    const users = REGION_USERS[region] || [];
+    console.log(`  ${region}: ${users.length} user(s)`);
+  });
+  console.log('');
+  
+  // Yandex Disk
+  console.log('Yandex Disk:');
+  console.log(`  Base Dir: ${YANDEX_DISK_BASE_DIR}`);
+  console.log(`  Token: ${YANDEX_DISK_TOKEN ? 'configured' : 'NOT CONFIGURED'}`);
+  console.log('');
+  
+  // Limits
+  console.log('ZIP Download Limits:');
+  console.log(`  Max Files: ${ZIP_MAX_FILES}`);
+  console.log(`  Max Total Size: ${ZIP_MAX_TOTAL_MB} MB`);
+  console.log('========================================\n');
+  } catch {
+    // Silently fail if logging is not available (e.g., in Edge Runtime)
+    return;
+  }
 }

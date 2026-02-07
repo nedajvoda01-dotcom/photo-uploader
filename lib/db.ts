@@ -2,10 +2,7 @@
  * Database connection and query utilities
  */
 import { sql } from '@vercel/postgres';
-
-// Log database connection configuration at module load time
-const POSTGRES_URL = process.env.POSTGRES_URL;
-const POSTGRES_URL_NON_POOLING = process.env.POSTGRES_URL_NON_POOLING;
+import { POSTGRES_URL, POSTGRES_URL_NON_POOLING } from './config';
 
 // Determine connection type for logging
 let connectionType = 'none';

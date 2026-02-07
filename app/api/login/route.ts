@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { checkBootstrapAdmin } from "@/lib/userAuth";
 import { getUserByEmail } from "@/lib/users";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
-import { AUTH_DEBUG, ADMIN_REGION } from "@/lib/config";
+import { AUTH_DEBUG, ADMIN_REGION, IS_PRODUCTION } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,11 +62,10 @@ export async function POST(request: NextRequest) {
         { status: 200 }
       );
 
-      const isProduction = process.env.NODE_ENV === "production";
       response.cookies.set(getSessionCookieName(), token, {
         httpOnly: true,
         sameSite: "lax",
-        secure: isProduction,
+        secure: IS_PRODUCTION,
         maxAge: getSessionTTL(),
         path: "/",
       });
@@ -150,11 +149,10 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    const isProduction = process.env.NODE_ENV === "production";
     response.cookies.set(getSessionCookieName(), token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: isProduction,
+      secure: IS_PRODUCTION,
       maxAge: getSessionTTL(),
       path: "/",
     });

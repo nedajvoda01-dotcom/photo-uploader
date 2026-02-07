@@ -88,6 +88,30 @@ export function checkRegionAccess(session: SessionPayload, targetRegion: string)
 }
 
 /**
+ * Get effective region for a session
+ * - For users: always their own region (ignore query params)
+ * - For admins: use query param 'region' if provided, otherwise their region (usually ALL)
+ * 
+ * @param session - User session
+ * @param queryRegion - Optional region from query params
+ * @returns Effective region to use
+ */
+export function getEffectiveRegion(session: SessionPayload, queryRegion?: string): string {
+  // Users always use their own region
+  if (session.role !== 'admin') {
+    return session.region;
+  }
+  
+  // Admins can specify a region via query param
+  if (queryRegion) {
+    return queryRegion;
+  }
+  
+  // Fallback to admin's own region
+  return session.region;
+}
+
+/**
  * Require region access for an API endpoint
  * Returns error if user doesn't have access to the target region
  */
