@@ -1,39 +1,39 @@
 .page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem 1rem;
+  background: #f5f7fa;
+  padding: 0;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-.loading {
-  text-align: center;
-  padding: 3rem;
-  color: white;
-  font-size: 1.25rem;
+.topBar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.error {
-  background: #fee;
-  color: #c33;
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  text-align: center;
+.topBarLeft {
+  display: flex;
+  align-items: center;
 }
 
-.headerBar {
-  margin-bottom: 1rem;
+.topBarRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .backLink {
   color: white;
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   transition: opacity 0.2s;
 }
 
@@ -41,41 +41,173 @@
   opacity: 0.8;
 }
 
+.userEmail {
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.roleBadge {
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.roleAdmin {
+  background: rgba(255, 215, 0, 0.9);
+  color: #1a1a1a;
+  border: 2px solid rgba(255, 215, 0, 1);
+}
+
+.rolePhotographer {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.loading {
+  text-align: center;
+  padding: 3rem;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.error {
+  background: #fee;
+  color: #c33;
+  padding: 1rem 2rem;
+  margin: 0;
+  text-align: center;
+  border-bottom: 2px solid #fbb;
+  font-weight: 600;
+}
+
 .carHeader {
   background: white;
-  border-radius: 12px;
   padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.carHeaderMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.carTitleSection {
+  flex: 1;
 }
 
 .carTitle {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: #333;
+  color: #1a1a1a;
   margin: 0 0 0.5rem 0;
+  line-height: 1.2;
 }
 
 .carVin {
-  font-size: 1rem;
-  color: #666;
+  font-size: 0.95rem;
+  color: #999;
   margin: 0;
-  font-family: monospace;
+  font-family: 'Monaco', 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
+.carBadges {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.regionBadge {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.carStats {
+  display: flex;
+  gap: 3rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1.5rem;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.statValue {
+  font-size: 1.75rem;
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.carActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.archiveButton {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  color: #ef4444;
+  border: 2px solid #ef4444;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.archiveButton:hover:not(:disabled) {
+  background: #ef4444;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.archiveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .linksSection {
   background: white;
-  border-radius: 12px;
   padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .sectionTitle {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: #333;
-  margin: 0 0 1.5rem 0;
+  color: #1a1a1a;
+  margin: 0 0 1.25rem 0;
 }
 
 .linksList {
@@ -89,15 +221,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background: #f9f9f9;
+  padding: 0.875rem 1rem;
+  background: #f9fafb;
   border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.linkItem:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
 }
 
 .linkUrl {
   color: #667eea;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .linkUrl:hover {
@@ -112,6 +252,7 @@
   cursor: pointer;
   padding: 0 0.5rem;
   line-height: 1;
+  transition: color 0.2s;
 }
 
 .deleteLinkButton:hover {
@@ -161,10 +302,9 @@
 
 .slotsSection {
   background: white;
-  border-radius: 12px;
   padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .slotGrid {
@@ -312,8 +452,23 @@
 }
 
 @media (max-width: 768px) {
+  .topBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .topBarRight {
+    justify-content: space-between;
+  }
+
   .carTitle {
-    font-size: 2rem;
+    font-size: 1.75rem;
+  }
+
+  .carStats {
+    flex-wrap: wrap;
+    gap: 1.5rem;
   }
 
   .slotGrid {

@@ -163,13 +163,26 @@ export default function CarsPage() {
   return (
     <div className={styles.page}>
       <div className={styles.container}>
+        {/* Top Bar with User Info */}
+        <div className={styles.topBar}>
+          <div className={styles.userInfo}>
+            <span className={styles.userEmail}>{userInfo?.email || 'User'}</span>
+            <span className={`${styles.roleBadge} ${isAdmin ? styles.roleAdmin : styles.rolePhotographer}`}>
+              {isAdmin ? '👑 Admin' : '📷 Photographer'}
+            </span>
+          </div>
+          <button onClick={handleLogout} className={styles.logoutButton}>
+            Logout
+          </button>
+        </div>
+
         <header className={styles.header}>
           <div className={styles.titleSection}>
-            <h1 className={styles.title}>My Cars</h1>
+            <h1 className={styles.title}>Cars Dashboard</h1>
             {isAdmin && activeRegion && (
-              <div className={styles.regionSelector}>
+              <div className={styles.regionSelectorWrapper}>
                 <label htmlFor="region-select" className={styles.regionLabel}>
-                  Region:
+                  Active Region:
                 </label>
                 <select
                   id="region-select"
@@ -183,37 +196,71 @@ export default function CarsPage() {
                     </option>
                   ))}
                 </select>
+                <div className={styles.regionNote}>
+                  ALL is archive only, not for actions
+                </div>
               </div>
             )}
             {!isAdmin && userInfo && (
-              <div className={styles.regionBadge}>
-                Region: {userInfo.region}
+              <div className={styles.regionInfo}>
+                <span className={styles.regionLabel}>Your Region:</span>
+                <span className={styles.regionBadge}>{userInfo.region}</span>
               </div>
             )}
           </div>
           <div className={styles.headerActions}>
-            {/* Changed: Both users and admins can create cars now */}
-            {activeRegion && (
+            {activeRegion ? (
               <Link 
                 href={`/cars/new?region=${activeRegion}`} 
                 className={styles.newButton}
               >
                 + New Car
               </Link>
+            ) : (
+              <button className={styles.newButtonDisabled} disabled title="Select a region first">
+                + New Car (Select Region)
+              </button>
             )}
-            <button onClick={handleLogout} className={styles.logoutButton}>
-              Logout
-            </button>
           </div>
         </header>
 
         {error && <div className={styles.error}>{error}</div>}
 
+        {/* Stats Bar */}
+        {activeRegion && (
+          <div className={styles.statsBar}>
+            <div className={styles.statItem}>
+              <span className={styles.statLabel}>Region:</span>
+              <span className={styles.statValue}>{activeRegion}</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statLabel}>Total Cars:</span>
+              <span className={styles.statValue}>{cars.length}</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statLabel}>Completed:</span>
+              <span className={styles.statValue}>
+                {cars.filter(c => calculateProgress(c) === 100).length}
+              </span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statLabel}>In Progress:</span>
+              <span className={styles.statValue}>
+                {cars.filter(c => calculateProgress(c) > 0 && calculateProgress(c) < 100).length}
+              </span>
+            </div>
+          </div>
+        )}
+
         {cars.length === 0 ? (
           <div className={styles.empty}>
-            <p className={styles.emptyText}>No cars yet.</p>
+            <div className={styles.emptyIcon}>🚗</div>
+            <p className={styles.emptyText}>No cars in {activeRegion || 'this region'}</p>
             <p className={styles.emptySubtext}>
-              Click &quot;+ New Car&quot; to add your first car.
+              {isAdmin 
+                ? `Create a new car in ${activeRegion} to get started.` 
+                : 'Click "+ New Car" to add your first car.'
+              }
             </p>
           </div>
         ) : (
@@ -224,40 +271,49 @@ export default function CarsPage() {
 
               return (
                 <div key={car.id} className={styles.carCard}>
-                  <div className={styles.carInfo}>
-                    <h2 className={styles.carTitle}>
-                      {car.make} {car.model}
-                    </h2>
-                    <p className={styles.carVin}>VIN: {car.vin}</p>
+                  <div className={styles.carHeader}>
+                    <div className={styles.carInfo}>
+                      <h2 className={styles.carTitle}>
+                        {car.make} {car.model}
+                      </h2>
+                      <p className={styles.carVin}>VIN: {car.vin}</p>
+                    </div>
+                    <div className={styles.carRegionBadge}>{car.region}</div>
                   </div>
 
                   <div className={styles.progressSection}>
+                    <div className={styles.progressHeader}>
+                      <span className={styles.progressLabel}>Upload Progress</span>
+                      <span className={styles.progressPercent}>{progress}%</span>
+                    </div>
                     <div className={styles.progressBar}>
                       <div
-                        className={styles.progressFill}
+                        className={`${styles.progressFill} ${progress === 100 ? styles.progressComplete : ''}`}
                         style={{ width: `${progress}%` }}
                       />
                     </div>
-                    <p className={styles.progressText}>{progress}% Complete</p>
                   </div>
 
                   <div className={styles.breakdown}>
-                    <span className={styles.breakdownItem}>
-                      Dealer: {breakdown.dealer}/1
-                    </span>
-                    <span className={styles.breakdownItem}>
-                      Buyout: {breakdown.buyout}/8
-                    </span>
-                    <span className={styles.breakdownItem}>
-                      Dummies: {breakdown.dummies}/5
-                    </span>
+                    <div className={styles.breakdownItem}>
+                      <span className={styles.breakdownLabel}>Dealer</span>
+                      <span className={styles.breakdownValue}>{breakdown.dealer}/1</span>
+                    </div>
+                    <div className={styles.breakdownItem}>
+                      <span className={styles.breakdownLabel}>Buyout</span>
+                      <span className={styles.breakdownValue}>{breakdown.buyout}/8</span>
+                    </div>
+                    <div className={styles.breakdownItem}>
+                      <span className={styles.breakdownLabel}>Dummies</span>
+                      <span className={styles.breakdownValue}>{breakdown.dummies}/5</span>
+                    </div>
                   </div>
 
                   <Link
                     href={`/cars/${car.vin}`}
                     className={styles.openButton}
                   >
-                    Open
+                    Open Car →
                   </Link>
                 </div>
               );
