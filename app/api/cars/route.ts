@@ -146,6 +146,19 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Block creation in ALL region (archive only)
+    if (effectiveRegion === 'ALL') {
+      return NextResponse.json(
+        { 
+          ok: false,
+          code: "REGION_ALL_FORBIDDEN",
+          message: "Cannot create cars in ALL region. ALL is for archive only. Please select a specific region.",
+          status: 400
+        },
+        { status: 400 }
+      );
+    }
+    
     // Check if car already exists (idempotent behavior)
     const existingCar = await getCarByRegionAndVin(effectiveRegion, vin);
     if (existingCar) {
@@ -166,7 +179,8 @@ export async function POST(request: NextRequest) {
     // Generate root path
     const rootPath = carRoot(effectiveRegion, make, model, vin);
     
-    // Create car root folder on Yandex Disk
+    // DISK-FIRST: Create car root folder on Yandex Disk (source of truth)
+    console.log(`[API] Creating car folder on disk: ${rootPath}`);
     const rootFolderResult = await createFolder(rootPath);
     if (!rootFolderResult.success) {
       console.error(`Failed to create car root folder:`, rootFolderResult.error);
@@ -188,7 +202,7 @@ export async function POST(request: NextRequest) {
       model,
       vin,
       created_at: new Date().toISOString(),
-      created_by: session.email || session.userId,
+      created_by: session.email || session.userId?.toString() || 'unknown',
     };
     
     const carJsonResult = await uploadText(`${rootPath}/_CAR.json`, carMetadata);
@@ -197,34 +211,78 @@ export async function POST(request: NextRequest) {
       // Continue anyway - this is metadata only
     }
     
-    // Create car in database
-    const car = await createCar({
-      region: effectiveRegion,
-      make,
-      model,
-      vin,
-      disk_root_path: rootPath,
-      created_by: session.userId,
-    });
-    
     // Get all slot paths (14 total)
     const slotPaths = getAllSlotPaths(effectiveRegion, make, model, vin);
     
-    // Create folders on Yandex Disk and slots in database
+    // Create all 14 slot folders on Yandex Disk (DISK-FIRST)
+    console.log(`[API] Creating ${slotPaths.length} slot folders on disk`);
+    const diskSlotResults = [];
     for (const slot of slotPaths) {
-      // Create folder on disk
       const folderResult = await createFolder(slot.path);
+      diskSlotResults.push({
+        slotType: slot.slotType,
+        slotIndex: slot.slotIndex,
+        success: folderResult.success,
+        error: folderResult.error,
+      });
       if (!folderResult.success) {
         console.error(`Failed to create folder for slot ${slot.slotType}[${slot.slotIndex}]:`, folderResult.error);
         // Continue anyway - we'll handle missing folders during upload
       }
+    }
+    
+    // DB AS CACHE: Try to create car in database (non-critical, can be synced later)
+    let dbCacheOk = true;
+    let car: any = null;
+    
+    try {
+      car = await createCar({
+        region: effectiveRegion,
+        make,
+        model,
+        vin,
+        disk_root_path: rootPath,
+        created_by: session.email || session.userId?.toString() || null,
+      });
       
-      // Create slot in database
-      await createCarSlot({
-        car_id: car.id,
-        slot_type: slot.slotType,
-        slot_index: slot.slotIndex,
-        disk_slot_path: slot.path,
+      // Create slot records in database
+      for (const slot of slotPaths) {
+        try {
+          await createCarSlot({
+            car_id: car.id,
+            slot_type: slot.slotType,
+            slot_index: slot.slotIndex,
+            disk_slot_path: slot.path,
+          });
+        } catch (slotError) {
+          console.error(`Failed to create DB slot ${slot.slotType}[${slot.slotIndex}]:`, slotError);
+          dbCacheOk = false;
+          // Continue - disk is truth, DB is cache
+        }
+      }
+    } catch (dbError) {
+      console.error('[API] Failed to create car in database (DB as cache):', dbError);
+      dbCacheOk = false;
+      // Disk creation succeeded, so we'll trigger sync and return success
+      car = {
+        id: -1, // Sentinel: no DB record (use -1 to clearly indicate missing DB entry)
+        region: effectiveRegion,
+        make,
+        model,
+        vin,
+        disk_root_path: rootPath,
+        created_by: session.email || session.userId?.toString() || null,
+        created_at: new Date(),
+        deleted_at: null,
+      };
+    }
+    
+    // Trigger region sync if DB cache failed (background task)
+    if (!dbCacheOk) {
+      console.log(`[API] DB cache failed, triggering region sync for ${effectiveRegion}`);
+      // Fire-and-forget sync (don't await)
+      syncRegion(effectiveRegion, true).catch(err => {
+        console.error(`[API] Background sync failed:`, err);
       });
     }
     
@@ -232,11 +290,15 @@ export async function POST(request: NextRequest) {
       ok: true,
       car: {
         id: car.id,
-        region: car.region,
-        make: car.make,
-        model: car.model,
-        vin: car.vin,
+        region: car.region || effectiveRegion,
+        make: car.make || make,
+        model: car.model || model,
+        vin: car.vin || vin,
       },
+      db_cache_ok: dbCacheOk,
+      ...(dbCacheOk ? {} : { 
+        warning: "Car created on disk, but database cache update failed. Sync will occur automatically." 
+      }),
     }, { status: 201 });
   } catch (error) {
     console.error("Error creating car:", error);

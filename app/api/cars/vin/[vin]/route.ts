@@ -4,9 +4,13 @@ import { getCarByRegionAndVin, deleteCarByVin } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
 import { syncRegion } from "@/lib/sync";
-import { moveFolder } from "@/lib/yandexDisk";
+import { moveFolder, listFolder, exists } from "@/lib/yandexDisk";
 import { ensureDbSchema } from "@/lib/db";
-import { getBasePath } from "@/lib/diskPaths";
+import { getBasePath, getAllSlotPaths, getLockMarkerPath } from "@/lib/diskPaths";
+
+// Constants
+const EXPECTED_SLOT_COUNT = 14; // 1 dealer + 8 buyout + 5 dummies
+const NO_DB_RECORD_ID = -1; // Sentinel value indicating record not in database
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -48,13 +52,54 @@ export async function GET(
     await syncRegion(session.region);
     
     // Get car by region and VIN (region from session)
-    const car = await getCarByRegionAndVin(session.region, vin);
+    let car = await getCarByRegionAndVin(session.region, vin);
     
+    // If car not found in DB after sync, try to construct from disk
     if (!car) {
-      return NextResponse.json(
-        { error: "Car not found in your region" },
-        { status: 404 }
-      );
+      console.log(`[API] Car ${vin} not in DB after sync, checking disk directly`);
+      
+      // Try to find car on disk by scanning region folder
+      const basePath = getBasePath();
+      const regionPath = `${basePath}/${session.region}`;
+      const carsResult = await listFolder(regionPath);
+      
+      if (carsResult.success && carsResult.items) {
+        // Look for folder matching VIN
+        for (const folder of carsResult.items) {
+          if (folder.type === 'dir' && folder.name.endsWith(vin)) {
+            // Found car on disk, construct car object
+            const parts = folder.name.split(' ');
+            if (parts.length >= 3) {
+              const vinPart = parts[parts.length - 1];
+              const model = parts.slice(1, -1).join(' ');
+              const make = parts[0];
+              
+              car = {
+                id: NO_DB_RECORD_ID, // Sentinel: no DB record
+                region: session.region,
+                make,
+                model,
+                vin: vinPart,
+                disk_root_path: folder.path,
+                created_by: null,
+                created_at: new Date(),
+                deleted_at: null,
+              };
+              
+              console.log(`[API] Constructed car from disk: ${make} ${model} ${vin}`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // If still not found, return 404
+      if (!car) {
+        return NextResponse.json(
+          { error: "Car not found in your region" },
+          { status: 404 }
+        );
+      }
     }
     
     // Check region permission (admin with region=ALL can access all regions)
@@ -63,11 +108,55 @@ export async function GET(
       return regionCheck.error;
     }
     
-    // Get slots
-    const slots = await listCarSlots(car.id);
+    // Get slots - if no DB records, construct from disk structure
+    let slots = car.id > 0 ? await listCarSlots(car.id) : [];
+    
+    // Ensure we always return expected slot count (1 dealer + 8 buyout + 5 dummies)
+    if (slots.length < EXPECTED_SLOT_COUNT) {
+      console.log(`[API] Only ${slots.length} slots in DB, constructing full ${EXPECTED_SLOT_COUNT}-slot structure from disk`);
+      
+      const fullSlots = [];
+      const slotPaths = getAllSlotPaths(car.region, car.make, car.model, car.vin);
+      
+      for (const slotPath of slotPaths) {
+        // Check if we have this slot in DB
+        const dbSlot = slots.find(s => 
+          s.slot_type === slotPath.slotType && s.slot_index === slotPath.slotIndex
+        );
+        
+        if (dbSlot) {
+          fullSlots.push(dbSlot);
+        } else {
+          // Create synthetic slot from disk
+          const lockMarkerPath = getLockMarkerPath(slotPath.path);
+          const lockExists = await exists(lockMarkerPath);
+          
+          fullSlots.push({
+            id: NO_DB_RECORD_ID, // Sentinel: no DB record
+            car_id: car.id,
+            slot_type: slotPath.slotType,
+            slot_index: slotPath.slotIndex,
+            status: lockExists ? 'locked' : 'empty',
+            locked_at: null,
+            locked_by: null,
+            lock_meta_json: null,
+            disk_slot_path: slotPath.path,
+            public_url: null,
+            is_used: false,
+            marked_used_at: null,
+            marked_used_by: null,
+            file_count: 0,
+            total_size_mb: 0,
+            last_sync_at: null,
+          });
+        }
+      }
+      
+      slots = fullSlots;
+    }
     
     // Get links
-    const links = await listCarLinks(car.id);
+    const links = car.id > 0 ? await listCarLinks(car.id) : [];
     
     return NextResponse.json({
       success: true,

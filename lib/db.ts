@@ -76,10 +76,14 @@ export async function ensureDbSchema(): Promise<boolean> {
 /**
  * Initialize database schema
  * Creates tables if they don't exist
+ * 
+ * Note: created_by, locked_by, marked_used_by are TEXT fields (email/identifier)
+ * not foreign keys to users table. This makes the system compatible with ENV-based auth
+ * where user records may not exist in the database.
  */
 export async function initializeDatabase() {
   try {
-    // Create users table
+    // Create users table (optional, for database-based auth mode)
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -91,6 +95,44 @@ export async function initializeDatabase() {
       )
     `;
 
+    // Drop foreign key constraints if they exist (migration)
+    await sql`
+      DO $$ 
+      BEGIN 
+        -- Drop cars.created_by FK constraint
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints 
+          WHERE constraint_name='cars_created_by_fkey' AND table_name='cars'
+        ) THEN
+          ALTER TABLE cars DROP CONSTRAINT cars_created_by_fkey;
+        END IF;
+        
+        -- Drop car_links.created_by FK constraint
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints 
+          WHERE constraint_name='car_links_created_by_fkey' AND table_name='car_links'
+        ) THEN
+          ALTER TABLE car_links DROP CONSTRAINT car_links_created_by_fkey;
+        END IF;
+        
+        -- Drop car_slots.locked_by FK constraint
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints 
+          WHERE constraint_name='car_slots_locked_by_fkey' AND table_name='car_slots'
+        ) THEN
+          ALTER TABLE car_slots DROP CONSTRAINT car_slots_locked_by_fkey;
+        END IF;
+        
+        -- Drop car_slots.marked_used_by FK constraint
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints 
+          WHERE constraint_name='car_slots_marked_used_by_fkey' AND table_name='car_slots'
+        ) THEN
+          ALTER TABLE car_slots DROP CONSTRAINT car_slots_marked_used_by_fkey;
+        END IF;
+      END $$;
+    `;
+
     // Create cars table
     await sql`
       CREATE TABLE IF NOT EXISTS cars (
@@ -100,11 +142,27 @@ export async function initializeDatabase() {
         model VARCHAR(100) NOT NULL,
         vin VARCHAR(17) NOT NULL,
         disk_root_path TEXT NOT NULL,
-        created_by INTEGER REFERENCES users(id),
+        created_by TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         deleted_at TIMESTAMP,
         UNIQUE(region, vin)
       )
+    `;
+    
+    // Migrate cars.created_by from INTEGER to TEXT if needed
+    await sql`
+      DO $$ 
+      BEGIN 
+        -- Check if created_by is INTEGER type
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='cars' AND column_name='created_by' 
+          AND data_type IN ('integer', 'bigint', 'smallint')
+        ) THEN
+          -- Change to TEXT
+          ALTER TABLE cars ALTER COLUMN created_by TYPE TEXT USING created_by::TEXT;
+        END IF;
+      END $$;
     `;
 
     // Create car_links table
@@ -114,9 +172,23 @@ export async function initializeDatabase() {
         car_id INTEGER REFERENCES cars(id) ON DELETE CASCADE,
         label VARCHAR(255) NOT NULL,
         url TEXT NOT NULL,
-        created_by INTEGER REFERENCES users(id),
+        created_by TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `;
+    
+    // Migrate car_links.created_by from INTEGER to TEXT if needed
+    await sql`
+      DO $$ 
+      BEGIN 
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='car_links' AND column_name='created_by' 
+          AND data_type IN ('integer', 'bigint', 'smallint')
+        ) THEN
+          ALTER TABLE car_links ALTER COLUMN created_by TYPE TEXT USING created_by::TEXT;
+        END IF;
+      END $$;
     `;
 
     // Idempotent migration: title → label
@@ -158,18 +230,46 @@ export async function initializeDatabase() {
         status VARCHAR(50) NOT NULL DEFAULT 'empty',
         locked BOOLEAN DEFAULT FALSE,
         locked_at TIMESTAMP,
-        locked_by INTEGER REFERENCES users(id),
+        locked_by TEXT,
         lock_meta_json TEXT,
         disk_slot_path TEXT NOT NULL,
         public_url TEXT,
         is_used BOOLEAN DEFAULT FALSE,
         marked_used_at TIMESTAMP,
-        marked_used_by INTEGER REFERENCES users(id),
+        marked_used_by TEXT,
         file_count INTEGER DEFAULT 0,
         total_size_mb NUMERIC(10,2) DEFAULT 0,
         last_sync_at TIMESTAMP,
         UNIQUE(car_id, slot_type, slot_index)
       )
+    `;
+    
+    // Migrate car_slots.locked_by from INTEGER to TEXT if needed
+    await sql`
+      DO $$ 
+      BEGIN 
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='car_slots' AND column_name='locked_by' 
+          AND data_type IN ('integer', 'bigint', 'smallint')
+        ) THEN
+          ALTER TABLE car_slots ALTER COLUMN locked_by TYPE TEXT USING locked_by::TEXT;
+        END IF;
+      END $$;
+    `;
+    
+    // Migrate car_slots.marked_used_by from INTEGER to TEXT if needed
+    await sql`
+      DO $$ 
+      BEGIN 
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='car_slots' AND column_name='marked_used_by' 
+          AND data_type IN ('integer', 'bigint', 'smallint')
+        ) THEN
+          ALTER TABLE car_slots ALTER COLUMN marked_used_by TYPE TEXT USING marked_used_by::TEXT;
+        END IF;
+      END $$;
     `;
 
     // Add locked column if it doesn't exist (migration)

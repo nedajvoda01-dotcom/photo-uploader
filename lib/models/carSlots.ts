@@ -10,13 +10,13 @@ export interface CarSlot {
   slot_index: number;
   status: string;
   locked_at: Date | null;
-  locked_by: number | null;
+  locked_by: string | null;
   lock_meta_json: string | null;
   disk_slot_path: string;
   public_url: string | null;
   is_used: boolean;
   marked_used_at: Date | null;
-  marked_used_by: number | null;
+  marked_used_by: string | null;
   file_count: number;
   total_size_mb: number;
   last_sync_at: Date | null;
@@ -33,7 +33,7 @@ export interface LockMetadata {
   carId: number;
   slotType: string;
   slotIndex: number;
-  uploadedBy: number;
+  uploadedBy: string;
   uploadedAt: string;
   fileCount: number;
   files: Array<{
@@ -115,7 +115,7 @@ export async function lockCarSlot(
   car_id: number,
   slot_type: string,
   slot_index: number,
-  locked_by: number,
+  locked_by: string,
   lock_metadata: LockMetadata
 ): Promise<CarSlot> {
   try {
@@ -208,7 +208,7 @@ export async function markSlotAsUsed(
   car_id: number,
   slot_type: string,
   slot_index: number,
-  marked_by: number
+  marked_by: string
 ): Promise<CarSlot> {
   try {
     await ensureDbSchema();

@@ -228,6 +228,18 @@ export async function PATCH(
       return regionCheck.error;
     }
     
+    // Block marking operations on ALL region (archive only)  
+    if (car.region === 'ALL') {
+      return NextResponse.json(
+        { 
+          error: "Cannot modify cars in ALL region",
+          code: "REGION_ALL_FORBIDDEN",
+          message: "ALL region is for archive only. Cannot mark slots in archived cars."
+        },
+        { status: 400 }
+      );
+    }
+    
     const slot = await getCarSlot(car.id, slotType, slotIndex);
     
     if (!slot) {
@@ -261,7 +273,7 @@ export async function PATCH(
     
     // Mark slot as used or unused
     const updatedSlot = isUsed
-      ? await markSlotAsUsed(car.id, slotType, slotIndex, session.userId)
+      ? await markSlotAsUsed(car.id, slotType, slotIndex, session.email || session.userId?.toString() || 'unknown')
       : await markSlotAsUnused(car.id, slotType, slotIndex);
     
     return NextResponse.json({

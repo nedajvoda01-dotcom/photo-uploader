@@ -8,7 +8,7 @@ export interface CarLink {
   car_id: number;
   label: string;
   url: string;
-  created_by: number;
+  created_by: string | null;
   created_at: Date;
 }
 
@@ -16,7 +16,7 @@ export interface CreateCarLinkParams {
   car_id: number;
   label: string;
   url: string;
-  created_by: number;
+  created_by?: string | null;
 }
 
 /**
