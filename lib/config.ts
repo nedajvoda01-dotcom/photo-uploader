@@ -370,7 +370,7 @@ export function logStartupConfig() {
   console.log(`  Max Files: ${ZIP_MAX_FILES}`);
   console.log(`  Max Total Size: ${ZIP_MAX_TOTAL_MB} MB`);
   console.log('========================================\n');
-  } catch (error) {
+  } catch {
     // Silently fail if logging is not available (e.g., in Edge Runtime)
     return;
   }
