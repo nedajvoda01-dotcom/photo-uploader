@@ -53,9 +53,14 @@ export async function checkBootstrapAdmin(
           isValid = timingSafeEqual(passwordBuffer, adminPasswordBuffer);
         } else {
           // Perform dummy comparison to maintain constant time
-          const dummyBuffer1 = Buffer.alloc(32);
-          const dummyBuffer2 = Buffer.alloc(32);
-          timingSafeEqual(dummyBuffer1, dummyBuffer2);
+          // Use different buffers to avoid always returning true
+          const dummyBuffer1 = Buffer.alloc(32, 0);
+          const dummyBuffer2 = Buffer.alloc(32, 1);
+          try {
+            timingSafeEqual(dummyBuffer1, dummyBuffer2);
+          } catch {
+            // Expected to throw since buffers differ, but maintains timing
+          }
         }
 
         if (isValid) {
@@ -71,8 +76,14 @@ export async function checkBootstrapAdmin(
         }
       } catch {
         // Error during comparison - continue to next admin
-        const dummyBuffer = Buffer.alloc(32);
-        timingSafeEqual(dummyBuffer, dummyBuffer);
+        // Maintain constant time with dummy comparison
+        const dummyBuffer1 = Buffer.alloc(32, 0);
+        const dummyBuffer2 = Buffer.alloc(32, 1);
+        try {
+          timingSafeEqual(dummyBuffer1, dummyBuffer2);
+        } catch {
+          // Expected to throw, but maintains timing
+        }
       }
     }
 

@@ -78,10 +78,7 @@ export const LEGACY_UPLOAD_DIR = process.env.UPLOAD_DIR || "/mvp_uploads";
 export const UPLOAD_MAX_MB = parseInt(process.env.UPLOAD_MAX_MB || "20", 10);
 
 // Export AUTH_SECRET and YANDEX_DISK_TOKEN as named exports
-// Provide fallback empty strings for build time
 export { AUTH_SECRET, YANDEX_DISK_TOKEN };
-export const _AUTH_SECRET = AUTH_SECRET || '';
-export const _YANDEX_DISK_TOKEN = YANDEX_DISK_TOKEN || '';
 
 /**
  * Get all bootstrap admin credentials

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { checkBootstrapAdmin, getUserByEmail } from "@/lib/userAuth";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
-import { AUTH_DEBUG } from "@/lib/config";
+import { AUTH_DEBUG, ADMIN_REGION } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       token = await signSession({ 
         userId: user.id || 0,
         email: user.email,
-        region: user.region || "MSK",
+        region: user.region || ADMIN_REGION,
         role: user.role || 'user'
       });
     } catch (error) {
