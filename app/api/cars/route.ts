@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireAdmin, getEffectiveRegion } from "@/lib/apiHelpers";
+import { requireAuth, getEffectiveRegion } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
 import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";

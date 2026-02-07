@@ -7,9 +7,9 @@ import { AUTH_DEBUG, ADMIN_REGION, IS_PRODUCTION } from "@/lib/config";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    let { email, password } = body;
+    const { email: rawEmail, password } = body;
 
-    if (!email || !password) {
+    if (!rawEmail || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 }
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Normalize email: trim whitespace and convert to lowercase
-    email = email.trim().toLowerCase();
+    const email = rawEmail.trim().toLowerCase();
 
     // Debug diagnostics (only if AUTH_DEBUG=1)
     let debugInfo: Record<string, boolean | string | number> | null = null;

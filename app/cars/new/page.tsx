@@ -18,10 +18,6 @@ function NewCarForm() {
   // Get region from query parameter (passed from cars page)
   const region = searchParams.get("region") || "";
 
-  useEffect(() => {
-    fetchUserInfo();
-  }, []);
-
   const fetchUserInfo = async () => {
     try {
       const response = await fetch("/api/me");
@@ -33,6 +29,12 @@ function NewCarForm() {
       console.error("Error fetching user info:", err);
     }
   };
+
+  useEffect(() => {
+    // Fetch user info on mount to display role badge
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchUserInfo();
+  }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
