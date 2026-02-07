@@ -77,7 +77,7 @@ export async function getCarByRegionAndVin(region: string, vin: string): Promise
     const result = await sql<Car>`
       SELECT id, region, make, model, vin, disk_root_path, created_by, created_at
       FROM cars
-      WHERE region = ${region} AND vin = ${vin}
+      WHERE region = ${region} AND UPPER(vin) = UPPER(${vin})
       LIMIT 1
     `;
     
@@ -96,7 +96,7 @@ export async function carExistsByRegionAndVin(region: string, vin: string): Prom
     const result = await sql`
       SELECT COUNT(*) as count
       FROM cars
-      WHERE region = ${region} AND vin = ${vin}
+      WHERE region = ${region} AND UPPER(vin) = UPPER(${vin})
     `;
     
     return parseInt(result.rows[0].count) > 0;
