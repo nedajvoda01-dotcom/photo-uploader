@@ -420,6 +420,14 @@ export async function deleteFolder(path: string): Promise<{ success: boolean; er
 }
 
 /**
+ * Delete a file (alias for deleteFolder, as Yandex Disk treats them the same)
+ * @param path Path to file to delete
+ */
+export async function deleteFile(path: string): Promise<{ success: boolean; error?: string }> {
+  return deleteFolder(path);
+}
+
+/**
  * Move/rename a folder or file on Yandex Disk
  * @param fromPath Source path on Yandex Disk
  * @param toPath Destination path on Yandex Disk
