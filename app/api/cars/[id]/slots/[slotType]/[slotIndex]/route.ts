@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/models/carSlots";
 import { validateSlot, type SlotType } from "@/lib/yandexDiskStructure";
@@ -62,12 +62,10 @@ export async function PATCH(
       );
     }
     
-    // Check region permission
-    if (car.region !== session.region) {
-      return NextResponse.json(
-        { error: "Access denied - region mismatch" },
-        { status: 403 }
-      );
+    // Check region permission (admin with region=ALL can access all regions)
+    const regionCheck = requireRegionAccess(session, car.region);
+    if ('error' in regionCheck) {
+      return regionCheck.error;
     }
     
     const slot = await getCarSlot(carId, slotType, slotIndex);

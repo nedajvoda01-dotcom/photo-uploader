@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { getCarSlot } from "@/lib/models/carSlots";
 import { validateSlot, type SlotType } from "@/lib/yandexDiskStructure";
 import { listFolder } from "@/lib/yandexDisk";
+import { validateZipLimits } from "@/lib/config";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -12,6 +13,12 @@ interface RouteContext {
 /**
  * GET /api/cars/:id/download?slotType=X&slotIndex=Y
  * Download all photos from a slot as ZIP
+ * 
+ * Requirements:
+ * - Slot must be locked (status='locked')
+ * - Respects ZIP_MAX_FILES and ZIP_MAX_TOTAL_MB limits
+ * - Returns 409 if slot not locked
+ * - Returns 413 if limits exceeded
  */
 export async function GET(
   request: NextRequest,
@@ -73,12 +80,10 @@ export async function GET(
       );
     }
     
-    // Check region permission
-    if (car.region !== session.region) {
-      return NextResponse.json(
-        { error: "Access denied - region mismatch" },
-        { status: 403 }
-      );
+    // Check region permission (admin with region=ALL can access all regions)
+    const regionCheck = requireRegionAccess(session, car.region);
+    if ('error' in regionCheck) {
+      return regionCheck.error;
     }
     
     const slot = await getCarSlot(carId, slotType, slotIndex);
@@ -90,11 +95,11 @@ export async function GET(
       );
     }
     
-    // Check if slot is locked (has files)
+    // Check if slot is locked (Step 3 requirement: locked=true)
     if (slot.status !== 'locked') {
       return NextResponse.json(
-        { error: "Slot is empty - no files to download" },
-        { status: 400 }
+        { error: "Slot is not locked - no files to download" },
+        { status: 409 } // 409 Conflict
       );
     }
     
@@ -120,15 +125,34 @@ export async function GET(
       );
     }
     
+    // Calculate total size and validate limits
+    const fileCount = files.length;
+    const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    const totalSizeMB = Math.ceil(totalSizeBytes / (1024 * 1024));
+    
+    const limitsCheck = validateZipLimits(fileCount, totalSizeMB);
+    if (!limitsCheck.valid) {
+      return NextResponse.json(
+        { error: limitsCheck.error },
+        { status: 413 } // 413 Payload Too Large
+      );
+    }
+    
     // Return file list for client-side ZIP creation
     // In production, you'd want to stream the ZIP from server
-    // For now, return the list so client can download individually
+    // For now, return the list so client can download individually or we can implement streaming later
     return NextResponse.json({
       success: true,
       files: files.map(f => ({
         name: f.name,
-        path: f.path
+        path: f.path,
+        size: f.size
       })),
+      stats: {
+        fileCount,
+        totalSizeMB,
+        totalSizeBytes
+      },
       slotInfo: {
         car: `${car.make} ${car.model}`,
         vin: car.vin,
