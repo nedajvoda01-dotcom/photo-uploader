@@ -1,3 +1,154 @@
+# Enhanced Smoke Test Guide - Definition of Done
+
+## Overview
+
+The `scripts/smoke.ts` is the **SOURCE OF TRUTH** for system verification. It validates the entire critical flow with hard assertions and proper error handling.
+
+## API Endpoint Mappings
+
+This smoke test uses **real endpoints** from the application. Here's the mapping:
+
+| Endpoint | Method | File Path | Test Step |
+|----------|--------|-----------|-----------|
+| `/api/login` | POST | `app/api/login/route.ts` | Step 1: Login |
+| `/api/cars` | GET | `app/api/cars/route.ts` | Step 2: Check role/region |
+| `/api/cars` | POST | `app/api/cars/route.ts` | Step 3: Create car |
+| `/api/cars/vin/[vin]` | GET | `app/api/cars/vin/[vin]/route.ts` | Step 4: Get car by VIN |
+| `/api/cars/vin/[vin]/upload` | POST | `app/api/cars/vin/[vin]/upload/route.ts` | Step 6: Upload |
+| `/api/cars/vin/[vin]/slots/[slotType]/[slotIndex]` | PATCH | `app/api/cars/vin/[vin]/slots/[slotType]/[slotIndex]/route.ts` | Step 7: Lock, Step 10: Used |
+| `/api/cars/vin/[vin]/download` | GET | `app/api/cars/vin/[vin]/download/route.ts` | Step 8: Download |
+| `/api/cars/vin/[vin]/links` | GET/POST | `app/api/cars/vin/[vin]/links/route.ts` | Step 9: Links |
+| `/api/cars/vin/[vin]` | DELETE | `app/api/cars/vin/[vin]/route.ts` | Step 11: Archive |
+
+**Error Handling:** The script fails with exit code 1 if any endpoint returns 404 or 405, indicating a misconfigured or missing route.
+
+## Hard Assertions
+
+The smoke test includes strict assertions that must pass:
+
+### 1. After Login
+- **Admin users:** Must have `region='ALL'` and `activeRegion != 'ALL'`
+- **Regular users:** Must have `region` in `['R1', 'R2', 'S1', 'S2']`
+
+### 2. After Create Car
+- `car.region` must be in `['R1', 'R2', 'S1', 'S2']`
+- `car.region` must **NOT** be `'ALL'`
+
+### 3. After Get Car
+- `slots` array must exist
+- `slots.length` must equal `14`
+- At least one slot must have a `disk_path` value
+
+### 4. RBAC (Role-Based Access Control)
+- **User role:** May get 403 on admin-only endpoints (links, used, archive)
+- **Admin role:** Should have 200 OK on links and toggle_used
+
+### 5. Download ZIP
+- If slot `locked=true`: status 200 with content-type containing "zip"
+- If slot `locked=false`: status 409 or 403
+
+## Required Artifact Output
+
+When you run the smoke test, it MUST output three key artifacts:
+
+### A) BASE_URL
+```
+ARTIFACT: BASE_URL
+================================================================================
+BASE_URL=https://photo-uploader-abc.vercel.app
+================================================================================
+```
+
+### B) POST /api/cars
+```
+ARTIFACT: POST /api/cars
+================================================================================
+{
+  "endpoint": "https://photo-uploader-abc.vercel.app/api/cars",
+  "status": 201,
+  "body": {
+    "ok": true,
+    "car": {
+      "region": "R1",
+      "make": "Toyota",
+      "model": "Camry",
+      "vin": "TEST1708844912345"
+    }
+  }
+}
+================================================================================
+```
+
+### C) GET /api/cars/vin/[vin]
+```
+ARTIFACT: GET /api/cars/vin/[vin]
+================================================================================
+{
+  "endpoint": "https://photo-uploader-abc.vercel.app/api/cars/vin/TEST1708844912345",
+  "status": 200,
+  "ok": true,
+  "car": {...},
+  "slots_length": 14,
+  "first_2_slots": [
+    {
+      "type": "exterior",
+      "index": 0,
+      "locked": false,
+      "disk_path": "/disk/R1/Toyota/Camry/TEST1708844912345/exterior_0"
+    },
+    {
+      "type": "exterior",
+      "index": 1,
+      "locked": false,
+      "disk_path": "/disk/R1/Toyota/Camry/TEST1708844912345/exterior_1"
+    }
+  ]
+}
+================================================================================
+```
+
+## Test Mode (Yandex Operations)
+
+### When `--yandexTestMode` is enabled:
+
+The test clearly indicates which steps are skipped:
+
+```
+⚠️  Yandex test mode: ON
+   The following steps will be SKIPPED:
+   - File upload to Yandex Disk
+   - Slot locking (requires upload)
+   - ZIP download (requires locked slots)
+   All other tests (create car, get car, 14 slots) will execute normally.
+```
+
+Skipped steps show:
+```
+⏭️  POST upload to slot
+   Status: SKIPPED
+   Reason: Yandex test mode enabled
+```
+
+### When `--yandexTestMode` is disabled:
+
+All upload/lock/download tests execute normally with real Yandex Disk operations.
+
+## Cleanup Behavior
+
+When `--cleanup=1` is specified:
+
+1. After all tests, the script calls `DELETE /api/cars/vin/[vin]` to archive the car
+2. Then verifies that `GET /api/cars` no longer includes the test VIN in the active region
+3. Assertion: The VIN must NOT appear in the active region's car list
+
+```
+✅ Verify archive cleanup
+   Endpoint: https://photo-uploader-abc.vercel.app/api/cars
+   Status: 200
+   VIN TEST1708844912345 in active region: NO (PASS)
+   ✓ Cleanup assertion passed: VIN removed from active region
+```
+
 # Comprehensive Smoke Test Guide
 
 ## Overview
