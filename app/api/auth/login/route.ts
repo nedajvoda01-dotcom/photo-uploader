@@ -41,9 +41,12 @@ export async function POST(request: NextRequest) {
       // Bootstrap admin login successful - upsert to database
       let dbUser;
       try {
+        // Hash the password for database storage
+        const passwordHash = await bcrypt.hash(password, 10);
+        
         dbUser = await upsertUser({
           email: bootstrapResult.user.email,
-          passwordHash: bootstrapResult.user.passwordHash,
+          passwordHash: passwordHash,
           region: bootstrapResult.user.region,
           role: bootstrapResult.user.role,
         });
@@ -104,9 +107,12 @@ export async function POST(request: NextRequest) {
       // Region user login successful - upsert to database
       let dbUser;
       try {
+        // Hash the password for database storage
+        const passwordHash = await bcrypt.hash(password, 10);
+        
         dbUser = await upsertUser({
           email: regionUserResult.user.email,
-          passwordHash: regionUserResult.user.passwordHash,
+          passwordHash: passwordHash,
           region: regionUserResult.user.region,
           role: regionUserResult.user.role,
         });
