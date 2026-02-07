@@ -322,8 +322,12 @@ The application uses PostgreSQL with the following tables:
 
 The application follows a strict folder structure on Yandex Disk. All paths are constructed from `YANDEX_DISK_BASE_DIR` as the Single Source of Truth. **VIN (Vehicle Identification Number)** serves as the canonical unique identifier for cars within each region.
 
+**📖 Complete documentation:** See [DISK_STRUCTURE.md](./DISK_STRUCTURE.md) for the canonical reference.
+
+**Path Builder:** All code must use `lib/diskPaths.ts` for path construction.
+
 ```
-${YANDEX_DISK_BASE_DIR}/          # Default: /Фото
+${YANDEX_DISK_BASE_DIR}/Фото/          # Base path
 └── <REGION>/
     └── <Марка> <Модель> <VIN>/
         ├── 1. Дилер фото/
@@ -342,11 +346,13 @@ ${YANDEX_DISK_BASE_DIR}/          # Default: /Фото
 
 **Key Points:**
 - `YANDEX_DISK_BASE_DIR` is the SSOT for all path construction
-- Each region has its own folder under the base directory
+- Base path: `${YANDEX_DISK_BASE_DIR}/Фото` (e.g., `/Фото/Фото`)
+- Each region has its own folder under the base path
 - Car folders are named: `<Марка> <Модель> <VIN>`
 - **VIN is unique within each region** and serves as the primary identifier
 - 14 slots per car: 1 dealer + 8 buyout + 5 dummies
 - All API endpoints support VIN-based access (canonical) and ID-based access (legacy)
+- **All path construction must use `lib/diskPaths.ts`** - never construct paths manually
 
 Each slot folder contains:
 - Uploaded photo files

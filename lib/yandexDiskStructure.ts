@@ -1,5 +1,15 @@
 /**
+ * @deprecated This module is deprecated. Use lib/diskPaths.ts instead.
+ * 
  * Yandex Disk structure helpers for canonical folder paths
+ * 
+ * DEPRECATED: This module has been superseded by lib/diskPaths.ts which is the
+ * single source of truth for all path construction. Please update your imports:
+ * 
+ * OLD: import { carRoot } from '@/lib/yandexDiskStructure';
+ * NEW: import { carRoot } from '@/lib/diskPaths';
+ * 
+ * See DISK_STRUCTURE.md for canonical documentation.
  */
 import { YANDEX_DISK_BASE_DIR } from "./config";
 

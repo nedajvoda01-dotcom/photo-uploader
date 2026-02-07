@@ -85,7 +85,7 @@ All car operations now have canonical VIN-based endpoints under `/api/cars/vin/:
 - `YANDEX_DISK_BASE_DIR` (default: `/Фото`) is the root SSOT
 - VIN is part of every folder path
 - Structure is fixed and enforced by code
-- All path construction uses `lib/yandexDiskStructure.ts`
+- All path construction uses `lib/diskPaths.ts`
 
 ## VIN as Unique ID
 

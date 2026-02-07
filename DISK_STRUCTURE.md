@@ -180,10 +180,10 @@ const publicUrl = await publishFolder(slot);
 If you're updating existing code, replace imports:
 
 ```typescript
-// Old
+// Old (deprecated)
 import { carRoot, slotPath } from '@/lib/yandexDiskStructure';
 
-// New
+// New (canonical)
 import { carRoot, slotPath } from '@/lib/diskPaths';
 ```
 

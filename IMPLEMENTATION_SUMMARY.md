@@ -138,7 +138,7 @@ All endpoints implemented as specified:
 - `lib/models/cars.ts` - Car CRUD with progress
 - `lib/models/carSlots.ts` - Slot management with locking
 - `lib/models/carLinks.ts` - Link operations
-- `lib/yandexDiskStructure.ts` - Canonical path helpers (14 slots)
+- `lib/diskPaths.ts` - Canonical path helpers (14 slots)
 - `lib/userAuth.ts` - Database-aware auth with fallback
 - `lib/apiHelpers.ts` - Auth middleware utilities
 
