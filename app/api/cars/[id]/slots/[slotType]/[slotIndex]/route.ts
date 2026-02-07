@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/models/carSlots";
-import { validateSlot, type SlotType } from "@/lib/yandexDiskStructure";
+import { validateSlot, type SlotType } from "@/lib/diskPaths";
 
 interface RouteContext {
   params: Promise<{ id: string; slotType: string; slotIndex: string }>;

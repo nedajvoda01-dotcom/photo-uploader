@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
-import { carRoot, getAllSlotPaths } from "@/lib/yandexDiskStructure";
+import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
 import { createFolder } from "@/lib/yandexDisk";
 
 /**

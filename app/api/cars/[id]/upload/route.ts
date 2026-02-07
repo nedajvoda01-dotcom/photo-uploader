@@ -3,7 +3,7 @@ import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarById } from "@/lib/models/cars";
 import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
 import { uploadToYandexDisk, uploadText, exists } from "@/lib/yandexDisk";
-import { getLockMarkerPath, validateSlot, type SlotType } from "@/lib/yandexDiskStructure";
+import { getLockMarkerPath, validateSlot, type SlotType } from "@/lib/diskPaths";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
