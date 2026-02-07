@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
 import { getCarByVin } from "@/lib/models/cars";
 import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
 import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/yandexDisk";
@@ -36,9 +36,10 @@ export async function POST(
   const vin = params.vin.toUpperCase();
   
   if (!vin || vin.length !== 17) {
-    return NextResponse.json(
-      { error: "Invalid VIN format. VIN must be exactly 17 characters" },
-      { status: 400 }
+    return errorResponse(
+      ErrorCodes.INVALID_VIN,
+      "Неверный формат VIN. VIN должен содержать ровно 17 символов",
+      400
     );
   }
   
@@ -47,9 +48,10 @@ export async function POST(
     const car = await getCarByVin(vin);
     
     if (!car) {
-      return NextResponse.json(
-        { error: "Car not found" },
-        { status: 404 }
+      return errorResponse(
+        ErrorCodes.CAR_NOT_FOUND,
+        "Автомобиль не найден",
+        404
       );
     }
     
@@ -60,15 +62,9 @@ export async function POST(
     }
     
     // Block uploads to ALL region (archive only)
-    if (car.region === 'ALL') {
-      return NextResponse.json(
-        { 
-          error: "Cannot upload to cars in ALL region",
-          code: "REGION_ALL_FORBIDDEN",
-          message: "ALL region is for archive only. Cannot upload or modify cars in archive."
-        },
-        { status: 400 }
-      );
+    const allRegionCheck = validateNotAllRegion(car.region);
+    if ('error' in allRegionCheck) {
+      return allRegionCheck.error;
     }
     
     // Parse form data
