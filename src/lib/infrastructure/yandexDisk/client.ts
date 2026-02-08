@@ -123,6 +123,9 @@ async function ensureDir(path: string): Promise<void> {
   // Normalize and validate path at API boundary
   const normalizedPath = validateAndNormalizePath(path, 'ensureDir');
   
+  // Log the final normalized path before API call
+  console.log(`[YandexDisk] ensureDir: normalized path="${normalizedPath}"`);
+  
   // Split the path into segments and recursively create each directory
   const segments = normalizedPath.split("/").filter((seg) => seg.length > 0);
   
@@ -208,6 +211,9 @@ export async function uploadToYandexDisk(
     // Step 2: Get upload URL from Yandex.Disk
     let uploadUrl: string;
     try {
+      // Log the final normalized path before API call
+      console.log(`[YandexDisk] getUploadUrl: normalized path="${normalizedPath}"`);
+      
       const uploadUrlResponse = await fetch(
         `${YANDEX_DISK_API_BASE}/resources/upload?path=${encodeURIComponent(normalizedPath)}&overwrite=true`,
         {

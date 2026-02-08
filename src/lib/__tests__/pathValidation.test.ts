@@ -142,6 +142,30 @@ describe('Path Validation', () => {
   test('normalizeDiskPath handles complex duplicates and backslashes', () => {
     expect(normalizeDiskPath('\\\\Фото//MSK\\\\car///photos')).toBe('/Фото/MSK/car/photos');
   });
+  
+  test('normalizeDiskPath strips disk:/ prefix', () => {
+    expect(normalizeDiskPath('disk:/Фото/MSK')).toBe('/Фото/MSK');
+  });
+  
+  test('normalizeDiskPath strips /disk:/ prefix', () => {
+    expect(normalizeDiskPath('/disk:/Фото/MSK')).toBe('/Фото/MSK');
+  });
+  
+  test('normalizeDiskPath strips disk:/ prefix case insensitive', () => {
+    expect(normalizeDiskPath('DISK:/Фото/MSK')).toBe('/Фото/MSK');
+  });
+  
+  test('normalizeDiskPath strips /disk:/ prefix case insensitive', () => {
+    expect(normalizeDiskPath('/DISK:/Фото/MSK')).toBe('/Фото/MSK');
+  });
+  
+  test('normalizeDiskPath throws on path segment with colon', () => {
+    expect(() => normalizeDiskPath('/Фото/C:/MSK')).toThrow('path segment contains colon');
+  });
+  
+  test('normalizeDiskPath throws on Windows drive letter in segment', () => {
+    expect(() => normalizeDiskPath('/Фото/MSK/D:/car')).toThrow('path segment contains colon');
+  });
 });
 
 console.log('\n✅ All path validation tests passed!');
