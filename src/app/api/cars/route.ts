@@ -84,9 +84,13 @@ export async function POST(request: NextRequest) {
   
   const { session } = authResult;
   
+  let effectiveRegion: string | undefined;
+  let vin: string | undefined;
+  
   try {
     const body = await request.json();
-    const { make, model, vin, region: bodyRegion } = body;
+    const { make, model, vin: bodyVin, region: bodyRegion } = body;
+    vin = bodyVin;
     
     // Validate input
     if (!make || !model || !vin) {
@@ -109,7 +113,7 @@ export async function POST(request: NextRequest) {
     // Determine effective region for car creation
     // Users: always use their own region (ignore bodyRegion)
     // Admins: can specify region via bodyRegion, or it's validated
-    const effectiveRegion = session.role === 'admin' 
+    effectiveRegion = session.role === 'admin' 
       ? (bodyRegion || getEffectiveRegion(session, bodyRegion))
       : session.region;
     
@@ -166,6 +170,8 @@ export async function POST(request: NextRequest) {
       created_by: session.email || session.userId?.toString() || null,
     });
     
+    console.log(`[API] Successfully created car with 14 slots: ${effectiveRegion}/${vin}`);
+    
     return NextResponse.json({
       ok: true,
       car: {
@@ -176,7 +182,8 @@ export async function POST(request: NextRequest) {
       },
     }, { status: 201 });
   } catch (error) {
-    console.error("Error creating car:", error);
+    const carIdentifier = effectiveRegion && vin ? `${effectiveRegion}/${vin}` : 'unknown';
+    console.error(`[API] Failed to create car ${carIdentifier}:`, error);
     return errorResponse(
       ErrorCodes.SERVER_ERROR,
       error instanceof Error ? error.message : "Не удалось создать автомобиль",

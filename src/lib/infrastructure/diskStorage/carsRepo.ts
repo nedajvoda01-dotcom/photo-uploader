@@ -26,6 +26,12 @@ import {
   deleteFile
 } from "@/lib/infrastructure/yandexDisk/client";
 
+/**
+ * Expected total number of slot folders per car
+ * 1 dealer + 8 buyout + 5 dummies = 14 total
+ */
+const EXPECTED_SLOT_COUNT = 14;
+
 export interface Car {
   region: string;
   make: string;
@@ -514,37 +520,37 @@ export async function createCar(params: {
   
   await uploadText(`${rootPath}/_CAR.json`, metadata);
   
-  // Create all slot folders with DETAILED LOGGING
+  // Create all slot folders (1 dealer + 8 buyout + 5 dummies = 14 total)
   const slotPaths = getAllSlotPaths(region, make, model, vin);
-  console.log(`[DISK] Starting creation of ${slotPaths.length} slot folders`);
   
-  let createdCount = 0;
-  for (let i = 0; i < slotPaths.length; i++) {
-    const slot = slotPaths[i];
-    console.log(`\n[DISK] [${i + 1}/${slotPaths.length}] Creating: ${slot.slotType}[${slot.slotIndex}]`);
-    console.log(`[DISK] Path: ${slot.path}`);
-    
+  console.log(`[DiskStorage] Creating ${slotPaths.length} slot folders for car ${rootPath}`);
+  
+  for (const slot of slotPaths) {
     const slotResult = await createFolder(slot.path);
-    console.log(`[DISK] Result:`, slotResult);
     
     if (!slotResult.success) {
-      console.error(`[DISK] FAILED:`, slotResult.error);
-      throw new Error(`Failed to create slot ${slot.slotType}[${slot.slotIndex}]: ${slotResult.error}`);
+      // If slot creation failed, throw error with details
+      const errorMsg = `Failed to create slot ${slot.slotType}[${slot.slotIndex}] at ${slot.path}: ${slotResult.error}`;
+      console.error(`[DiskStorage] ${errorMsg}`);
+      throw new Error(errorMsg);
     }
     
-    // Verify it exists
-    const existsCheck = await exists(slot.path);
-    console.log(`[DISK] Exists check: ${existsCheck ? 'YES' : 'NO'}`);
-    
-    if (!existsCheck) {
-      throw new Error(`Slot created but NOT FOUND: ${slot.path}`);
-    }
-    
-    createdCount++;
-    console.log(`[DISK] SUCCESS ${createdCount}/${slotPaths.length}`);
+    // Log successful slot creation
+    console.log(`[DiskStorage] Created slot: ${slot.slotType}[${slot.slotIndex}] at ${slot.path}`);
   }
   
-  console.log(`[DISK] FINAL: Created ${createdCount}/${slotPaths.length} slots`);
+  // Verify all slots were created by scanning
+  console.log(`[DiskStorage] Verifying all slots were created for ${rootPath}`);
+  const createdSlots = await getCarSlots(rootPath);
+  
+  if (createdSlots.length !== EXPECTED_SLOT_COUNT) {
+    const errorMsg = `Expected ${EXPECTED_SLOT_COUNT} slots but found ${createdSlots.length} after creation. Car: ${rootPath}`;
+    console.error(`[DiskStorage] ${errorMsg}`);
+    console.error(`[DiskStorage] Created slots:`, createdSlots.map(s => `${s.slot_type}[${s.slot_index}]`).join(', '));
+    throw new Error(errorMsg);
+  }
+  
+  console.log(`[DiskStorage] Successfully created car with all ${EXPECTED_SLOT_COUNT} slots: ${rootPath}`);
   
   return {
     region,
