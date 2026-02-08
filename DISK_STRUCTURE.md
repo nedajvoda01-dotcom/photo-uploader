@@ -107,11 +107,51 @@ ${YANDEX_DISK_BASE_DIR}/
 - **Index range:** 1-5
 - **Purpose:** Template/placeholder photos
 
-### 6. Lock Marker File
+### 6. Special Files in Slot Folders
+
+#### Lock Marker File (_LOCK.json)
 - **Pattern:** `${SLOT_PATH}/_LOCK.json`
 - **Example:** `/Фото/MSK/Toyota Camry 1HGBH41JXMN109186/2. Выкуп фото/3. Toyota Camry 1HGBH41JXMN109186/_LOCK.json`
 - **Purpose:** Indicates slot is filled and locked
 - **Content:** JSON metadata about uploaded files
+
+#### Photo Index File (_PHOTOS.json) **NEW**
+- **Pattern:** `${SLOT_PATH}/_PHOTOS.json`
+- **Example:** `/Фото/MSK/Toyota Camry 1HGBH41JXMN109186/2. Выкуп фото/3. Toyota Camry 1HGBH41JXMN109186/_PHOTOS.json`
+- **Purpose:** Index of all photos in slot with hard limit enforcement
+- **Hard Limit:** **40 photos maximum per slot**
+- **Updated:** Synchronously after every upload/delete operation
+- **Content Format:**
+  ```json
+  {
+    "count": 12,
+    "updatedAt": "2024-01-15T10:00:00Z",
+    "cover": "photo1.jpg",
+    "items": [
+      {
+        "name": "photo1.jpg",
+        "size": 2048576,
+        "modified": "2024-01-15T10:00:00Z"
+      }
+    ]
+  }
+  ```
+- **Concurrency:** Uses read-merge-write pattern with retry logic
+- **Fallback:** Automatically rebuilt from `listFolder()` if missing or corrupted
+
+#### Slot Stats File (_SLOT.json)
+- **Pattern:** `${SLOT_PATH}/_SLOT.json`
+- **Purpose:** Quick stats cache (count, cover, size)
+- **Updated:** After upload operations
+- **Content Format:**
+  ```json
+  {
+    "count": 12,
+    "cover": "photo1.jpg",
+    "total_size_mb": 15.4,
+    "updated_at": "2024-01-15T10:00:00Z"
+  }
+  ```
 
 ## Slot Types
 

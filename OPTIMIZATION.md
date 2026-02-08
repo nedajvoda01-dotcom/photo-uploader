@@ -136,6 +136,37 @@ Location: `{carRoot}/{slotTypeFolder}/{slotFolder}/_SLOT.json`
 **Purpose:** Fast slot stats without photo listing
 **Updated:** Synchronously after every upload/delete
 
+### _PHOTOS.json (NEW - Hard Limit Enforcement)
+
+Location: `{carRoot}/{slotTypeFolder}/{slotFolder}/_PHOTOS.json`
+
+```json
+{
+  "count": 12,
+  "updatedAt": "2024-01-15T10:00:00Z",
+  "cover": "photo1.jpg",
+  "items": [
+    {
+      "name": "photo1.jpg",
+      "size": 2048576,
+      "modified": "2024-01-15T10:00:00Z"
+    },
+    {
+      "name": "photo2.jpg",
+      "size": 1536000,
+      "modified": "2024-01-15T10:05:00Z"
+    }
+  ]
+}
+```
+
+**Purpose:** Complete photo inventory with hard limit enforcement
+**Hard Limit:** **40 photos maximum per slot** (MAX_PHOTOS_PER_SLOT)
+**Updated:** Synchronously after every upload/delete using read-merge-write
+**Concurrency:** Retry logic with exponential backoff (3 attempts)
+**Fallback:** Automatically rebuilt from `listFolder()` if missing/corrupted
+**Priority:** Primary source for `getSlotStats()` (highest priority)
+
 ### _CAR.json (Existing)
 
 Location: `{carRoot}/_CAR.json`
@@ -163,14 +194,21 @@ Location: `{carRoot}/_CAR.json`
    - Writes: Synchronous during car creation
    - Fallback: Always supported (folder listing)
 
-2. **_SLOT.json:**
+2. **_PHOTOS.json:** (NEW)
+   - Invalidated: Never (always up-to-date via read-merge-write)
+   - Writes: Synchronous after every upload/delete/rename
+   - Concurrency: Read-merge-write pattern with 3 retries
+   - Fallback: Rebuilt from `listFolder()` if missing or corrupted
+   - Enforcement: Rejects uploads if count >= 40 (hard limit)
+
+3. **_SLOT.json:**
    - Invalidated: Never (always up-to-date)
    - Writes: Synchronous after every upload
    - Fallback: `listFolder()` if missing or corrupted
 
-3. **Manual Edits:**
-   - If user edits files outside app → _SLOT.json may be stale
-   - Mitigation: Client can force refresh by not using counts endpoint
+4. **Manual Edits:**
+   - If user edits files outside app → indexes may be stale
+   - Mitigation: Client can force refresh; indexes auto-rebuild on access
    - Acceptable: Counts become eventually consistent
 
 ## API Endpoints
