@@ -53,8 +53,13 @@ async function withRetry<T>(
       lastError = error instanceof Error ? error : new Error(String(error));
       
       // Don't retry on 4xx errors (client errors)
-      if (error instanceof Error && error.message.includes('4')) {
-        throw error;
+      // Check if error message contains HTTP 4xx status code
+      if (error instanceof Error) {
+        const statusMatch = error.message.match(/\b4\d{2}\b/);
+        if (statusMatch) {
+          // This is a 4xx client error, don't retry
+          throw error;
+        }
       }
       
       if (i < retries - 1) {
