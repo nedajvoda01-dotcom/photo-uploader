@@ -520,6 +520,26 @@ export async function createCar(params: {
   
   await uploadText(`${rootPath}/_CAR.json`, metadata);
   
+  // Create intermediate parent folders FIRST
+  // These are required for getCarSlots() to scan properly
+  const intermediateFolders = [
+    `${rootPath}/1. Дилер фото`,
+    `${rootPath}/2. Выкуп фото`,
+    `${rootPath}/3. Муляги фото`
+  ];
+  
+  console.log(`[DiskStorage] Creating ${intermediateFolders.length} intermediate folders for car ${rootPath}`);
+  
+  for (const folder of intermediateFolders) {
+    const result = await createFolder(folder);
+    if (!result.success) {
+      const errorMsg = `Failed to create intermediate folder: ${folder} - ${result.error}`;
+      console.error(`[DiskStorage] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+    console.log(`[DiskStorage] Created intermediate folder: ${folder}`);
+  }
+  
   // Create all slot folders (1 dealer + 8 buyout + 5 dummies = 14 total)
   const slotPaths = getAllSlotPaths(region, make, model, vin);
   
@@ -550,7 +570,7 @@ export async function createCar(params: {
     throw new Error(errorMsg);
   }
   
-  console.log(`[DiskStorage] Successfully created car with all ${EXPECTED_SLOT_COUNT} slots: ${rootPath}`);
+  console.log(`[DiskStorage] Successfully created car with all ${createdSlots.length}/${EXPECTED_SLOT_COUNT} slots: ${rootPath}`);
   
   return {
     region,
