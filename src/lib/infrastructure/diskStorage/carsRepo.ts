@@ -567,8 +567,8 @@ function buildDeterministicSlots(carRootPath: string, region: string, make: stri
   
   for (const slotInfo of slotPaths) {
     slots.push({
-      slot_type: slotInfo.type,
-      slot_index: slotInfo.index,
+      slot_type: slotInfo.slotType,
+      slot_index: slotInfo.slotIndex,
       disk_slot_path: slotInfo.path,
       locked: false, // Unknown - will be loaded on demand
       file_count: 0, // Unknown - will be loaded on demand
