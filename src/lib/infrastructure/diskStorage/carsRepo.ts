@@ -14,7 +14,6 @@ import {
   getRegionPath, 
   carRoot, 
   getAllSlotPaths,
-  getLockMarkerPath,
   type SlotType 
 } from "@/lib/domain/disk/paths";
 import { 
@@ -202,7 +201,7 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
               totalSizeMB: lockData.total_size_mb,
             };
           }
-        } catch (parseError) {
+        } catch {
           // Fall through to listing
         }
       }
@@ -249,7 +248,7 @@ async function readPublishedUrl(slotPath: string): Promise<string | undefined> {
     const content = result.data.toString('utf-8');
     const data = JSON.parse(content);
     return data.public_url;
-  } catch (error) {
+  } catch {
     return undefined;
   }
 }
@@ -279,7 +278,7 @@ async function writePublishedUrl(slotPath: string, publicUrl: string): Promise<b
 async function isSlotUsed(slotPath: string): Promise<boolean> {
   try {
     return await exists(`${slotPath}/_USED.json`);
-  } catch (error) {
+  } catch {
     return false;
   }
 }

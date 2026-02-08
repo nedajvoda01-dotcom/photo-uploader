@@ -82,11 +82,11 @@ describe('Path Validation', () => {
   });
   
   test('normalizeDiskPath throws on null', () => {
-    expect(() => normalizeDiskPath(null as any)).toThrow('invalid path');
+    expect(() => normalizeDiskPath(null as unknown as string)).toThrow('invalid path');
   });
   
   test('normalizeDiskPath throws on undefined', () => {
-    expect(() => normalizeDiskPath(undefined as any)).toThrow('invalid path');
+    expect(() => normalizeDiskPath(undefined as unknown as string)).toThrow('invalid path');
   });
   
   test('normalizeDiskPath handles valid paths', () => {

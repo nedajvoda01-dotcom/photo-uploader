@@ -5,9 +5,6 @@ import { moveFolder } from "@/lib/infrastructure/yandexDisk/client";
 import { getCarArchivePath } from "@/lib/domain/disk/paths";
 import { ARCHIVE_RETRY_DELAY_MS, REGIONS_LIST } from "@/lib/config/index";
 
-// Constants
-const EXPECTED_SLOT_COUNT = 14; // 1 dealer + 8 buyout + 5 dummies
-
 interface RouteContext {
   params: Promise<{ vin: string }>;
 }

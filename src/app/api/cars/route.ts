@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getEffectiveRegion, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, getCarByRegionAndVin } from "@/lib/infrastructure/diskStorage/carsRepo";
-import { carRoot, getAllSlotPaths, sanitizePathSegment } from "@/lib/domain/disk/paths";
-import { createFolder, uploadText } from "@/lib/infrastructure/yandexDisk/client";
+import { sanitizePathSegment } from "@/lib/domain/disk/paths";
 
 /**
  * GET /api/cars
