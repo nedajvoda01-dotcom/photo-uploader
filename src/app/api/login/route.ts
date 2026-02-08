@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 /**
  * LEGACY LOGIN ENDPOINT - DEPRECATED
@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
  * DO NOT USE THIS ENDPOINT FOR NEW CODE
  * This endpoint does NOT set cookies and does NOT proxy responses
  */
-export async function POST(_request: NextRequest) {
+export async function POST() {
   return NextResponse.json(
     { 
       error: "This endpoint is permanently deprecated.",

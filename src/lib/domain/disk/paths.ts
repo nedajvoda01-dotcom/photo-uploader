@@ -16,6 +16,36 @@ import { YANDEX_DISK_BASE_DIR } from "@/lib/config/disk";
 export type SlotType = 'dealer' | 'buyout' | 'dummies';
 
 /**
+ * Normalize a Yandex Disk path
+ * - Ensures it starts with /
+ * - Replaces backslashes with forward slashes
+ * - Removes duplicate slashes
+ * - Validates path is not empty
+ * 
+ * @param path - Path to normalize
+ * @returns Normalized path
+ * @throws Error if path is empty or invalid
+ */
+export function normalizeDiskPath(path: string): string {
+  if (!path || typeof path !== 'string') {
+    throw new Error(`normalizeDiskPath: invalid path: ${JSON.stringify(path)}`);
+  }
+  
+  // Replace backslashes with forward slashes
+  let normalized = path.replace(/\\/g, '/');
+  
+  // Remove duplicate slashes
+  normalized = normalized.replace(/\/+/g, '/');
+  
+  // Ensure it starts with /
+  if (!normalized.startsWith('/')) {
+    normalized = '/' + normalized;
+  }
+  
+  return normalized;
+}
+
+/**
  * Get the base path for all photo storage
  * Pattern: ${YANDEX_DISK_BASE_DIR}
  * 
@@ -23,7 +53,7 @@ export type SlotType = 'dealer' | 'buyout' | 'dummies';
  * @example getBasePath() // Returns: "/Фото"
  */
 export function getBasePath(): string {
-  return YANDEX_DISK_BASE_DIR;
+  return normalizeDiskPath(YANDEX_DISK_BASE_DIR);
 }
 
 /**
@@ -35,7 +65,8 @@ export function getBasePath(): string {
  * @example getRegionPath("MSK") // Returns: "/Фото/MSK"
  */
 export function getRegionPath(region: string): string {
-  return `${getBasePath()}/${region}`;
+  const path = `${getBasePath()}/${region}`;
+  return normalizeDiskPath(path);
 }
 
 /**
@@ -49,7 +80,8 @@ export function getRegionPath(region: string): string {
  * @example getArchivePath() // Returns: "/Фото/ALL"
  */
 export function getArchivePath(): string {
-  return `${getBasePath()}/ALL`;
+  const path = `${getBasePath()}/ALL`;
+  return normalizeDiskPath(path);
 }
 
 /**
@@ -66,7 +98,8 @@ export function getArchivePath(): string {
  */
 export function getCarArchivePath(region: string, make: string, model: string, vin: string): string {
   const archiveName = `${region}_${make}_${model}_${vin}`.replace(/\s+/g, '_');
-  return `${getArchivePath()}/${archiveName}`;
+  const path = `${getArchivePath()}/${archiveName}`;
+  return normalizeDiskPath(path);
 }
 
 /**
@@ -82,7 +115,8 @@ export function getCarArchivePath(region: string, make: string, model: string, v
  *          // Returns: "/Фото/MSK/Toyota Camry 1HGBH41JXMN109186"
  */
 export function carRoot(region: string, make: string, model: string, vin: string): string {
-  return `${getRegionPath(region)}/${make} ${model} ${vin}`;
+  const path = `${getRegionPath(region)}/${make} ${model} ${vin}`;
+  return normalizeDiskPath(path);
 }
 
 /**
@@ -113,21 +147,21 @@ export function slotPath(
       if (slotIndex !== 1) {
         throw new Error(`Invalid dealer slot index: ${slotIndex}. Must be 1.`);
       }
-      return `${carRootPath}/1. Дилер фото/${carName}`;
+      return normalizeDiskPath(`${carRootPath}/1. Дилер фото/${carName}`);
     
     case 'buyout':
       // 8 buyout slots (index 1-8)
       if (slotIndex < 1 || slotIndex > 8) {
         throw new Error(`Invalid buyout slot index: ${slotIndex}. Must be 1-8.`);
       }
-      return `${carRootPath}/2. Выкуп фото/${slotIndex}. ${carName}`;
+      return normalizeDiskPath(`${carRootPath}/2. Выкуп фото/${slotIndex}. ${carName}`);
     
     case 'dummies':
       // 5 dummy slots (index 1-5)
       if (slotIndex < 1 || slotIndex > 5) {
         throw new Error(`Invalid dummies slot index: ${slotIndex}. Must be 1-5.`);
       }
-      return `${carRootPath}/3. Муляги фото/${slotIndex}. ${carName}`;
+      return normalizeDiskPath(`${carRootPath}/3. Муляги фото/${slotIndex}. ${carName}`);
     
     default:
       throw new Error(`Unknown slot type: ${slotType}`);

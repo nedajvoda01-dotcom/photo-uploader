@@ -81,6 +81,23 @@ async function withRetry<T>(
  * @returns Promise that resolves when directory exists or is created
  */
 async function ensureDir(path: string): Promise<void> {
+  // Validate path format before making API calls
+  if (!path || typeof path !== 'string') {
+    throw new Error(`ensureDir: path is empty or not a string: ${JSON.stringify(path)}`);
+  }
+  
+  if (!path.startsWith('/')) {
+    throw new Error(`ensureDir: path must start with '/': ${path}`);
+  }
+  
+  if (path.includes('\\')) {
+    throw new Error(`ensureDir: path contains Windows-style backslash: ${path}`);
+  }
+  
+  if (path.match(/^[A-Z]:\\/i)) {
+    throw new Error(`ensureDir: path contains drive letter: ${path}`);
+  }
+  
   // Split the path into segments and recursively create each directory
   const segments = path.split("/").filter((seg) => seg.length > 0);
   
@@ -132,13 +149,44 @@ export async function uploadToYandexDisk(
 ): Promise<UploadResult> {
   const { path, bytes, contentType } = params;
 
+  // Validate path format before processing
+  if (!path || typeof path !== 'string') {
+    return {
+      success: false,
+      error: `Invalid upload path: ${JSON.stringify(path)}`
+    };
+  }
+  
+  if (!path.startsWith('/')) {
+    return {
+      success: false,
+      error: `Upload path must start with '/': ${path}`
+    };
+  }
+  
+  if (path.includes('\\')) {
+    return {
+      success: false,
+      error: `Upload path contains Windows-style backslash: ${path}`
+    };
+  }
+
   return withRetry(async () => {
     // Step 1: Ensure the directory exists
     // Extract directory path from the file path (e.g., "/mvp_uploads" from "/mvp_uploads/photo.jpg")
     const lastSlashIndex = path.lastIndexOf("/");
     if (lastSlashIndex > 0) {
       const dirPath = path.substring(0, lastSlashIndex);
-      await ensureDir(dirPath);
+      
+      console.log(`[YandexDisk] Ensuring directory exists: ${dirPath}`);
+      
+      try {
+        await ensureDir(dirPath);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[YandexDisk] ensureDir failed for path: ${dirPath}`, error);
+        throw new Error(`Failed to create directory '${dirPath}': ${message}`);
+      }
     }
 
     // Step 2: Get upload URL from Yandex.Disk

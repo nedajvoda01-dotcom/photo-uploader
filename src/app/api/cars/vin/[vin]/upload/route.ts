@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
+import { requireAuth, requireRegionAccess, errorResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
 import { getCarWithSlots, getSlot } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/infrastructure/yandexDisk/client";
 import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/domain/disk/paths";

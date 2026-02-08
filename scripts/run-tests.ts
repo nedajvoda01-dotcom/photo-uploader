@@ -37,7 +37,7 @@ async function runTests() {
   }
   
   try {
-    console.log('3/4: Strict Requirements Tests');
+    console.log('3/5: Strict Requirements Tests');
     console.log('---');
     await import('../src/lib/__tests__/strict-requirements.test.ts');
     console.log('');
@@ -47,7 +47,17 @@ async function runTests() {
   }
   
   try {
-    console.log('4/4: CreateCar Integration Tests');
+    console.log('4/5: Path Validation Tests');
+    console.log('---');
+    await import('../src/lib/__tests__/pathValidation.test.ts');
+    console.log('');
+  } catch (error) {
+    console.error('Path validation tests failed:', error);
+    allPassed = false;
+  }
+  
+  try {
+    console.log('5/5: CreateCar Integration Tests');
     console.log('---');
     await import('../src/lib/__tests__/createCar.test.ts');
     console.log('');
