@@ -3,6 +3,8 @@
  * Single source of truth for Yandex Disk and upload-related environment variables
  */
 
+import { normalizeDiskPath } from "@/lib/domain/disk/paths";
+
 // Yandex Disk configuration
 const YANDEX_DISK_TOKEN = process.env.YANDEX_DISK_TOKEN;
 const RAW_BASE_DIR = process.env.YANDEX_DISK_BASE_DIR || "/Фото";
@@ -13,22 +15,21 @@ function validateBaseDirFormat(dir: string): string {
     throw new Error(`YANDEX_DISK_BASE_DIR is invalid: ${JSON.stringify(dir)}`);
   }
   
-  if (!dir.startsWith('/')) {
-    console.error(`ERROR: YANDEX_DISK_BASE_DIR must start with '/', got: ${dir}`);
-    throw new Error(`YANDEX_DISK_BASE_DIR must be an absolute Yandex Disk path starting with '/'`);
+  // Apply canonical normalization
+  try {
+    const normalized = normalizeDiskPath(dir);
+    
+    // Additional validation after normalization
+    if (normalized.match(/^[A-Z]:\//i)) {
+      console.error(`ERROR: YANDEX_DISK_BASE_DIR looks like Windows path: ${dir}`);
+      throw new Error(`YANDEX_DISK_BASE_DIR must be a Yandex Disk path, not a Windows path`);
+    }
+    
+    return normalized;
+  } catch (error) {
+    console.error(`ERROR: Failed to normalize YANDEX_DISK_BASE_DIR: ${dir}`, error);
+    throw error;
   }
-  
-  if (dir.includes('\\')) {
-    console.error(`ERROR: YANDEX_DISK_BASE_DIR contains backslash: ${dir}`);
-    throw new Error(`YANDEX_DISK_BASE_DIR must not contain Windows-style backslashes (\\)`);
-  }
-  
-  if (dir.match(/^[A-Z]:\\/i)) {
-    console.error(`ERROR: YANDEX_DISK_BASE_DIR looks like Windows path: ${dir}`);
-    throw new Error(`YANDEX_DISK_BASE_DIR must be a Yandex Disk path, not a Windows path`);
-  }
-  
-  return dir;
 }
 
 export const YANDEX_DISK_BASE_DIR = validateBaseDirFormat(RAW_BASE_DIR);

@@ -3,6 +3,7 @@
  * Integration with Yandex.Disk API for uploading files and managing folders
  */
 import { YANDEX_DISK_TOKEN } from "@/lib/config/disk";
+import { normalizeDiskPath } from "@/lib/domain/disk/paths";
 
 const YANDEX_DISK_API_BASE = "https://cloud-api.yandex.net/v1/disk";
 const MAX_RETRIES = 3;
@@ -18,6 +19,30 @@ export interface UploadResult {
   success: boolean;
   error?: string;
   path?: string;
+  stage?: string; // Stage where error occurred
+}
+
+/**
+ * Validate and normalize a Yandex Disk path at API boundary
+ * @param path - Path to validate and normalize
+ * @param stage - Name of the operation stage (for error reporting)
+ * @returns Normalized path
+ * @throws Error with stage and normalized path if validation fails
+ */
+function validateAndNormalizePath(path: string, stage: string): string {
+  try {
+    const normalized = normalizeDiskPath(path);
+    
+    // Assert it starts with '/'
+    if (!normalized.startsWith('/')) {
+      throw new Error(`[${stage}] Path must start with '/', got: ${normalized}`);
+    }
+    
+    return normalized;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`[${stage}] Path validation failed: ${message} (original: ${path})`);
+  }
 }
 
 /**
@@ -39,6 +64,8 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Retry a function with exponential backoff
+ * Handles transient errors (5xx) with 2-3 attempts
+ * Also retries 409 for race conditions during concurrent operations
  */
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -52,13 +79,24 @@ async function withRetry<T>(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       
-      // Don't retry on 4xx errors (client errors)
-      // Check if error message contains HTTP 4xx status code
+      // Check if this is a retryable error
       if (error instanceof Error) {
-        const statusMatch = error.message.match(/\b4\d{2}\b/);
+        const message = error.message;
+        
+        // Don't retry on 4xx errors EXCEPT 409 (conflict)
+        const statusMatch = message.match(/\b(\d{3})\b/);
         if (statusMatch) {
-          // This is a 4xx client error, don't retry
-          throw error;
+          const status = parseInt(statusMatch[1]);
+          
+          // 409 is retryable for race conditions (e.g., concurrent folder creation)
+          // 5xx are retryable (server errors)
+          // Note: ensureDir() handles 409 as success internally, so it won't throw
+          const isRetryable = status === 409 || status >= 500;
+          
+          if (status >= 400 && status < 500 && !isRetryable) {
+            // This is a non-retryable 4xx client error
+            throw error;
+          }
         }
       }
       
@@ -76,30 +114,17 @@ async function withRetry<T>(
 /**
  * Ensure a directory exists on Yandex.Disk by creating it if necessary
  * Creates all parent directories recursively if they don't exist
+ * Treats 409 (already exists) as success (idempotent)
  * 
  * @param path Directory path on Yandex.Disk (e.g., "/mvp_uploads" or "/mvp_uploads/2024/january")
  * @returns Promise that resolves when directory exists or is created
  */
 async function ensureDir(path: string): Promise<void> {
-  // Validate path format before making API calls
-  if (!path || typeof path !== 'string') {
-    throw new Error(`ensureDir: path is empty or not a string: ${JSON.stringify(path)}`);
-  }
-  
-  if (!path.startsWith('/')) {
-    throw new Error(`ensureDir: path must start with '/': ${path}`);
-  }
-  
-  if (path.includes('\\')) {
-    throw new Error(`ensureDir: path contains Windows-style backslash: ${path}`);
-  }
-  
-  if (path.match(/^[A-Z]:\\/i)) {
-    throw new Error(`ensureDir: path contains drive letter: ${path}`);
-  }
+  // Normalize and validate path at API boundary
+  const normalizedPath = validateAndNormalizePath(path, 'ensureDir');
   
   // Split the path into segments and recursively create each directory
-  const segments = path.split("/").filter((seg) => seg.length > 0);
+  const segments = normalizedPath.split("/").filter((seg) => seg.length > 0);
   
   for (let i = 0; i < segments.length; i++) {
     const currentPath = "/" + segments.slice(0, i + 1).join("/");
@@ -116,7 +141,7 @@ async function ensureDir(path: string): Promise<void> {
       );
 
       // 201 = created successfully
-      // 409 = already exists (this is acceptable)
+      // 409 = already exists (this is acceptable - idempotent)
       if (response.status === 201 || response.status === 409) {
         continue;
       }
@@ -127,13 +152,13 @@ async function ensureDir(path: string): Promise<void> {
         ? JSON.stringify(errorData) 
         : "No additional error details available";
       throw new Error(
-        `Failed to ensure directory exists at ${currentPath}: ${response.status} ${response.statusText}. ${errorDetails}`
+        `[ensureDir] Failed at path: ${currentPath} - Status: ${response.status} ${response.statusText}. ${errorDetails}`
       );
     } catch (error) {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error(`Unknown error ensuring directory exists at ${currentPath}`);
+      throw new Error(`[ensureDir] Unknown error at path: ${currentPath}`);
     }
   }
 }
@@ -142,41 +167,32 @@ async function ensureDir(path: string): Promise<void> {
  * Upload a file to Yandex.Disk
  * 
  * @param params Upload parameters including path, file bytes, and content type
- * @returns Upload result with success status
+ * @returns Upload result with success status and stage information
  */
 export async function uploadToYandexDisk(
   params: UploadParams
 ): Promise<UploadResult> {
   const { path, bytes, contentType } = params;
 
-  // Validate path format before processing
-  if (!path || typeof path !== 'string') {
+  // Normalize and validate path at API boundary
+  let normalizedPath: string;
+  try {
+    normalizedPath = validateAndNormalizePath(path, 'uploadToYandexDisk');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Invalid upload path: ${JSON.stringify(path)}`
-    };
-  }
-  
-  if (!path.startsWith('/')) {
-    return {
-      success: false,
-      error: `Upload path must start with '/': ${path}`
-    };
-  }
-  
-  if (path.includes('\\')) {
-    return {
-      success: false,
-      error: `Upload path contains Windows-style backslash: ${path}`
+      error: message,
+      stage: 'path_validation'
     };
   }
 
   return withRetry(async () => {
     // Step 1: Ensure the directory exists
     // Extract directory path from the file path (e.g., "/mvp_uploads" from "/mvp_uploads/photo.jpg")
-    const lastSlashIndex = path.lastIndexOf("/");
+    const lastSlashIndex = normalizedPath.lastIndexOf("/");
     if (lastSlashIndex > 0) {
-      const dirPath = path.substring(0, lastSlashIndex);
+      const dirPath = normalizedPath.substring(0, lastSlashIndex);
       
       console.log(`[YandexDisk] Ensuring directory exists: ${dirPath}`);
       
@@ -185,58 +201,81 @@ export async function uploadToYandexDisk(
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`[YandexDisk] ensureDir failed for path: ${dirPath}`, error);
-        throw new Error(`Failed to create directory '${dirPath}': ${message}`);
+        throw new Error(`[ensureDir] Failed to create directory '${dirPath}': ${message}`);
       }
     }
 
     // Step 2: Get upload URL from Yandex.Disk
-    const uploadUrlResponse = await fetch(
-      `${YANDEX_DISK_API_BASE}/resources/upload?path=${encodeURIComponent(path)}&overwrite=true`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
-        },
+    let uploadUrl: string;
+    try {
+      const uploadUrlResponse = await fetch(
+        `${YANDEX_DISK_API_BASE}/resources/upload?path=${encodeURIComponent(normalizedPath)}&overwrite=true`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
+          },
+        }
+      );
+
+      if (!uploadUrlResponse.ok) {
+        const errorData = await uploadUrlResponse.json().catch(() => ({}));
+        throw new Error(`[getUploadUrl] Failed at path: ${normalizedPath} - Status: ${uploadUrlResponse.status} ${uploadUrlResponse.statusText}. ${JSON.stringify(errorData)}`);
       }
-    );
 
-    if (!uploadUrlResponse.ok) {
-      const errorData = await uploadUrlResponse.json().catch(() => ({}));
-      throw new Error(`Failed to get upload URL: ${uploadUrlResponse.status} ${uploadUrlResponse.statusText}. ${JSON.stringify(errorData)}`);
-    }
+      const uploadUrlData = await uploadUrlResponse.json();
+      uploadUrl = uploadUrlData.href;
 
-    const uploadUrlData = await uploadUrlResponse.json();
-    const uploadUrl = uploadUrlData.href;
-
-    if (!uploadUrl) {
-      throw new Error("No upload URL received from Yandex.Disk");
+      if (!uploadUrl) {
+        throw new Error(`[getUploadUrl] No upload URL received from Yandex.Disk for path: ${normalizedPath}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[YandexDisk] getUploadUrl failed:`, error);
+      throw new Error(message);
     }
 
     // Step 3: Upload file to the received URL
-    // Convert bytes to ArrayBuffer for proper fetch body handling
-    const arrayBuffer = convertToArrayBuffer(bytes);
-    const blob = new Blob([arrayBuffer], { type: contentType });
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": contentType,
-      },
-      body: blob,
-    });
+    try {
+      // Convert bytes to ArrayBuffer for proper fetch body handling
+      const arrayBuffer = convertToArrayBuffer(bytes);
+      const blob = new Blob([arrayBuffer], { type: contentType });
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": contentType,
+        },
+        body: blob,
+      });
 
-    if (!uploadResponse.ok) {
-      throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      if (!uploadResponse.ok) {
+        throw new Error(`[uploadBytes] Failed at path: ${normalizedPath} - Status: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      }
+
+      return {
+        success: true,
+        path: normalizedPath,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[YandexDisk] uploadBytes failed:`, error);
+      throw new Error(message);
     }
-
-    return {
-      success: true,
-      path: path,
-    };
   }).catch(error => {
     console.error("Yandex.Disk upload error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error occurred";
+    
+    // Extract stage from error message if present
+    let stage = 'unknown';
+    const stageMatch = message.match(/\[(ensureDir|getUploadUrl|uploadBytes)\]/);
+    if (stageMatch) {
+      stage = stageMatch[1];
+    }
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred"
+      error: message,
+      stage,
     };
   });
 }
@@ -246,10 +285,22 @@ export async function uploadToYandexDisk(
  * @param path Folder path to create
  */
 export async function createFolder(path: string): Promise<{ success: boolean; error?: string }> {
-  console.log(`[YandexDisk] createFolder: ${path}`);
+  // Normalize and validate path at API boundary
+  let normalizedPath: string;
+  try {
+    normalizedPath = validateAndNormalizePath(path, 'createFolder');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: message
+    };
+  }
+  
+  console.log(`[YandexDisk] createFolder: ${normalizedPath}`);
   
   return withRetry(async () => {
-    const url = `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`;
+    const url = `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(normalizedPath)}`;
     console.log(`[YandexDisk] PUT ${url}`);
     
     const response = await fetch(
@@ -264,13 +315,13 @@ export async function createFolder(path: string): Promise<{ success: boolean; er
     
     console.log(`[YandexDisk] Status: ${response.status}`);
     
-    // 201 = created successfully, 409 = already exists (both acceptable)
+    // 201 = created successfully, 409 = already exists (both acceptable - idempotent)
     if (response.status === 201 || response.status === 409) {
       return { success: true };
     }
     
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(`Failed to create folder: ${response.status} ${JSON.stringify(errorData)}`);
+    throw new Error(`[createFolder] Failed at path: ${normalizedPath} - Status: ${response.status} ${JSON.stringify(errorData)}`);
   }).catch(error => ({
     success: false,
     error: error instanceof Error ? error.message : "Unknown error occurred"

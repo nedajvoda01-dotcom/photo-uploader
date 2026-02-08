@@ -17,27 +17,41 @@ export type SlotType = 'dealer' | 'buyout' | 'dummies';
 
 /**
  * Normalize a Yandex Disk path
- * - Ensures it starts with /
- * - Replaces backslashes with forward slashes
- * - Removes duplicate slashes
- * - Validates path is not empty
+ * EXACT behavior per requirements:
+ * - Trim leading/trailing whitespace
+ * - Replace all \ with /
+ * - Remove spaces adjacent to slashes: " / " → "/", "/ " → "/", " /" → "/"
+ * - Collapse multiple slashes: //+ → /
+ * - Ensure it starts with /
  * 
  * @param path - Path to normalize
  * @returns Normalized path
- * @throws Error if path is empty or invalid
+ * @throws Error if path is empty or invalid after trimming
  */
 export function normalizeDiskPath(path: string): string {
   if (!path || typeof path !== 'string') {
     throw new Error(`normalizeDiskPath: invalid path: ${JSON.stringify(path)}`);
   }
   
-  // Replace backslashes with forward slashes
-  let normalized = path.replace(/\\/g, '/');
+  // 1. Trim leading/trailing whitespace
+  let normalized = path.trim();
   
-  // Remove duplicate slashes
+  // After trimming, check if empty
+  if (normalized.length === 0) {
+    throw new Error(`normalizeDiskPath: path is empty after trimming: ${JSON.stringify(path)}`);
+  }
+  
+  // 2. Replace all backslashes with forward slashes
+  normalized = normalized.replace(/\\/g, '/');
+  
+  // 3. Remove spaces adjacent to slashes
+  // " / " → "/"
+  normalized = normalized.replace(/\s*\/\s*/g, '/');
+  
+  // 4. Collapse multiple slashes: //+ → /
   normalized = normalized.replace(/\/+/g, '/');
   
-  // Ensure it starts with /
+  // 5. Ensure it starts with /
   if (!normalized.startsWith('/')) {
     normalized = '/' + normalized;
   }

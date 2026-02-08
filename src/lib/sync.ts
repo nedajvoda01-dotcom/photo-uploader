@@ -438,7 +438,8 @@ export async function syncRegion(region: string, forceFresh = false): Promise<{
       WHERE region = ${region} AND deleted_at IS NULL
     `;
     
-    const dbCarVins = new Set(dbCars.rows.map(car => car.vin.toUpperCase()));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbCarVins = new Set<string>(dbCars.rows.map((car: any) => car.vin.toUpperCase()));
     const foundCarVins = new Set<string>();
     
     // List cars in the region folder
