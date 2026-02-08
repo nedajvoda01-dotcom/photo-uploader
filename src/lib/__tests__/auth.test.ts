@@ -12,7 +12,7 @@
  * 8. ENV users get stable negative IDs
  */
 
-import { generateStableEnvUserId } from '../config';
+import { generateStableEnvUserId } from '../config/auth';
 
 // Mock expect for standalone execution
 function expect(value: any) {

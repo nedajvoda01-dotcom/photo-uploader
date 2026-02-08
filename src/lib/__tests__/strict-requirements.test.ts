@@ -11,7 +11,7 @@
  * 7. AUTH_SECRET validation
  */
 
-import { generateStableEnvUserId } from '../config';
+import { generateStableEnvUserId } from '../config/auth';
 
 // Mock expect for standalone execution
 function expect(value: any) {
@@ -32,8 +32,16 @@ function expect(value: any) {
       }
     },
     toContain(expected: string) {
-      if (typeof value === 'string' && !value.includes(expected)) {
-        throw new Error(`Expected "${value}" to contain "${expected}"`);
+      if (typeof value === 'string') {
+        if (!value.includes(expected)) {
+          throw new Error(`Expected string to contain "${expected}"`);
+        }
+      } else if (Array.isArray(value)) {
+        if (!value.includes(expected)) {
+          throw new Error(`Expected array to contain "${expected}"`);
+        }
+      } else {
+        throw new Error(`toContain() can only be used with strings or arrays, got ${typeof value}`);
       }
     },
     not: {
@@ -120,9 +128,9 @@ describe('Requirement 2: No Default Admin Role', () => {
 
 describe('Requirement 4: DB as SSOT', () => {
   test('users.json is blocked in production', () => {
-    // Check that IS_PRODUCTION flag is used in lib/users.ts
+    // Check that IS_PRODUCTION flag is used in src/lib/infrastructure/dev/usersJson.ts
     const usersFileContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'lib/users.ts'),
+      require('path').join(process.cwd(), 'src/lib/infrastructure/dev/usersJson.ts'),
       'utf-8'
     );
     
@@ -137,12 +145,12 @@ describe('Requirement 5: No Password Re-hashing', () => {
     // Check that passwords are hashed in checkBootstrapAdmin/checkRegionUser
     // and upsertUser uses ON CONFLICT DO NOTHING
     const userAuthContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'lib/userAuth.ts'),
+      require('path').join(process.cwd(), 'src/lib/application/auth/loginUseCase.ts'),
       'utf-8'
     );
     
-    const usersModelContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'lib/models/users.ts'),
+    const usersRepoContent = require('fs').readFileSync(
+      require('path').join(process.cwd(), 'src/lib/infrastructure/db/usersRepo.ts'),
       'utf-8'
     );
     
@@ -150,27 +158,37 @@ describe('Requirement 5: No Password Re-hashing', () => {
     expect(userAuthContent).toContain('bcrypt.hash');
     
     // Verify upsert uses DO NOTHING
-    expect(usersModelContent).toContain('ON CONFLICT (email) DO NOTHING');
+    expect(usersRepoContent).toContain('ON CONFLICT (email) DO NOTHING');
   });
 });
 
 describe('Requirement 6: Region Normalization', () => {
   test('Regions are normalized to uppercase', () => {
+    // Check both config (which uses normalization) and domain validation (which implements it)
     const configContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'lib/config.ts'),
+      require('path').join(process.cwd(), 'src/lib/config/regions.ts'),
       'utf-8'
     );
     
-    // Verify normalization exists
-    expect(configContent).toContain('toUpperCase()');
-    expect(configContent).toContain('trim()');
+    const validationContent = require('fs').readFileSync(
+      require('path').join(process.cwd(), 'src/lib/domain/region/validation.ts'),
+      'utf-8'
+    );
+    
+    // Verify config mentions normalization
+    expect(configContent).toContain('normalizeRegion');
+    expect(configContent).toContain('normalizeRegionList');
+    
+    // Verify actual normalization implementation
+    expect(validationContent).toContain('toUpperCase()');
+    expect(validationContent).toContain('trim()');
   });
 });
 
 describe('Requirement 7: AUTH_SECRET Validation', () => {
   test('AUTH_SECRET must be at least 32 characters', () => {
     const configContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'lib/config.ts'),
+      require('path').join(process.cwd(), 'src/lib/config/auth.ts'),
       'utf-8'
     );
     
@@ -186,7 +204,7 @@ describe('Code Quality: No userId Fallbacks', () => {
     try {
       // Search for userId: 0 patterns (excluding test files)
       const result = execSync(
-        'grep -r "userId: 0" --include="*.ts" app/ lib/ --exclude-dir="__tests__" 2>/dev/null || echo "NONE"',
+        'grep -r "userId: 0" --include="*.ts" src/app/ src/lib/ --exclude-dir="__tests__" 2>/dev/null || echo "NONE"',
         { cwd: process.cwd(), encoding: 'utf-8' }
       );
       
