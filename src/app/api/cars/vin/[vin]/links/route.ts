@@ -156,11 +156,13 @@ export async function POST(
     }
     
     const body = await request.json();
-    const { title, url } = body;
+    // Support both 'title' (new) and 'label' (legacy) for backward compatibility
+    const title = body.title || body.label;
+    const { url } = body;
     
     if (!title || !url) {
       return NextResponse.json(
-        { error: "title and url are required" },
+        { error: "title (or label) and url are required" },
         { status: 400 }
       );
     }

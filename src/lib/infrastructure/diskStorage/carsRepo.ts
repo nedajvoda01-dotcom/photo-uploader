@@ -404,7 +404,7 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       const { make, model, vin } = carInfo;
       const carRootPath = carFolder.path;
       
-      // Read metadata if available
+      // Read metadata if available (use fallback if not present)
       const metadata = await readCarMetadata(carRootPath);
       
       // Get slot statistics
@@ -420,7 +420,7 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
         vin,
         disk_root_path: carRootPath,
         created_by: metadata?.created_by || null,
-        created_at: metadata?.created_at || new Date().toISOString(),
+        created_at: metadata?.created_at || undefined, // undefined signals no metadata available
         total_slots: totalSlots,
         locked_slots: lockedSlots,
         empty_slots: emptySlots,
@@ -466,7 +466,7 @@ export async function getCarByRegionAndVin(region: string, vin: string): Promise
           vin: carInfo.vin,
           disk_root_path: carFolder.path,
           created_by: metadata?.created_by || null,
-          created_at: metadata?.created_at || new Date().toISOString(),
+          created_at: metadata?.created_at || undefined, // undefined signals no metadata available
         };
       }
     }
@@ -646,7 +646,7 @@ export async function createLink(
   const links = await readLinks(carRootPath);
   
   const newLink: Link = {
-    id: `link_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    id: crypto.randomUUID(),
     title,
     url,
     created_by: createdBy,

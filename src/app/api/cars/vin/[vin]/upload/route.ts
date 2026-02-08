@@ -212,10 +212,10 @@ export async function POST(
       
       // Create lock metadata with snake_case for consistency
       const lockMetadata = {
-        slotType: slotType,
-        slotIndex: slotIndex,
-        uploadedBy: session.email || session.userId?.toString() || 'unknown',
-        uploadedAt: new Date().toISOString(),
+        slot_type: slotType,
+        slot_index: slotIndex,
+        uploaded_by: session.email || session.userId?.toString() || 'unknown',
+        uploaded_at: new Date().toISOString(),
         file_count: uploadedFiles.length,
         total_size_mb: Math.round((totalSize / (1024 * 1024)) * 100) / 100,
         files: uploadedFiles,
