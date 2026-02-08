@@ -62,11 +62,13 @@ export { hasRegionAccess } from '@/lib/domain/region/validation';
  * Configuration summary for debugging
  */
 export function getConfigSummary() {
+  /* eslint-disable @typescript-eslint/no-require-imports */
   // Import from specific modules to avoid circular dependencies
   const authModule = require('./auth') as typeof import('./auth');
   const diskModule = require('./disk') as typeof import('./disk');
   const dbModule = require('./db') as typeof import('./db');
   const regionsModule = require('./regions') as typeof import('./regions');
+  /* eslint-enable @typescript-eslint/no-require-imports */
   
   return {
     hasAuthSecret: !!authModule.AUTH_SECRET,
@@ -105,11 +107,13 @@ export function logStartupConfig() {
       return;
     }
 
+    /* eslint-disable @typescript-eslint/no-require-imports */
     // Import from specific modules
     const authModule = require('./auth') as typeof import('./auth');
     const diskModule = require('./disk') as typeof import('./disk');
     const dbModule = require('./db') as typeof import('./db');
     const regionsModule = require('./regions') as typeof import('./regions');
+    /* eslint-enable @typescript-eslint/no-require-imports */
     
     const bootstrapAdmins = authModule.getBootstrapAdmins(regionsModule.ADMIN_REGION);
     const regionUsers = regionsModule.getAllRegionUsers();

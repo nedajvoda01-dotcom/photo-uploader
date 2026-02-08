@@ -1,5 +1,3 @@
-import { getErrorMessage } from "./domain/http";
-
 /**
  * API helper utilities for authentication and authorization
  */
