@@ -3,6 +3,7 @@ import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
 import { getCarWithSlots, getSlot, savePublishedUrl, getPublishedUrl } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { publish } from "@/lib/infrastructure/yandexDisk/client";
 import { validateSlot, type SlotType } from "@/lib/domain/disk/paths";
+import { REGIONS_LIST } from '@/lib/config/index';
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -57,7 +58,7 @@ export async function GET(
     // For admins with region=ALL, search all regions
     // For regular users, only search their assigned region
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;

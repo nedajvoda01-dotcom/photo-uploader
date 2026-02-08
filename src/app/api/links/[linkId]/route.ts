@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
 import { findCarByLinkId, deleteLink } from "@/lib/infrastructure/diskStorage/carsRepo";
+import { REGIONS_LIST } from '@/lib/config/index';
 
 interface RouteContext {
   params: Promise<{ linkId: string }>;
@@ -43,7 +44,7 @@ export async function DELETE(
   try {
     // Get regions to search
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     // Find car by link ID

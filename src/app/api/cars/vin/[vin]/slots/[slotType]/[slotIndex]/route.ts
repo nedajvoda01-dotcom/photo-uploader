@@ -3,7 +3,7 @@ import { requireAuth, requireAdmin, requireRegionAccess, errorResponse, successR
 import { getCarWithSlots, getSlot, markSlotAsUsed, unmarkSlotAsUsed } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { validateSlot, type SlotType, getLockMarkerPath } from "@/lib/domain/disk/paths";
 import { listFolder, downloadFile, exists } from "@/lib/infrastructure/yandexDisk/client";
-import { validateZipLimits } from "@/lib/config/index";
+import { validateZipLimits, REGIONS_LIST } from "@/lib/config/index";
 import archiver from "archiver";
 import { Writable } from "stream";
 
@@ -57,7 +57,7 @@ export async function GET(
     // For admins with region=ALL, search all regions
     // For regular users, only search their assigned region
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;
@@ -243,7 +243,7 @@ export async function PATCH(
     // For admins with region=ALL, search all regions
     // For regular users, only search their assigned region
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;

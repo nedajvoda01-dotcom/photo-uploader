@@ -48,6 +48,7 @@ export {
 // Regions configuration
 export {
   REGIONS,
+  REGIONS_LIST,
   ADMIN_REGION,
   REGION_USERS,
   USER_PASSWORD_MAP,

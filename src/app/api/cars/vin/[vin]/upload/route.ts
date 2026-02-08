@@ -3,7 +3,7 @@ import { requireAuth, requireRegionAccess, errorResponse, successResponse, Error
 import { getCarWithSlots, getSlot } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/infrastructure/yandexDisk/client";
 import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/domain/disk/paths";
-import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD } from "@/lib/config/index";
+import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD, REGIONS_LIST } from "@/lib/config/index";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -46,7 +46,7 @@ export async function POST(
     // For admins with region=ALL, search all regions
     // For regular users, only search their assigned region
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;

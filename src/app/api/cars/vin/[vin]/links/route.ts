@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { REGIONS_LIST } from '@/lib/config/index';
 import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
 import { getCarWithSlots, listLinks, createLink } from "@/lib/infrastructure/diskStorage/carsRepo";
 
@@ -44,7 +45,7 @@ export async function GET(
     // For admins with region=ALL, search all regions
     // For regular users, only search their assigned region
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;
@@ -126,7 +127,7 @@ export async function POST(
     // For admins with region=ALL, search all regions
     // For regular users, only search their assigned region
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;

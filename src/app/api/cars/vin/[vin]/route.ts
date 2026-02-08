@@ -3,7 +3,7 @@ import { requireAuth, requireRegionAccess, errorResponse, successResponse, Error
 import { getCarWithSlots, listLinks } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { moveFolder } from "@/lib/infrastructure/yandexDisk/client";
 import { getCarArchivePath } from "@/lib/domain/disk/paths";
-import { ARCHIVE_RETRY_DELAY_MS } from "@/lib/config/index";
+import { ARCHIVE_RETRY_DELAY_MS, REGIONS_LIST } from "@/lib/config/index";
 
 // Constants
 const EXPECTED_SLOT_COUNT = 14; // 1 dealer + 8 buyout + 5 dummies
@@ -44,7 +44,7 @@ export async function GET(
     // For admins with region=ALL, we need to search all regions for the car
     // For regular users, we only search their assigned region
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;
@@ -124,7 +124,7 @@ export async function DELETE(
   try {
     // Search for car in regions
     const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
-      ? process.env.REGIONS?.split(',') || []
+      ? REGIONS_LIST
       : [session.region];
     
     let carData = null;
