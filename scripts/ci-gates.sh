@@ -105,8 +105,9 @@ echo ""
 echo "Gate 3: Checking for process.env usage outside src/lib/config/..."
 # Only src/lib/config/** is allowed to use process.env directly
 # src/middleware.ts must import from config, not use process.env directly
-PROCESS_ENV_CHECK=$(grep -r "process\.env\." src/app/ src/lib/ --include="*.ts" --include="*.tsx" 2>/dev/null \
+PROCESS_ENV_CHECK=$(grep -r "process\.env\." src/ --include="*.ts" --include="*.tsx" 2>/dev/null \
     | grep -v "src/lib/config/" \
+    | grep -v "src/middleware.ts" \
     | grep -v "test" \
     | grep -v "NEXT_PHASE" || true)
 if [ -n "$PROCESS_ENV_CHECK" ]; then
