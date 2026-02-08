@@ -20,13 +20,15 @@ export type SlotType = 'dealer' | 'buyout' | 'dummies';
  * EXACT behavior per requirements:
  * - Trim leading/trailing whitespace
  * - Replace all \ with /
+ * - Strip disk: prefix (handle both disk:/ and /disk:/)
  * - Remove spaces adjacent to slashes: " / " → "/", "/ " → "/", " /" → "/"
  * - Collapse multiple slashes: //+ → /
  * - Ensure it starts with /
+ * - Validate: no path segment may contain : character
  * 
  * @param path - Path to normalize
  * @returns Normalized path
- * @throws Error if path is empty or invalid after trimming
+ * @throws Error if path is empty or invalid after trimming, or contains : in segments
  */
 export function normalizeDiskPath(path: string): string {
   if (!path || typeof path !== 'string') {
@@ -44,16 +46,30 @@ export function normalizeDiskPath(path: string): string {
   // 2. Replace all backslashes with forward slashes
   normalized = normalized.replace(/\\/g, '/');
   
-  // 3. Remove spaces adjacent to slashes
+  // 3. Strip disk: prefix (handle both disk:/ and /disk:/)
+  // Remove leading /disk:/ or disk:/
+  normalized = normalized.replace(/^\/disk:\//i, '/');
+  normalized = normalized.replace(/^disk:\//i, '/');
+  
+  // 4. Remove spaces adjacent to slashes
   // " / " → "/"
   normalized = normalized.replace(/\s*\/\s*/g, '/');
   
-  // 4. Collapse multiple slashes: //+ → /
+  // 5. Collapse multiple slashes: //+ → /
   normalized = normalized.replace(/\/+/g, '/');
   
-  // 5. Ensure it starts with /
+  // 6. Ensure it starts with /
   if (!normalized.startsWith('/')) {
     normalized = '/' + normalized;
+  }
+  
+  // 7. Validate: no path segment may contain : character
+  // Split by / and check each segment
+  const segments = normalized.split('/').filter(seg => seg.length > 0);
+  for (const segment of segments) {
+    if (segment.includes(':')) {
+      throw new Error(`normalizeDiskPath: path segment contains colon (:): ${segment} in path: ${path}`);
+    }
   }
   
   return normalized;
