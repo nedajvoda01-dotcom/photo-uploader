@@ -84,6 +84,26 @@ export interface Link {
 }
 
 /**
+ * Photo item in _PHOTOS.json index
+ */
+export interface PhotoItem {
+  name: string;
+  size: number;
+  modified: string; // ISO timestamp
+}
+
+/**
+ * Photo index for a slot (_PHOTOS.json)
+ * Hard limit: MAX_PHOTOS_PER_SLOT (40) photos per slot
+ */
+export interface PhotoIndex {
+  count: number;
+  updatedAt: string; // ISO timestamp
+  cover: string | null; // First photo filename or null if empty
+  items: PhotoItem[];
+}
+
+/**
  * Parse car folder name to extract make, model, and VIN
  * Format: "<Make> <Model> <VIN>"
  * Example: "Toyota Camry 1HGBH41JXMN109186"
@@ -224,12 +244,23 @@ async function isSlotLocked(slotPath: string): Promise<boolean> {
 
 /**
  * Get slot statistics (file count and size)
- * Optimization: Tries to read cached stats from _SLOT.json first
+ * Optimization: Tries to read cached stats from _PHOTOS.json first, then _SLOT.json
  * If not available, lists folder and writes stats to _SLOT.json for future use
  */
 async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
-    // Priority 1: Try to read from _SLOT.json (primary stats cache)
+    // Priority 1: Try to read from _PHOTOS.json (most detailed index)
+    const photosIndex = await readPhotosIndex(slotPath);
+    if (photosIndex && photosIndex.count !== undefined) {
+      const totalSizeBytes = photosIndex.items.reduce((sum, item) => sum + item.size, 0);
+      const totalSizeMB = totalSizeBytes / (1024 * 1024);
+      return {
+        fileCount: photosIndex.count,
+        totalSizeMB: totalSizeMB,
+      };
+    }
+    
+    // Priority 2: Try to read from _SLOT.json (stats cache)
     const slotJsonPath = `${slotPath}/_SLOT.json`;
     const slotJsonExists = await exists(slotJsonPath);
     
@@ -254,7 +285,7 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
       }
     }
     
-    // Priority 2: Try to read from _LOCK.json (legacy fallback)
+    // Priority 3: Try to read from _LOCK.json (legacy fallback)
     const lockPath = `${slotPath}/_LOCK.json`;
     const lockExists = await exists(lockPath);
     
@@ -393,6 +424,190 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
     console.error(`Error updating slot stats at ${slotPath}:`, error);
     return false;
   }
+}
+
+/**
+ * Read _PHOTOS.json index from slot
+ * Returns null if file doesn't exist or is invalid
+ */
+async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
+  try {
+    const photosIndexPath = `${slotPath}/_PHOTOS.json`;
+    const indexExists = await exists(photosIndexPath);
+    
+    if (!indexExists) {
+      return null;
+    }
+    
+    const result = await downloadFile(photosIndexPath);
+    if (!result.success || !result.data) {
+      return null;
+    }
+    
+    const content = result.data.toString('utf-8');
+    const indexData = JSON.parse(content) as PhotoIndex;
+    
+    // Validate structure
+    if (typeof indexData.count !== 'number' || !Array.isArray(indexData.items)) {
+      console.warn(`Invalid _PHOTOS.json structure at ${slotPath}`);
+      return null;
+    }
+    
+    return indexData;
+  } catch (error) {
+    console.error(`Error reading _PHOTOS.json from ${slotPath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Rebuild _PHOTOS.json from disk by listing folder
+ * Used when index is missing or corrupted
+ */
+async function rebuildPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
+  try {
+    console.log(`[PhotoIndex] Rebuilding _PHOTOS.json for ${slotPath}`);
+    
+    const result = await listFolder(slotPath);
+    if (!result.success || !result.items) {
+      console.error(`[PhotoIndex] Failed to list folder for rebuild: ${slotPath}`);
+      return null;
+    }
+    
+    const photos = result.items.filter(item => 
+      item.type === 'file' && !item.name.startsWith('_')
+    );
+    
+    const now = new Date().toISOString();
+    const items: PhotoItem[] = photos.map(photo => ({
+      name: photo.name,
+      size: photo.size || 0,
+      modified: now, // Use current time since Yandex API doesn't return modified date in list
+    }));
+    
+    const index: PhotoIndex = {
+      count: items.length,
+      updatedAt: now,
+      cover: items.length > 0 ? items[0].name : null,
+      items: items,
+    };
+    
+    // Write the rebuilt index
+    const photosIndexPath = `${slotPath}/_PHOTOS.json`;
+    const uploadResult = await uploadText(photosIndexPath, index);
+    
+    if (!uploadResult.success) {
+      console.error(`[PhotoIndex] Failed to write rebuilt index: ${slotPath}`);
+      return null;
+    }
+    
+    console.log(`[PhotoIndex] Successfully rebuilt _PHOTOS.json for ${slotPath} (${items.length} photos)`);
+    return index;
+  } catch (error) {
+    console.error(`[PhotoIndex] Error rebuilding _PHOTOS.json for ${slotPath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Write _PHOTOS.json index to slot
+ * Uses read-merge-write pattern for concurrency safety
+ */
+export async function writePhotosIndex(slotPath: string, newPhotos: PhotoItem[]): Promise<boolean> {
+  const MAX_RETRIES = 3;
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // Read current index
+      let currentIndex = await readPhotosIndex(slotPath);
+      
+      // If no index exists, rebuild from disk first
+      if (!currentIndex) {
+        currentIndex = await rebuildPhotosIndex(slotPath);
+      }
+      
+      // Merge: Add new photos to existing items
+      const existingItems = currentIndex?.items || [];
+      const existingNames = new Set(existingItems.map(p => p.name));
+      
+      // Filter out duplicates and add new photos
+      const newItems = newPhotos.filter(p => !existingNames.has(p.name));
+      const allItems = [...existingItems, ...newItems];
+      
+      // Create updated index
+      const updatedIndex: PhotoIndex = {
+        count: allItems.length,
+        updatedAt: new Date().toISOString(),
+        cover: allItems.length > 0 ? allItems[0].name : null,
+        items: allItems,
+      };
+      
+      // Write back
+      const photosIndexPath = `${slotPath}/_PHOTOS.json`;
+      const uploadResult = await uploadText(photosIndexPath, updatedIndex);
+      
+      if (uploadResult.success) {
+        console.log(`[PhotoIndex] Successfully updated _PHOTOS.json at ${slotPath} (attempt ${attempt})`);
+        return true;
+      }
+      
+      throw new Error(`Upload failed: ${uploadResult.error}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`[PhotoIndex] Write attempt ${attempt}/${MAX_RETRIES} failed:`, lastError.message);
+      
+      if (attempt < MAX_RETRIES) {
+        // Wait before retry with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+      }
+    }
+  }
+  
+  console.error(`[PhotoIndex] Failed to write _PHOTOS.json after ${MAX_RETRIES} attempts:`, lastError);
+  return false;
+}
+
+/**
+ * Get current photo count in slot
+ * Uses _PHOTOS.json if available, falls back to rebuild
+ */
+export async function getPhotoCount(slotPath: string): Promise<number> {
+  try {
+    // Try reading from _PHOTOS.json first
+    let index = await readPhotosIndex(slotPath);
+    
+    // If not available or invalid, rebuild
+    if (!index) {
+      index = await rebuildPhotosIndex(slotPath);
+    }
+    
+    return index?.count || 0;
+  } catch (error) {
+    console.error(`[PhotoIndex] Error getting photo count for ${slotPath}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Check if slot has reached photo limit
+ */
+export async function checkPhotoLimit(slotPath: string, additionalPhotos: number = 0): Promise<{
+  isAtLimit: boolean;
+  currentCount: number;
+  maxPhotos: number;
+}> {
+  // Import MAX_PHOTOS_PER_SLOT locally to avoid circular dependency
+  const { MAX_PHOTOS_PER_SLOT } = await import('@/lib/config/index');
+  
+  const currentCount = await getPhotoCount(slotPath);
+  const totalCount = currentCount + additionalPhotos;
+  
+  return {
+    isAtLimit: totalCount > MAX_PHOTOS_PER_SLOT,
+    currentCount,
+    maxPhotos: MAX_PHOTOS_PER_SLOT,
+  };
 }
 
 /**
