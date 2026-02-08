@@ -62,41 +62,26 @@ export { hasRegionAccess } from '@/lib/domain/region/validation';
  * Configuration summary for debugging
  */
 export function getConfigSummary() {
-  // Import directly from modules
-  const authConfig = import('./auth');
-  const diskConfig = import('./disk');
-  const dbConfig = import('./db');
-  const regionsConfig = import('./regions');
-  
-  // Use already exported symbols
-  const AUTH_SECRET_val = AUTH_SECRET;
-  const YANDEX_DISK_TOKEN_val = YANDEX_DISK_TOKEN;
-  const YANDEX_DISK_BASE_DIR_val = YANDEX_DISK_BASE_DIR;
-  const ZIP_MAX_FILES_val = ZIP_MAX_FILES;
-  const ZIP_MAX_TOTAL_MB_val = ZIP_MAX_TOTAL_MB;
-  const POSTGRES_URL_val = POSTGRES_URL;
-  const POSTGRES_URL_NON_POOLING_val = POSTGRES_URL_NON_POOLING;
-  const REGIONS_val = REGIONS;
-  const ADMIN_REGION_val = ADMIN_REGION;
-  const bootstrapAdmins = getBootstrapAdmins(ADMIN_REGION);
-  const AUTH_DEBUG_val = AUTH_DEBUG;
-  const REGION_USERS_val = REGION_USERS;
-  const USER_PASSWORD_MAP_val = USER_PASSWORD_MAP;
+  // Import from specific modules to avoid circular dependencies
+  const authModule = require('./auth') as typeof import('./auth');
+  const diskModule = require('./disk') as typeof import('./disk');
+  const dbModule = require('./db') as typeof import('./db');
+  const regionsModule = require('./regions') as typeof import('./regions');
   
   return {
-    hasAuthSecret: !!AUTH_SECRET_val,
-    hasYandexDiskToken: !!YANDEX_DISK_TOKEN_val,
-    yandexDiskBaseDir: YANDEX_DISK_BASE_DIR_val,
-    regions: REGIONS_val,
-    adminRegion: ADMIN_REGION_val,
-    hasPostgresUrl: !!POSTGRES_URL_val,
-    hasPostgresUrlNonPooling: !!POSTGRES_URL_NON_POOLING_val,
-    bootstrapAdminCount: bootstrapAdmins.length,
-    regionUserCount: Object.keys(REGION_USERS_val).reduce((sum: number, region: string) => sum + REGION_USERS_val[region].length, 0),
-    userPasswordMapCount: Object.keys(USER_PASSWORD_MAP_val).length,
-    zipMaxFiles: ZIP_MAX_FILES_val,
-    zipMaxTotalMB: ZIP_MAX_TOTAL_MB_val,
-    authDebug: AUTH_DEBUG_val,
+    hasAuthSecret: !!authModule.AUTH_SECRET,
+    hasYandexDiskToken: !!diskModule.YANDEX_DISK_TOKEN,
+    yandexDiskBaseDir: diskModule.YANDEX_DISK_BASE_DIR,
+    regions: regionsModule.REGIONS,
+    adminRegion: regionsModule.ADMIN_REGION,
+    hasPostgresUrl: !!dbModule.POSTGRES_URL,
+    hasPostgresUrlNonPooling: !!dbModule.POSTGRES_URL_NON_POOLING,
+    bootstrapAdminCount: authModule.getBootstrapAdmins(regionsModule.ADMIN_REGION).length,
+    regionUserCount: Object.keys(regionsModule.REGION_USERS).reduce((sum: number, region: string) => sum + regionsModule.REGION_USERS[region].length, 0),
+    userPasswordMapCount: Object.keys(regionsModule.USER_PASSWORD_MAP).length,
+    zipMaxFiles: diskModule.ZIP_MAX_FILES,
+    zipMaxTotalMB: diskModule.ZIP_MAX_TOTAL_MB,
+    authDebug: authModule.AUTH_DEBUG,
   };
 }
 
@@ -120,35 +105,29 @@ export function logStartupConfig() {
       return;
     }
 
-    // Use already exported symbols
-    const NODE_ENV_val = NODE_ENV;
-    const AUTH_DEBUG_val = AUTH_DEBUG;
-    const POSTGRES_URL_val = POSTGRES_URL;
-    const POSTGRES_URL_NON_POOLING_val = POSTGRES_URL_NON_POOLING;
-    const YANDEX_DISK_BASE_DIR_val = YANDEX_DISK_BASE_DIR;
-    const YANDEX_DISK_TOKEN_val = YANDEX_DISK_TOKEN;
-    const ZIP_MAX_FILES_val = ZIP_MAX_FILES;
-    const ZIP_MAX_TOTAL_MB_val = ZIP_MAX_TOTAL_MB;
-    const REGIONS_val = REGIONS;
-    const REGION_USERS_val = REGION_USERS;
-    const ADMIN_REGION_val = ADMIN_REGION;
-    const bootstrapAdmins = getBootstrapAdmins(ADMIN_REGION_val);
-    const regionUsers = getAllRegionUsers();
+    // Import from specific modules
+    const authModule = require('./auth') as typeof import('./auth');
+    const diskModule = require('./disk') as typeof import('./disk');
+    const dbModule = require('./db') as typeof import('./db');
+    const regionsModule = require('./regions') as typeof import('./regions');
+    
+    const bootstrapAdmins = authModule.getBootstrapAdmins(regionsModule.ADMIN_REGION);
+    const regionUsers = regionsModule.getAllRegionUsers();
 
     console.log('\n========================================');
     console.log('APPLICATION CONFIGURATION');
     console.log('========================================');
-    console.log(`Environment: ${NODE_ENV_val}`);
-    console.log(`Auth Debug: ${AUTH_DEBUG_val ? 'ENABLED' : 'disabled'}`);
+    console.log(`Environment: ${authModule.NODE_ENV}`);
+    console.log(`Auth Debug: ${authModule.AUTH_DEBUG ? 'ENABLED' : 'disabled'}`);
     console.log('');
     
     // Database mode
-    const dbMode = POSTGRES_URL_val || POSTGRES_URL_NON_POOLING_val ? 'Database' : 'File/ENV';
+    const dbMode = dbModule.POSTGRES_URL || dbModule.POSTGRES_URL_NON_POOLING ? 'Database' : 'File/ENV';
     console.log(`Auth Mode: ${dbMode}`);
-    if (POSTGRES_URL_val) {
+    if (dbModule.POSTGRES_URL) {
       console.log('  - Using POSTGRES_URL (pooled)');
     }
-    if (POSTGRES_URL_NON_POOLING_val) {
+    if (dbModule.POSTGRES_URL_NON_POOLING) {
       console.log('  - Using POSTGRES_URL_NON_POOLING (direct)');
     }
     console.log('');
@@ -160,27 +139,27 @@ export function logStartupConfig() {
     });
     console.log('');
     
-    console.log(`Regions: ${REGIONS_val.length}`);
-    console.log(`  ${REGIONS_val.join(', ')}`);
+    console.log(`Regions: ${regionsModule.REGIONS.length}`);
+    console.log(`  ${regionsModule.REGIONS.join(', ')}`);
     console.log('');
     
     console.log(`Region Users: ${regionUsers.length}`);
-    REGIONS_val.forEach((region: string) => {
-      const users = REGION_USERS_val[region] || [];
+    regionsModule.REGIONS.forEach((region: string) => {
+      const users = regionsModule.REGION_USERS[region] || [];
       console.log(`  ${region}: ${users.length} user(s)`);
     });
     console.log('');
     
     // Yandex Disk
     console.log('Yandex Disk:');
-    console.log(`  Base Dir: ${YANDEX_DISK_BASE_DIR_val}`);
-    console.log(`  Token: ${YANDEX_DISK_TOKEN_val ? 'configured' : 'NOT CONFIGURED'}`);
+    console.log(`  Base Dir: ${diskModule.YANDEX_DISK_BASE_DIR}`);
+    console.log(`  Token: ${diskModule.YANDEX_DISK_TOKEN ? 'configured' : 'NOT CONFIGURED'}`);
     console.log('');
     
     // Limits
     console.log('ZIP Download Limits:');
-    console.log(`  Max Files: ${ZIP_MAX_FILES_val}`);
-    console.log(`  Max Total Size: ${ZIP_MAX_TOTAL_MB_val} MB`);
+    console.log(`  Max Files: ${diskModule.ZIP_MAX_FILES}`);
+    console.log(`  Max Total Size: ${diskModule.ZIP_MAX_TOTAL_MB} MB`);
     console.log('========================================\n');
   } catch {
     // Silently fail if logging is not available (e.g., in Edge Runtime)

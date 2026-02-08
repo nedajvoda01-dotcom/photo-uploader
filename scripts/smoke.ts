@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Enhanced Comprehensive Smoke Test Script - Definition of Done
  * 

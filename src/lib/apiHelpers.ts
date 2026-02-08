@@ -1,4 +1,4 @@
-import { JsonObject } from "./domain/http";
+import { getErrorMessage } from "./domain/http";
 
 /**
  * API helper utilities for authentication and authorization
@@ -45,7 +45,7 @@ export function errorResponse(
   code: string,
   message: string,
   status: number = 500,
-  additionalData?: JsonObject
+  additionalData?: Record<string, unknown>
 ): NextResponse {
   return NextResponse.json(
     {
@@ -64,7 +64,7 @@ export function errorResponse(
  * Format: { ok: true, ...data }
  */
 export function successResponse(
-  data: JsonObject,
+  data: Record<string, unknown>,
   status: number = 200
 ): NextResponse {
   return NextResponse.json(
