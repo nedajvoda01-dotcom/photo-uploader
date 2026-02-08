@@ -156,18 +156,18 @@ export async function POST(
     }
     
     const body = await request.json();
-    const { label, url } = body;
+    const { title, url } = body;
     
-    if (!label || !url) {
+    if (!title || !url) {
       return NextResponse.json(
-        { error: "label and url are required" },
+        { error: "title and url are required" },
         { status: 400 }
       );
     }
     
     const link = await createLink(
       car.disk_root_path,
-      label,
+      title,
       url,
       session.email || session.userId?.toString() || undefined
     );
