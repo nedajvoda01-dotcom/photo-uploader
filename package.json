@@ -8,9 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx scripts/run-tests.ts",
-    "test:config": "tsx lib/__tests__/config-parsing.test.ts",
-    "test:auth": "tsx lib/__tests__/auth.test.ts",
-    "test:strict": "tsx lib/__tests__/strict-requirements.test.ts",
+    "test:config": "tsx src/lib/__tests__/config-parsing.test.ts",
+    "test:auth": "tsx src/lib/__tests__/auth.test.ts",
+    "test:strict": "tsx src/lib/__tests__/strict-requirements.test.ts",
+    "ci-gates": "bash scripts/ci-gates.sh",
     "smoke-preview": "tsx scripts/smoke-preview.ts",
     "smoke": "tsx scripts/smoke.ts"
   },

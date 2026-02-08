@@ -191,11 +191,11 @@ class ComprehensiveSmokeTest {
   }
 
   private async testLogin(): Promise<void> {
-    const stepName = 'POST /api/login';
+    const stepName = 'POST /api/auth/login';
     const startTime = Date.now();
 
     try {
-      const url = `${this.baseUrl}/api/login`;
+      const url = `${this.baseUrl}/api/auth/login`;
       const response = await this.fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
