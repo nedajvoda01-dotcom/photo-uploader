@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession, getSessionCookieName } from "@/lib/auth";
 
 // Paths that don't require authentication
-const PUBLIC_PATHS = ["/login", "/api/login"];
+const PUBLIC_PATHS = ["/login", "/api/login", "/api/auth/login", "/api/logout"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -12,11 +12,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Check if this is an API route
+  const isApiRoute = pathname.startsWith("/api/");
+  
   // Check for session cookie
   const sessionCookie = request.cookies.get(getSessionCookieName());
   
   if (!sessionCookie?.value) {
-    // No session, redirect to login
+    // No session - return JSON for API routes, redirect for pages
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
@@ -25,7 +34,14 @@ export async function middleware(request: NextRequest) {
   const session = await verifySession(sessionCookie.value);
   
   if (!session) {
-    // Invalid session, redirect to login
+    // Invalid session - return JSON for API routes, redirect for pages
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Invalid or expired session" },
+        { status: 401 }
+      );
+    }
+    
     const loginUrl = new URL("/login", request.url);
     const response = NextResponse.redirect(loginUrl);
     

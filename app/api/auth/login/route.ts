@@ -40,21 +40,19 @@ export async function POST(request: NextRequest) {
     const bootstrapResult = await checkBootstrapAdmin(email, password);
     
     if (bootstrapResult.isBootstrapAdmin && bootstrapResult.user) {
-      // Bootstrap admin login successful - upsert to database
+      // Bootstrap admin login successful - try to upsert to database
       let dbUser;
       try {
-        // Hash the password for database storage
-        const passwordHash = await bcrypt.hash(password, 10);
-        
+        // Use pre-hashed password from checkBootstrapAdmin (don't re-hash)
         dbUser = await upsertUser({
           email: bootstrapResult.user.email,
-          passwordHash: passwordHash,
+          passwordHash: bootstrapResult.user.passwordHash!,
           region: bootstrapResult.user.region,
           role: bootstrapResult.user.role,
         });
       } catch (dbError) {
         console.error('[AUTH] Failed to upsert bootstrap admin to database:', dbError);
-        // Continue with bootstrap user if DB fails
+        // Continue with ENV user if DB fails (use stable ENV ID)
         dbUser = bootstrapResult.user;
       }
       
@@ -106,21 +104,19 @@ export async function POST(request: NextRequest) {
     const regionUserResult = await checkRegionUser(email, password);
     
     if (regionUserResult.isBootstrapAdmin && regionUserResult.user) {
-      // Region user login successful - upsert to database
+      // Region user login successful - try to upsert to database
       let dbUser;
       try {
-        // Hash the password for database storage
-        const passwordHash = await bcrypt.hash(password, 10);
-        
+        // Use pre-hashed password from checkRegionUser (don't re-hash)
         dbUser = await upsertUser({
           email: regionUserResult.user.email,
-          passwordHash: passwordHash,
+          passwordHash: regionUserResult.user.passwordHash!,
           region: regionUserResult.user.region,
           role: regionUserResult.user.role,
         });
       } catch (dbError) {
         console.error('[AUTH] Failed to upsert region user to database:', dbError);
-        // Continue with region user if DB fails
+        // Continue with ENV user if DB fails (use stable ENV ID)
         dbUser = regionUserResult.user;
       }
       
@@ -211,10 +207,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 4: Create session token
+    // Forbid userId = 0 in sessions (security requirement)
+    if (!user.id || user.id === 0) {
+      console.error('[AUTH] Cannot create session: user has no valid database ID');
+      return NextResponse.json(
+        { error: "Authentication configuration error" },
+        { status: 500 }
+      );
+    }
+    
     let token: string;
     try {
       token = await signSession({ 
-        userId: user.id || 0,
+        userId: user.id,
         email: user.email,
         region: user.region || ADMIN_REGION,
         role: user.role || 'user'

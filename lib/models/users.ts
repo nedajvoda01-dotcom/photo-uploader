@@ -111,9 +111,9 @@ export interface UpsertUserParams {
 }
 
 /**
- * Upsert a user (insert or update on conflict)
- * Ensures user exists in database and returns the real DB user
- * This is critical for FK constraint on cars.created_by
+ * Upsert a user (insert if not exists)
+ * Uses ON CONFLICT DO NOTHING to handle race conditions
+ * This prevents password re-hashing on every login
  */
 export async function upsertUser(params: UpsertUserParams): Promise<User> {
   try {
@@ -123,16 +123,22 @@ export async function upsertUser(params: UpsertUserParams): Promise<User> {
     // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
     
+    // Try to insert new user (ON CONFLICT DO NOTHING handles existing users)
     const result = await sql<User>`
       INSERT INTO users (email, password_hash, region, role)
       VALUES (${normalizedEmail}, ${passwordHash}, ${region}, ${role})
-      ON CONFLICT (email) 
-      DO UPDATE SET 
-        password_hash = EXCLUDED.password_hash,
-        region = EXCLUDED.region,
-        role = EXCLUDED.role
+      ON CONFLICT (email) DO NOTHING
       RETURNING id, email, password_hash, region, role, created_at
     `;
+    
+    // If ON CONFLICT DO NOTHING was triggered (user exists), fetch the user
+    if (result.rows.length === 0) {
+      const user = await getUserByEmail(normalizedEmail);
+      if (!user) {
+        throw new Error(`Failed to upsert user ${normalizedEmail}`);
+      }
+      return user;
+    }
     
     return result.rows[0];
   } catch (error) {
