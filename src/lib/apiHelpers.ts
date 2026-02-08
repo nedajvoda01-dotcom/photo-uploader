@@ -1,3 +1,5 @@
+import { JsonObject } from "./domain/http";
+
 /**
  * API helper utilities for authentication and authorization
  */
@@ -43,7 +45,7 @@ export function errorResponse(
   code: string,
   message: string,
   status: number = 500,
-  additionalData?: Record<string, any>
+  additionalData?: JsonObject
 ): NextResponse {
   return NextResponse.json(
     {
@@ -62,7 +64,7 @@ export function errorResponse(
  * Format: { ok: true, ...data }
  */
 export function successResponse(
-  data: Record<string, any>,
+  data: JsonObject,
   status: number = 200
 ): NextResponse {
   return NextResponse.json(

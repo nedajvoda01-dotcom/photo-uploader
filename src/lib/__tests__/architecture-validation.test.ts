@@ -10,11 +10,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 // Mock expect for standalone execution
-function expect(value: any) {
+function expect(value: unknown) {
   return {
-    toBe(expected: any) {
+    toBe(expected: unknown) {
       if (value !== expected) {
         throw new Error(`Expected ${JSON.stringify(value)} to be ${JSON.stringify(expected)}`);
       }
@@ -49,8 +50,6 @@ console.log('====================================');
 
 describe('Requirement 1: process.env only in lib/config/**', () => {
   test('No process.env outside lib/config/', () => {
-    const { execSync } = require('child_process');
-    
     try {
       // Search for process.env outside lib/config and scripts (excluding tests)
       const result = execSync(
@@ -61,8 +60,8 @@ describe('Requirement 1: process.env only in lib/config/**', () => {
       if (result.trim() !== 'NONE' && !result.includes('No such file')) {
         throw new Error(`Found process.env usage outside lib/config/: ${result}`);
       }
-    } catch (error: any) {
-      if (error.message && error.message.includes('process.env')) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message && error.message.includes('process.env')) {
         throw error;
       }
       // grep returned no matches (exit code 1), which is good
@@ -72,8 +71,6 @@ describe('Requirement 1: process.env only in lib/config/**', () => {
 
 describe('Requirement 2: No Yandex Disk API calls in app/api/**', () => {
   test('No cloud-api.yandex.net in app/api/', () => {
-    const { execSync } = require('child_process');
-    
     try {
       const result = execSync(
         'grep -r "cloud-api.yandex.net" app/api 2>/dev/null || echo "NONE"',
@@ -83,8 +80,8 @@ describe('Requirement 2: No Yandex Disk API calls in app/api/**', () => {
       if (result.trim() !== 'NONE' && !result.includes('No such file')) {
         throw new Error(`Found Yandex Disk API calls in app/api/: ${result}`);
       }
-    } catch (error: any) {
-      if (error.message && error.message.includes('cloud-api')) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message && error.message.includes('cloud-api')) {
         throw error;
       }
     }
@@ -93,8 +90,6 @@ describe('Requirement 2: No Yandex Disk API calls in app/api/**', () => {
 
 describe('Requirement 3: No SQL in app/api/**', () => {
   test('No sql` in app/api/', () => {
-    const { execSync } = require('child_process');
-    
     try {
       // Use single quotes to avoid backtick escaping issues
       const result = execSync(
@@ -105,8 +100,8 @@ describe('Requirement 3: No SQL in app/api/**', () => {
       if (result.trim() !== 'NONE' && !result.includes('No such file')) {
         throw new Error(`Found SQL queries in app/api/: ${result}`);
       }
-    } catch (error: any) {
-      if (error.message && error.message.includes('SQL queries')) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message && error.message.includes('SQL queries')) {
         throw error;
       }
     }

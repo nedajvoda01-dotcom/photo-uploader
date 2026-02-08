@@ -12,11 +12,14 @@
  */
 
 import { generateStableEnvUserId } from '../config/auth';
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 
 // Mock expect for standalone execution
-function expect(value: any) {
+function expect(value: unknown) {
   return {
-    toBe(expected: any) {
+    toBe(expected: unknown) {
       if (value !== expected) {
         throw new Error(`Expected ${JSON.stringify(value)} to be ${JSON.stringify(expected)}`);
       }
@@ -45,7 +48,7 @@ function expect(value: any) {
       }
     },
     not: {
-      toBe(expected: any) {
+      toBe(expected: unknown) {
         if (value === expected) {
           throw new Error(`Expected ${JSON.stringify(value)} not to be ${JSON.stringify(expected)}`);
         }
@@ -129,8 +132,8 @@ describe('Requirement 2: No Default Admin Role', () => {
 describe('Requirement 4: DB as SSOT', () => {
   test('users.json is blocked in production', () => {
     // Check that IS_PRODUCTION flag is used in src/lib/infrastructure/dev/usersJson.ts
-    const usersFileContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'src/lib/infrastructure/dev/usersJson.ts'),
+    const usersFileContent = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/infrastructure/dev/usersJson.ts'),
       'utf-8'
     );
     
@@ -144,13 +147,13 @@ describe('Requirement 5: No Password Re-hashing', () => {
   test('Password hashing logic validation', () => {
     // Check that passwords are hashed in checkBootstrapAdmin/checkRegionUser
     // and upsertUser uses ON CONFLICT DO NOTHING
-    const userAuthContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'src/lib/application/auth/loginUseCase.ts'),
+    const userAuthContent = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/application/auth/loginUseCase.ts'),
       'utf-8'
     );
     
-    const usersRepoContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'src/lib/infrastructure/db/usersRepo.ts'),
+    const usersRepoContent = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/infrastructure/db/usersRepo.ts'),
       'utf-8'
     );
     
@@ -165,13 +168,13 @@ describe('Requirement 5: No Password Re-hashing', () => {
 describe('Requirement 6: Region Normalization', () => {
   test('Regions are normalized to uppercase', () => {
     // Check both config (which uses normalization) and domain validation (which implements it)
-    const configContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'src/lib/config/regions.ts'),
+    const configContent = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/config/regions.ts'),
       'utf-8'
     );
     
-    const validationContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'src/lib/domain/region/validation.ts'),
+    const validationContent = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/domain/region/validation.ts'),
       'utf-8'
     );
     
@@ -187,8 +190,8 @@ describe('Requirement 6: Region Normalization', () => {
 
 describe('Requirement 7: AUTH_SECRET Validation', () => {
   test('AUTH_SECRET must be at least 32 characters', () => {
-    const configContent = require('fs').readFileSync(
-      require('path').join(process.cwd(), 'src/lib/config/auth.ts'),
+    const configContent = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/config/auth.ts'),
       'utf-8'
     );
     
@@ -199,8 +202,6 @@ describe('Requirement 7: AUTH_SECRET Validation', () => {
 
 describe('Code Quality: No userId Fallbacks', () => {
   test('No userId=0 patterns in production code', () => {
-    const { execSync } = require('child_process');
-    
     try {
       // Search for userId: 0 patterns (excluding test files)
       const result = execSync(
@@ -211,8 +212,8 @@ describe('Code Quality: No userId Fallbacks', () => {
       if (result.trim() !== 'NONE' && !result.includes('No matches')) {
         throw new Error(`Found userId=0 patterns in production code: ${result}`);
       }
-    } catch (error: any) {
-      if (error.message && error.message.includes('userId')) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message && error.message.includes('userId')) {
         throw error;
       }
       // grep returned no matches (exit code 1), which is good

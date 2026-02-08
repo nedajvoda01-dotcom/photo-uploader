@@ -8,23 +8,23 @@
  */
 
 // Mock expect for standalone execution
-function expect(value: any) {
+function expect(value: unknown) {
   return {
-    toBe(expected: any) {
+    toBe(expected: unknown) {
       if (value !== expected) {
         throw new Error(`Expected ${JSON.stringify(value)} to be ${JSON.stringify(expected)}`);
       }
     },
-    toContain(expected: any) {
+    toContain(expected: unknown) {
       if (!Array.isArray(value) || !value.includes(expected)) {
         throw new Error(`Expected ${JSON.stringify(value)} to contain ${JSON.stringify(expected)}`);
       }
     },
     not: {
-      toContain(expected: any) {
+      toContain(expected: unknown) {
         if (Array.isArray(value) && value.includes(expected)) {
           throw new Error(`Expected ${JSON.stringify(value)} not to contain ${JSON.stringify(expected)}`);
-        } else if (typeof value === 'string' && value.includes(expected)) {
+        } else if (typeof value === 'string' && typeof expected === 'string' && value.includes(expected)) {
           throw new Error(`Expected "${value}" not to contain "${expected}"`);
         }
       }

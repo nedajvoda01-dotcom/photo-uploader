@@ -15,9 +15,9 @@
 import { generateStableEnvUserId } from '../config/auth';
 
 // Mock expect for standalone execution
-function expect(value: any) {
+function expect(value: unknown) {
   return {
-    toBe(expected: any) {
+    toBe(expected: unknown) {
       if (value !== expected) {
         throw new Error(`Expected ${JSON.stringify(value)} to be ${JSON.stringify(expected)}`);
       }
@@ -33,7 +33,7 @@ function expect(value: any) {
       }
     },
     not: {
-      toBe(expected: any) {
+      toBe(expected: unknown) {
         if (value === expected) {
           throw new Error(`Expected ${JSON.stringify(value)} not to be ${JSON.stringify(expected)}`);
         }

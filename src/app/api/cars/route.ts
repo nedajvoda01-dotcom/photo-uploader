@@ -227,7 +227,17 @@ export async function POST(request: NextRequest) {
     
     // DB AS CACHE: Try to create car in database (non-critical, can be synced later)
     let dbCacheOk = true;
-    let car: any = null;
+    let car: {
+      id: number;
+      region: string;
+      make: string;
+      model: string;
+      vin: string;
+      disk_root_path?: string;
+      created_by?: string | null;
+      created_at?: Date;
+      deleted_at?: Date | null;
+    } | null = null;
     
     try {
       car = await createCar({
