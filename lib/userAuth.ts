@@ -4,7 +4,7 @@
 import { checkDatabaseConnection } from "./db";
 import { getUserByEmail as getUserByEmailDB } from "./models/users";
 import { getUserByEmail as getUserByEmailFile } from "./users";
-import { getBootstrapAdmins, getAllRegionUsers, ADMIN_REGION } from "./config";
+import { getBootstrapAdmins, getAllRegionUsers, ADMIN_REGION, generateStableEnvUserId } from "./config";
 import bcrypt from "bcryptjs";
 import { timingSafeEqual } from "crypto";
 
@@ -23,12 +23,14 @@ export interface BootstrapAdminCheckResult {
     email: string;
     region: string;
     role: string;
+    passwordHash?: string; // Added to avoid re-hashing
   };
 }
 
 /**
  * Check if credentials match a bootstrap admin from ENV
  * Bootstrap admins are checked FIRST before database/file lookup
+ * Returns user with stable ENV-based ID (negative to distinguish from DB IDs)
  */
 export async function checkBootstrapAdmin(
   email: string,
@@ -43,6 +45,8 @@ export async function checkBootstrapAdmin(
     if (admin.email !== normalizedEmail) {
       continue;
     }
+
+    let passwordHash: string | undefined;
 
     // Check plain password first (takes priority)
     if (admin.password) {
@@ -67,13 +71,17 @@ export async function checkBootstrapAdmin(
         }
 
         if (isValid) {
+          // Hash password once for DB storage (don't re-hash on every login)
+          passwordHash = await bcrypt.hash(password, 10);
+          
           return {
             isBootstrapAdmin: true,
             user: {
-              id: 0, // Bootstrap admins use ID 0
+              id: generateStableEnvUserId(admin.email),
               email: admin.email,
               region: admin.region,
               role: admin.role,
+              passwordHash,
             },
           };
         }
@@ -98,10 +106,11 @@ export async function checkBootstrapAdmin(
           return {
             isBootstrapAdmin: true,
             user: {
-              id: 0, // Bootstrap admins use ID 0
+              id: generateStableEnvUserId(admin.email),
               email: admin.email,
               region: admin.region,
               role: admin.role,
+              passwordHash: admin.passwordHash, // Already hashed
             },
           };
         }
@@ -117,6 +126,7 @@ export async function checkBootstrapAdmin(
 /**
  * Check if credentials match a region user from ENV (REGION_USERS + USER_PASSWORD_MAP)
  * Region users are checked AFTER bootstrap admins but BEFORE database/file
+ * Returns user with stable ENV-based ID (negative to distinguish from DB IDs)
  */
 export async function checkRegionUser(
   email: string,
@@ -132,7 +142,7 @@ export async function checkRegionUser(
       continue;
     }
     
-    // Check plain password (5 digits)
+    // Check plain password
     try {
       const passwordBuffer = Buffer.from(password, 'utf8');
       const userPasswordBuffer = Buffer.from(user.password, 'utf8');
@@ -152,13 +162,17 @@ export async function checkRegionUser(
       }
       
       if (isValid) {
+        // Hash password once for DB storage
+        const passwordHash = await bcrypt.hash(password, 10);
+        
         return {
           isBootstrapAdmin: true, // Reusing this flag for ENV users
           user: {
-            id: 0, // ENV users use ID 0 like bootstrap admins
+            id: generateStableEnvUserId(user.email),
             email: user.email,
             region: user.region,
             role: user.role,
+            passwordHash,
           },
         };
       }

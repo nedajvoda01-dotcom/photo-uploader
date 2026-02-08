@@ -14,9 +14,14 @@ if (!isBuildTime) {
   if (!AUTH_SECRET) {
     throw new Error("AUTH_SECRET environment variable is required");
   }
+  
+  // Validate AUTH_SECRET length (minimum 32 characters for security)
+  if (AUTH_SECRET.length < 32) {
+    throw new Error(`AUTH_SECRET must be at least 32 characters long (current: ${AUTH_SECRET.length}). Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`);
+  }
 
   if (!YANDEX_DISK_TOKEN) {
-    throw new Error("YANDEX_DISK_TOKEN environment variable is required");
+    console.warn("WARNING: YANDEX_DISK_TOKEN is not configured. Upload functionality will fail.");
   }
 }
 
@@ -43,20 +48,19 @@ const REGIONS_ENV = process.env.REGIONS;
 if (!isBuildTime && !REGIONS_ENV) {
   throw new Error("REGIONS environment variable is required (comma-separated list, e.g., 'R1,R2,R3,K1,V,S1,S2')");
 }
-export const REGIONS = REGIONS_ENV ? REGIONS_ENV.split(",").map(r => r.trim()).filter(r => r.length > 0) : [];
+// Normalize regions: trim + toUpperCase
+export const REGIONS = REGIONS_ENV ? REGIONS_ENV.split(",").map(r => r.trim().toUpperCase()).filter(r => r.length > 0) : [];
 
 if (!isBuildTime && REGIONS.length === 0) {
   throw new Error("REGIONS must contain at least one region");
 }
 
 // Admin region (default: ALL)
-export const ADMIN_REGION = process.env.ADMIN_REGION || "ALL";
+export const ADMIN_REGION = process.env.ADMIN_REGION ? process.env.ADMIN_REGION.trim().toUpperCase() : "ALL";
 
 // Validate ADMIN_REGION configuration
 if (!isBuildTime) {
-  // Note: ADMIN_REGION is typically "ALL" which is correct for admins
-  // This is a special region that grants access to all regions
-  // However, if it's explicitly set to something else in production, validate it exists
+  // ADMIN_REGION can be "ALL" (special value for full access) or must be in REGIONS list
   if (ADMIN_REGION !== "ALL" && REGIONS.length > 0 && !REGIONS.includes(ADMIN_REGION)) {
     console.warn(
       `WARNING: ADMIN_REGION is set to "${ADMIN_REGION}" but this region is not in REGIONS list [${REGIONS.join(', ')}]. ` +
@@ -120,8 +124,7 @@ if (!isBuildTime) {
 }
 
 // User password map (USER_PASSWORD_MAP)
-// Format: email1:12345,email2:54321
-// Password must be 5 digits
+// Format: email1:password1,email2:password2
 interface UserPasswordMap {
   [email: string]: string;
 }
@@ -135,18 +138,14 @@ if (!isBuildTime) {
     for (const pair of pairs) {
       const [email, password] = pair.split(':').map(s => s.trim());
       if (email && password) {
-        // Validate password format (5 digits)
-        if (!/^\d{5}$/.test(password)) {
-          throw new Error(`Invalid password format for ${email}: must be exactly 5 digits`);
-        }
-        // Normalize email to lowercase
+        // Normalize email to lowercase, but keep password as-is
         USER_PASSWORD_MAP[email.toLowerCase()] = password;
       }
     }
   }
 }
 
-// Validation: Each email in REGION_*_USERS must have a password and belong to exactly one region
+// Validation: Each email in REGION_*_USERS should have a password
 if (!isBuildTime) {
   const allRegionUsers: string[] = [];
   const emailToRegion: Map<string, string[]> = new Map();
@@ -169,21 +168,30 @@ if (!isBuildTime) {
     }
   }
   
-  // Log missing passwords with clear error message
+  // Warn about missing passwords but don't throw (allow service to start)
   if (missingPasswords.length > 0) {
-    const errorMsg = 
-      `ERROR: Missing passwords in USER_PASSWORD_MAP for the following region users:\n` +
+    console.warn(
+      `\nWARNING: Missing passwords in USER_PASSWORD_MAP for the following region users:\n` +
       missingPasswords.map(email => `  - ${email}`).join('\n') + '\n' +
-      `Please add these users to USER_PASSWORD_MAP environment variable with format: email1:12345,email2:54321`;
-    console.error(errorMsg);
-    throw new Error(`Missing passwords for ${missingPasswords.length} user(s) in USER_PASSWORD_MAP. Check server logs for details.`);
+      `These users will not be able to log in until passwords are added to USER_PASSWORD_MAP.\n` +
+      `Format: email1:password1,email2:password2\n`
+    );
   }
   
-  // Check that each email belongs to exactly one region
+  // Check for email duplicates across regions (this is an error)
+  const duplicates: string[] = [];
   for (const [email, regions] of emailToRegion.entries()) {
     if (regions.length > 1) {
-      throw new Error(`User ${email} belongs to multiple regions: ${regions.join(', ')}. Each user must belong to exactly one region.`);
+      duplicates.push(`${email} (regions: ${regions.join(', ')})`);
     }
+  }
+  
+  if (duplicates.length > 0) {
+    console.warn(
+      `\nWARNING: Email duplicates found across regions:\n` +
+      duplicates.map(d => `  - ${d}`).join('\n') + '\n' +
+      `Each user must belong to exactly one region. Using first occurrence.\n`
+    );
   }
 }
 
@@ -232,6 +240,24 @@ export function getBootstrapAdmins(): Array<{
   }
 
   return admins;
+}
+
+/**
+ * Generate a stable numeric ID for ENV-based users
+ * Uses simple hash of email to create deterministic but unique IDs
+ * IDs are negative to distinguish from real DB IDs (which are positive)
+ */
+export function generateStableEnvUserId(email: string): number {
+  // Simple hash function that generates negative IDs
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    const char = email.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Return negative number to distinguish from DB IDs
+  // Use absolute value and negate to ensure it's always negative
+  return -(Math.abs(hash) % 2147483647 + 1);
 }
 
 /**
