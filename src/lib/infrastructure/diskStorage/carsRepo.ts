@@ -3,11 +3,13 @@
  * Manages car data using only Yandex Disk (no database)
  * 
  * Storage Structure:
+ * - Region index: {regionPath}/_REGION.json (list of cars)
  * - Car metadata: {carRoot}/_CAR.json
+ * - Slot stats: {slotPath}/_SLOT.json (count, cover, updated_at)
  * - Slot locks: {slotPath}/_LOCK.json
  * - Links: {carRoot}/_LINKS.json
  * - Published URLs: {slotPath}/_PUBLISHED.json
- * - Used markers: {slotPath}/_USED.json
+ * - Used markers: {slotPath}/_USED.json (legacy)
  */
 
 import { 
@@ -50,6 +52,11 @@ export interface CarWithProgress extends Car {
   total_slots: number;
   locked_slots: number;
   empty_slots: number;
+  /**
+   * Indicates whether slot counts have been loaded.
+   * When false, total_slots/locked_slots/empty_slots may be 0 or estimates.
+   */
+  counts_loaded?: boolean;
 }
 
 export interface Slot {
@@ -61,6 +68,11 @@ export interface Slot {
   total_size_mb: number;
   public_url?: string;
   is_used?: boolean;
+  /**
+   * Indicates whether the slot stats have been loaded from disk.
+   * When false, file_count and total_size_mb are placeholder values (0).
+   */
+  stats_loaded?: boolean;
 }
 
 export interface Link {
@@ -212,10 +224,37 @@ async function isSlotLocked(slotPath: string): Promise<boolean> {
 
 /**
  * Get slot statistics (file count and size)
+ * Optimization: Tries to read cached stats from _SLOT.json first
+ * If not available, lists folder and writes stats to _SLOT.json for future use
  */
 async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
-    // Try to read from _LOCK.json first
+    // Priority 1: Try to read from _SLOT.json (primary stats cache)
+    const slotJsonPath = `${slotPath}/_SLOT.json`;
+    const slotJsonExists = await exists(slotJsonPath);
+    
+    if (slotJsonExists) {
+      const slotFile = await downloadFile(slotJsonPath);
+      if (slotFile.success && slotFile.data) {
+        try {
+          const slotContent = slotFile.data.toString('utf-8');
+          const slotData = JSON.parse(slotContent);
+          
+          // Use stats from _SLOT.json if available
+          if (slotData.count !== undefined) {
+            const totalSizeMB = slotData.total_size_mb || 0;
+            return {
+              fileCount: slotData.count,
+              totalSizeMB: totalSizeMB,
+            };
+          }
+        } catch {
+          // Fall through to next method
+        }
+      }
+    }
+    
+    // Priority 2: Try to read from _LOCK.json (legacy fallback)
     const lockPath = `${slotPath}/_LOCK.json`;
     const lockExists = await exists(lockPath);
     
@@ -238,7 +277,7 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
       }
     }
     
-    // Fallback: list folder and calculate
+    // Fallback: list folder and calculate (expensive operation)
     const result = await listFolder(slotPath);
     if (!result.success || !result.items) {
       return { fileCount: 0, totalSizeMB: 0 };
@@ -251,6 +290,21 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
     const fileCount = files.length;
     const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
     const totalSizeMB = totalSizeBytes / (1024 * 1024);
+    
+    // Write stats to _SLOT.json for future use (fire and forget)
+    try {
+      const cover = files.length > 0 ? files[0].name : null;
+      const statsData = {
+        count: fileCount,
+        cover: cover,
+        total_size_mb: totalSizeMB,
+        updated_at: new Date().toISOString(),
+      };
+      await uploadText(slotJsonPath, statsData);
+    } catch (error) {
+      // Don't fail if we can't write stats
+      console.warn(`Failed to write stats cache to ${slotJsonPath}:`, error);
+    }
     
     return { fileCount, totalSizeMB };
   } catch (error) {
@@ -299,6 +353,44 @@ async function writePublishedUrl(slotPath: string, publicUrl: string): Promise<b
     return result.success;
   } catch (error) {
     console.error(`Error writing published URL to ${slotPath}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Update _SLOT.json with current stats
+ * Call this synchronously after every upload/delete operation
+ */
+export async function updateSlotStats(slotPath: string): Promise<boolean> {
+  try {
+    // List folder to get current files
+    const result = await listFolder(slotPath);
+    if (!result.success || !result.items) {
+      return false;
+    }
+    
+    const files = result.items.filter(item => 
+      item.type === 'file' && !item.name.startsWith('_')
+    );
+    
+    const fileCount = files.length;
+    const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    const totalSizeMB = totalSizeBytes / (1024 * 1024);
+    const cover = files.length > 0 ? files[0].name : null;
+    
+    // Write _SLOT.json
+    const slotJsonPath = `${slotPath}/_SLOT.json`;
+    const statsData = {
+      count: fileCount,
+      cover: cover,
+      total_size_mb: totalSizeMB,
+      updated_at: new Date().toISOString(),
+    };
+    
+    const uploadResult = await uploadText(slotJsonPath, statsData);
+    return uploadResult.success;
+  } catch (error) {
+    console.error(`Error updating slot stats at ${slotPath}:`, error);
     return false;
   }
 }
@@ -403,6 +495,7 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
           total_size_mb: Math.round(stats.totalSizeMB * 100) / 100,
           public_url: publicUrl,
           is_used: isUsed,
+          stats_loaded: true,
         });
       }
     }
@@ -414,7 +507,84 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
 }
 
 /**
+ * Read region index from _REGION.json
+ * Returns list of cars in the region without folder scanning
+ */
+async function readRegionIndex(regionPath: string): Promise<Car[] | null> {
+  try {
+    const regionIndexPath = `${regionPath}/_REGION.json`;
+    const indexExists = await exists(regionIndexPath);
+    
+    if (!indexExists) {
+      return null;
+    }
+    
+    const result = await downloadFile(regionIndexPath);
+    if (!result.success || !result.data) {
+      return null;
+    }
+    
+    const content = result.data.toString('utf-8');
+    const indexData = JSON.parse(content);
+    
+    return indexData.cars || null;
+  } catch (error) {
+    console.error(`Error reading region index from ${regionPath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Write region index to _REGION.json
+ * Updates the list of cars in the region
+ */
+async function writeRegionIndex(regionPath: string, cars: Car[]): Promise<boolean> {
+  try {
+    const regionIndexPath = `${regionPath}/_REGION.json`;
+    const indexData = {
+      cars: cars,
+      updated_at: new Date().toISOString(),
+    };
+    
+    const result = await uploadText(regionIndexPath, indexData);
+    return result.success;
+  } catch (error) {
+    console.error(`Error writing region index to ${regionPath}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Phase 1: Build slot structure deterministically without scanning disk
+ * Creates placeholder slots based on known structure (1 dealer + 8 buyout + 5 dummies)
+ * No API calls to check slot status - stats must be loaded separately
+ */
+function buildDeterministicSlots(carRootPath: string, region: string, make: string, model: string, vin: string): Slot[] {
+  const slots: Slot[] = [];
+  
+  // Use getAllSlotPaths to get deterministic paths
+  const slotPaths = getAllSlotPaths(region, make, model, vin);
+  
+  for (const slotInfo of slotPaths) {
+    slots.push({
+      slot_type: slotInfo.type,
+      slot_index: slotInfo.index,
+      disk_slot_path: slotInfo.path,
+      locked: false, // Unknown - will be loaded on demand
+      file_count: 0, // Unknown - will be loaded on demand
+      total_size_mb: 0, // Unknown - will be loaded on demand
+      stats_loaded: false, // Signal that stats need to be loaded separately
+    });
+  }
+  
+  return slots;
+}
+
+/**
  * List all cars in a region
+ * Phase 0 optimization: Tries to read from _REGION.json first, falls back to folder listing
+ * Does NOT scan slots - returns with counts_loaded=false
+ * This reduces API calls from ~14+ per car to ~1 per region
  */
 export async function listCarsByRegion(region: string): Promise<CarWithProgress[]> {
   const cars: CarWithProgress[] = [];
@@ -422,12 +592,41 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
   try {
     const regionPath = getRegionPath(region);
     
-    // List car folders in the region
+    // Try to read from _REGION.json first
+    const indexedCars = await readRegionIndex(regionPath);
+    
+    if (indexedCars && indexedCars.length > 0) {
+      // Use indexed data - very fast, no folder scanning
+      console.log(`[DiskStorage] Using _REGION.json index for region ${region}, found ${indexedCars.length} cars`);
+      
+      for (const car of indexedCars) {
+        cars.push({
+          region: car.region,
+          make: car.make,
+          model: car.model,
+          vin: car.vin,
+          disk_root_path: car.disk_root_path,
+          created_by: car.created_by || null,
+          created_at: car.created_at || undefined,
+          total_slots: EXPECTED_SLOT_COUNT,
+          locked_slots: 0, // Unknown - will be loaded on demand
+          empty_slots: EXPECTED_SLOT_COUNT,
+          counts_loaded: false,
+        });
+      }
+      
+      return cars;
+    }
+    
+    // Fallback: List car folders in the region (slower)
+    console.log(`[DiskStorage] _REGION.json not found or empty, falling back to folder listing for region ${region}`);
     const carsResult = await listFolder(regionPath);
     if (!carsResult.success || !carsResult.items) {
       console.log(`[DiskStorage] No cars found in region ${region}`);
       return cars;
     }
+    
+    const scannedCars: Car[] = [];
     
     for (const carFolder of carsResult.items) {
       if (carFolder.type !== 'dir') {
@@ -447,24 +646,34 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       // Read metadata if available (use fallback if not present)
       const metadata = await readCarMetadata(carRootPath);
       
-      // Get slot statistics
-      const slots = await getCarSlots(carRootPath);
-      const totalSlots = slots.length;
-      const lockedSlots = slots.filter(s => s.locked).length;
-      const emptySlots = totalSlots - lockedSlots;
-      
-      cars.push({
+      const carData: Car = {
         region,
         make,
         model,
         vin,
         disk_root_path: carRootPath,
         created_by: metadata?.created_by || null,
-        created_at: metadata?.created_at || undefined, // undefined signals no metadata available
-        total_slots: totalSlots,
-        locked_slots: lockedSlots,
-        empty_slots: emptySlots,
+        created_at: metadata?.created_at || undefined,
+      };
+      
+      scannedCars.push(carData);
+      
+      // Phase 0: Do NOT scan slots - return with counts_loaded=false
+      // This avoids 14+ API calls per car
+      cars.push({
+        ...carData,
+        total_slots: EXPECTED_SLOT_COUNT, // Known deterministic count (1+8+5=14)
+        locked_slots: 0, // Unknown - will be loaded on demand
+        empty_slots: EXPECTED_SLOT_COUNT, // Assume all empty until loaded
+        counts_loaded: false, // Signal that counts need to be loaded separately
       });
+    }
+    
+    // Write _REGION.json for future use (fire and forget)
+    if (scannedCars.length > 0) {
+      writeRegionIndex(regionPath, scannedCars).catch(err => 
+        console.warn(`Failed to write region index for ${region}:`, err)
+      );
     }
   } catch (error) {
     console.error(`[DiskStorage] Error listing cars in region ${region}:`, error);
@@ -521,6 +730,63 @@ export async function getCarByRegionAndVin(region: string, vin: string): Promise
 /**
  * Create a new car
  */
+/**
+ * Add car to region index
+ * Updates _REGION.json to include the new car
+ */
+async function addCarToRegionIndex(region: string, car: Car): Promise<void> {
+  try {
+    const regionPath = getRegionPath(region);
+    
+    // Read existing index
+    let cars = await readRegionIndex(regionPath);
+    if (!cars) {
+      cars = [];
+    }
+    
+    // Check if car already exists (by VIN)
+    const existingIndex = cars.findIndex(c => c.vin === car.vin);
+    if (existingIndex >= 0) {
+      // Update existing car
+      cars[existingIndex] = car;
+    } else {
+      // Add new car
+      cars.push(car);
+    }
+    
+    // Write updated index
+    await writeRegionIndex(regionPath, cars);
+  } catch (error) {
+    console.error(`Error adding car to region index:`, error);
+    // Don't throw - this is best-effort caching
+  }
+}
+
+/**
+ * Remove car from region index
+ * Updates _REGION.json to remove the car
+ */
+async function removeCarFromRegionIndex(region: string, vin: string): Promise<void> {
+  try {
+    const regionPath = getRegionPath(region);
+    
+    // Read existing index
+    let cars = await readRegionIndex(regionPath);
+    if (!cars) {
+      return;
+    }
+    
+    // Filter out the car
+    cars = cars.filter(c => c.vin !== vin);
+    
+    // Write updated index
+    await writeRegionIndex(regionPath, cars);
+  } catch (error) {
+    console.error(`Error removing car from region index:`, error);
+    // Don't throw - this is best-effort caching
+  }
+}
+
 export async function createCar(params: {
   region: string;
   make: string;
@@ -602,7 +868,8 @@ export async function createCar(params: {
   
   console.log(`[DiskStorage] Successfully created car with all ${createdSlots.length}/${EXPECTED_SLOT_COUNT} slots: ${rootPath}`);
   
-  return {
+  // Update region index
+  const carData: Car = {
     region,
     make,
     model,
@@ -611,10 +878,16 @@ export async function createCar(params: {
     created_by: created_by || null,
     created_at: metadata.created_at,
   };
+  
+  await addCarToRegionIndex(region, carData);
+  
+  return carData;
 }
 
 /**
  * Get car with all slots
+ * Phase 1 optimization: Builds slot structure deterministically without scanning
+ * Slots returned with stats_loaded=false, must call loadCarSlotCounts separately
  */
 export async function getCarWithSlots(region: string, vin: string): Promise<{
   car: Car;
@@ -626,11 +899,34 @@ export async function getCarWithSlots(region: string, vin: string): Promise<{
       return null;
     }
     
-    const slots = await getCarSlots(car.disk_root_path);
+    // Phase 1: Build slots deterministically (O(1) API calls)
+    const slots = buildDeterministicSlots(car.disk_root_path, region, car.make, car.model, car.vin);
     
     return { car, slots };
   } catch (error) {
     console.error(`[DiskStorage] Error getting car with slots ${region}/${vin}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Phase 2: Load actual slot counts and status from disk
+ * This is called separately after initial card render for lazy loading
+ * Returns slots with stats_loaded=true
+ */
+export async function loadCarSlotCounts(region: string, vin: string): Promise<Slot[] | null> {
+  try {
+    const car = await getCarByRegionAndVin(region, vin);
+    if (!car) {
+      return null;
+    }
+    
+    // Load full slot data with counts (this makes the disk API calls)
+    const slots = await getCarSlots(car.disk_root_path);
+    
+    return slots;
+  } catch (error) {
+    console.error(`[DiskStorage] Error loading slot counts ${region}/${vin}:`, error);
     return null;
   }
 }

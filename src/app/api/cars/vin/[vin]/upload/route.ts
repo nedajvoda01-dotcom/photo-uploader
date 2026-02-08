@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, errorResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
-import { getCarWithSlots, getSlot } from "@/lib/infrastructure/diskStorage/carsRepo";
+import { getCarWithSlots, getSlot, updateSlotStats } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/infrastructure/yandexDisk/client";
 import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/domain/disk/paths";
 import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD, REGIONS_LIST } from "@/lib/config/index";
@@ -227,6 +227,9 @@ export async function POST(
       if (!lockUploadResult.success) {
         throw new Error(`Failed to create lock file: ${lockUploadResult.error}`);
       }
+      
+      // Update _SLOT.json with current stats (synchronous update)
+      await updateSlotStats(slot.disk_slot_path);
       
       // Get updated slot info from disk
       const updatedSlot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
