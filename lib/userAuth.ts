@@ -192,7 +192,8 @@ export async function checkRegionUser(
 }
 
 /**
- * Get user by email from database or fallback to file-based auth
+ * Get user by email from database or fallback to file-based auth (dev only)
+ * Note: users.json fallback is automatically disabled in production by lib/users.ts
  */
 export async function getUserByEmail(email: string): Promise<User | null> {
   // Normalize email for lookup
@@ -218,14 +219,14 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     }
   }
   
-  // Fallback to file/env based auth
+  // Fallback to file/env based auth (users.json is blocked in production)
   const fileUser = getUserByEmailFile(normalizedEmail);
   if (fileUser) {
     // For file-based auth, we'll use default values for region and role
     return {
       email: fileUser.email,
       passwordHash: fileUser.passwordHash,
-      region: ADMIN_REGION, // Use ADMIN_REGION instead of DEFAULT_REGION
+      region: ADMIN_REGION,
       role: 'admin', // File-based users are admins by default
     };
   }
