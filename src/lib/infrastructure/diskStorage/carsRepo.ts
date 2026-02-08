@@ -14,6 +14,7 @@ import {
   getRegionPath, 
   carRoot, 
   getAllSlotPaths,
+  normalizeDiskPath,
   type SlotType 
 } from "@/lib/domain/disk/paths";
 import { 
@@ -101,6 +102,7 @@ function parseCarFolderName(folderName: string): { make: string; model: string; 
 
 /**
  * Read car metadata from _CAR.json file
+ * Repairs paths on read if they contain spaces around slashes
  */
 async function readCarMetadata(carRootPath: string): Promise<Partial<Car> | null> {
   try {
@@ -117,7 +119,36 @@ async function readCarMetadata(carRootPath: string): Promise<Partial<Car> | null
     }
     
     const content = result.data.toString('utf-8');
-    return JSON.parse(content);
+    const metadata = JSON.parse(content);
+    
+    // Repair-on-read: normalize disk_root_path if present
+    let needsRepair = false;
+    if (metadata.disk_root_path && typeof metadata.disk_root_path === 'string') {
+      const originalPath = metadata.disk_root_path;
+      try {
+        const normalized = normalizeDiskPath(originalPath);
+        if (normalized !== originalPath) {
+          console.log(`[DiskStorage] Repairing path in _CAR.json: "${originalPath}" → "${normalized}"`);
+          metadata.disk_root_path = normalized;
+          needsRepair = true;
+        }
+      } catch (error) {
+        console.warn(`[DiskStorage] Failed to normalize path in _CAR.json: ${originalPath}`, error);
+      }
+    }
+    
+    // Write back if we made repairs
+    if (needsRepair) {
+      try {
+        await uploadText(metadataPath, metadata);
+        console.log(`[DiskStorage] Repaired _CAR.json at ${metadataPath}`);
+      } catch (error) {
+        console.error(`[DiskStorage] Failed to write repaired _CAR.json:`, error);
+        // Continue - we still return the corrected metadata
+      }
+    }
+    
+    return metadata;
   } catch (error) {
     console.error(`Error reading car metadata from ${carRootPath}:`, error);
     return null;

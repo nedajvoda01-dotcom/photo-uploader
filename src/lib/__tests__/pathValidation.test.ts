@@ -5,8 +5,10 @@
  * 1. Path normalization handles backslashes correctly
  * 2. Leading slashes are ensured
  * 3. Duplicate slashes are removed
- * 4. Empty paths are rejected
- * 5. Valid paths pass through correctly
+ * 4. Spaces around slashes are removed
+ * 5. Leading/trailing whitespace is trimmed
+ * 6. Empty paths are rejected
+ * 7. Valid paths pass through correctly
  */
 
 import { normalizeDiskPath } from '../domain/disk/paths';
@@ -77,8 +79,40 @@ describe('Path Validation', () => {
     expect(normalizeDiskPath('/Фото//MSK///car')).toBe('/Фото/MSK/car');
   });
   
+  test('normalizeDiskPath removes spaces around slashes: " / "', () => {
+    expect(normalizeDiskPath('/Фото / MSK / car')).toBe('/Фото/MSK/car');
+  });
+  
+  test('normalizeDiskPath removes spaces around slashes: "/ "', () => {
+    expect(normalizeDiskPath('/Фото/ MSK/ car')).toBe('/Фото/MSK/car');
+  });
+  
+  test('normalizeDiskPath removes spaces around slashes: " /"', () => {
+    expect(normalizeDiskPath('/Фото /MSK /car')).toBe('/Фото/MSK/car');
+  });
+  
+  test('normalizeDiskPath handles the exact failing case from production', () => {
+    expect(normalizeDiskPath('/Фото / R1 / Toyota Test VIN')).toBe('/Фото/R1/Toyota Test VIN');
+  });
+  
+  test('normalizeDiskPath handles leading space that creates " /"', () => {
+    expect(normalizeDiskPath(' /Фото/MSK')).toBe('/Фото/MSK');
+  });
+  
+  test('normalizeDiskPath trims leading and trailing whitespace', () => {
+    expect(normalizeDiskPath('  /Фото/MSK  ')).toBe('/Фото/MSK');
+  });
+  
+  test('normalizeDiskPath handles complex mix of issues', () => {
+    expect(normalizeDiskPath('  \\Фото / MSK \\ car // photos  ')).toBe('/Фото/MSK/car/photos');
+  });
+  
   test('normalizeDiskPath throws on empty string', () => {
     expect(() => normalizeDiskPath('')).toThrow('invalid path');
+  });
+  
+  test('normalizeDiskPath throws on whitespace-only string', () => {
+    expect(() => normalizeDiskPath('   ')).toThrow('empty after trimming');
   });
   
   test('normalizeDiskPath throws on null', () => {
@@ -91,6 +125,10 @@ describe('Path Validation', () => {
   
   test('normalizeDiskPath handles valid paths', () => {
     expect(normalizeDiskPath('/Фото/MSK/Toyota Camry VIN')).toBe('/Фото/MSK/Toyota Camry VIN');
+  });
+  
+  test('normalizeDiskPath preserves internal spaces in path segments', () => {
+    expect(normalizeDiskPath('/Фото/MSK/Toyota Camry 123')).toBe('/Фото/MSK/Toyota Camry 123');
   });
   
   test('normalizeDiskPath handles mixed backslashes and forward slashes', () => {
