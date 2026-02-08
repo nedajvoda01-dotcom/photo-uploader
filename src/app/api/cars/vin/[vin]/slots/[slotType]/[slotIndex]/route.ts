@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireAdmin, requireRegionAccess, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
-import { getCarByVin, getCarByRegionAndVin } from "@/lib/infrastructure/db/carsRepo";
-import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/infrastructure/db/carSlotsRepo";
+import { getCarWithSlots, getSlot, markSlotAsUsed, unmarkSlotAsUsed } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { validateSlot, type SlotType, getLockMarkerPath } from "@/lib/domain/disk/paths";
 import { listFolder, downloadFile, exists } from "@/lib/infrastructure/yandexDisk/client";
 import { validateZipLimits } from "@/lib/config/index";
@@ -55,14 +54,31 @@ export async function GET(
   }
   
   try {
-    const car = await getCarByRegionAndVin(session.region, vin);
+    // For admins with region=ALL, search all regions
+    // For regular users, only search their assigned region
+    const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
+      ? process.env.REGIONS?.split(',') || []
+      : [session.region];
     
-    if (!car) {
+    let carData = null;
+    
+    // Search for car in regions
+    for (const region of regionsToSearch) {
+      const result = await getCarWithSlots(region, vin);
+      if (result) {
+        carData = result;
+        break;
+      }
+    }
+    
+    if (!carData) {
       return NextResponse.json(
-        { error: "Car not found in your region" },
+        { error: "Car not found" },
         { status: 404 }
       );
     }
+    
+    const { car } = carData;
     
     // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
@@ -70,7 +86,7 @@ export async function GET(
       return regionCheck.error;
     }
     
-    const slot = await getCarSlot(car.id, slotType, slotIndex);
+    const slot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
     
     if (!slot) {
       return NextResponse.json(
@@ -224,14 +240,31 @@ export async function PATCH(
   }
   
   try {
-    const car = await getCarByVin(vin);
+    // For admins with region=ALL, search all regions
+    // For regular users, only search their assigned region
+    const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
+      ? process.env.REGIONS?.split(',') || []
+      : [session.region];
     
-    if (!car) {
+    let carData = null;
+    
+    // Search for car in regions
+    for (const region of regionsToSearch) {
+      const result = await getCarWithSlots(region, vin);
+      if (result) {
+        carData = result;
+        break;
+      }
+    }
+    
+    if (!carData) {
       return NextResponse.json(
         { error: "Car not found" },
         { status: 404 }
       );
     }
+    
+    const { car } = carData;
     
     // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
@@ -245,7 +278,7 @@ export async function PATCH(
       return allRegionCheck.error;
     }
     
-    const slot = await getCarSlot(car.id, slotType, slotIndex);
+    const slot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
     
     if (!slot) {
       return NextResponse.json(
@@ -276,10 +309,20 @@ export async function PATCH(
       );
     }
     
-    // Mark slot as used or unused
-    const updatedSlot = isUsed
-      ? await markSlotAsUsed(car.id, slotType, slotIndex, session.email || session.userId?.toString() || 'unknown')
-      : await markSlotAsUnused(car.id, slotType, slotIndex);
+    // Mark slot as used or unused on disk
+    const success = isUsed
+      ? await markSlotAsUsed(slot.disk_slot_path, session.email || session.userId?.toString() || 'unknown')
+      : await unmarkSlotAsUsed(slot.disk_slot_path);
+    
+    if (!success) {
+      return NextResponse.json(
+        { error: "Failed to update slot status on disk" },
+        { status: 500 }
+      );
+    }
+    
+    // Get updated slot info from disk
+    const updatedSlot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
     
     return NextResponse.json({
       success: true,

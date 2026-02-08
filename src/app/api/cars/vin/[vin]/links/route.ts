@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
-import { getCarByVin } from "@/lib/infrastructure/db/carsRepo";
-import { listCarLinks, createCarLink } from "@/lib/infrastructure/db/carLinksRepo";
+import { getCarWithSlots, listLinks, createLink } from "@/lib/infrastructure/diskStorage/carsRepo";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -42,14 +41,31 @@ export async function GET(
   }
   
   try {
-    const car = await getCarByVin(vin);
+    // For admins with region=ALL, search all regions
+    // For regular users, only search their assigned region
+    const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
+      ? process.env.REGIONS?.split(',') || []
+      : [session.region];
     
-    if (!car) {
+    let carData = null;
+    
+    // Search for car in regions
+    for (const region of regionsToSearch) {
+      const result = await getCarWithSlots(region, vin);
+      if (result) {
+        carData = result;
+        break;
+      }
+    }
+    
+    if (!carData) {
       return NextResponse.json(
         { error: "Car not found" },
         { status: 404 }
       );
     }
+    
+    const { car } = carData;
     
     // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
@@ -57,7 +73,7 @@ export async function GET(
       return regionCheck.error;
     }
     
-    const links = await listCarLinks(car.id);
+    const links = await listLinks(car.disk_root_path);
     
     return NextResponse.json({
       success: true,
@@ -107,14 +123,31 @@ export async function POST(
   }
   
   try {
-    const car = await getCarByVin(vin);
+    // For admins with region=ALL, search all regions
+    // For regular users, only search their assigned region
+    const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
+      ? process.env.REGIONS?.split(',') || []
+      : [session.region];
     
-    if (!car) {
+    let carData = null;
+    
+    // Search for car in regions
+    for (const region of regionsToSearch) {
+      const result = await getCarWithSlots(region, vin);
+      if (result) {
+        carData = result;
+        break;
+      }
+    }
+    
+    if (!carData) {
       return NextResponse.json(
         { error: "Car not found" },
         { status: 404 }
       );
     }
+    
+    const { car } = carData;
     
     // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
@@ -132,12 +165,12 @@ export async function POST(
       );
     }
     
-    const link = await createCarLink({
-      car_id: car.id,
+    const link = await createLink(
+      car.disk_root_path,
       label,
       url,
-      created_by: session.email || session.userId?.toString() || null,
-    });
+      session.email || session.userId?.toString() || undefined
+    );
     
     return NextResponse.json({
       success: true,

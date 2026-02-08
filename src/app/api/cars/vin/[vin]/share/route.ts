@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByVin } from "@/lib/infrastructure/db/carsRepo";
-import { getCarSlot, setSlotPublicUrl } from "@/lib/infrastructure/db/carSlotsRepo";
+import { getCarWithSlots, getSlot, savePublishedUrl, getPublishedUrl } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { publish } from "@/lib/infrastructure/yandexDisk/client";
 import { validateSlot, type SlotType } from "@/lib/domain/disk/paths";
 
@@ -55,14 +54,31 @@ export async function GET(
   }
   
   try {
-    const car = await getCarByVin(vin);
+    // For admins with region=ALL, search all regions
+    // For regular users, only search their assigned region
+    const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
+      ? process.env.REGIONS?.split(',') || []
+      : [session.region];
     
-    if (!car) {
+    let carData = null;
+    
+    // Search for car in regions
+    for (const region of regionsToSearch) {
+      const result = await getCarWithSlots(region, vin);
+      if (result) {
+        carData = result;
+        break;
+      }
+    }
+    
+    if (!carData) {
       return NextResponse.json(
         { error: "Car not found" },
         { status: 404 }
       );
     }
+    
+    const { car } = carData;
     
     // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
@@ -70,7 +86,7 @@ export async function GET(
       return regionCheck.error;
     }
     
-    const slot = await getCarSlot(car.id, slotType, slotIndex);
+    const slot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
     
     if (!slot) {
       return NextResponse.json(
@@ -79,11 +95,12 @@ export async function GET(
       );
     }
     
-    // If public URL already exists, return it
-    if (slot.public_url) {
+    // Check if published URL already exists in _PUBLISHED.json
+    const existingUrl = await getPublishedUrl(slot.disk_slot_path);
+    if (existingUrl) {
       return NextResponse.json({
         success: true,
-        url: slot.public_url,
+        url: existingUrl,
         cached: true,
       });
     }
@@ -98,8 +115,8 @@ export async function GET(
       );
     }
     
-    // Save the public URL in database
-    await setSlotPublicUrl(car.id, slotType, slotIndex, publishResult.url);
+    // Save the public URL to _PUBLISHED.json
+    await savePublishedUrl(slot.disk_slot_path, publishResult.url);
     
     return NextResponse.json({
       success: true,
