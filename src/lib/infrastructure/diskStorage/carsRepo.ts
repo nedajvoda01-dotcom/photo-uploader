@@ -33,6 +33,10 @@ export interface Car {
   vin: string;
   disk_root_path: string;
   created_by?: string | null;
+  /**
+   * Created timestamp from _CAR.json metadata.
+   * Undefined indicates no metadata file was found on disk.
+   */
   created_at?: string;
 }
 

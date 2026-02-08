@@ -160,9 +160,14 @@ export async function POST(
     const title = body.title || body.label;
     const { url } = body;
     
+    // Log deprecation warning if legacy 'label' is used
+    if (body.label && !body.title) {
+      console.warn('[DEPRECATED] Using "label" parameter for links. Please use "title" instead.');
+    }
+    
     if (!title || !url) {
       return NextResponse.json(
-        { error: "title (or label) and url are required" },
+        { error: "title and url are required" },
         { status: 400 }
       );
     }
