@@ -102,3 +102,41 @@ export async function listUsers(): Promise<User[]> {
     throw error;
   }
 }
+
+export interface UpsertUserParams {
+  email: string;
+  passwordHash: string;
+  region: string;
+  role: string;
+}
+
+/**
+ * Upsert a user (insert or update on conflict)
+ * Ensures user exists in database and returns the real DB user
+ * This is critical for FK constraint on cars.created_by
+ */
+export async function upsertUser(params: UpsertUserParams): Promise<User> {
+  try {
+    await ensureDbSchema();
+    const { email, passwordHash, region, role } = params;
+    
+    // Normalize email
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    const result = await sql<User>`
+      INSERT INTO users (email, password_hash, region, role)
+      VALUES (${normalizedEmail}, ${passwordHash}, ${region}, ${role})
+      ON CONFLICT (email) 
+      DO UPDATE SET 
+        password_hash = EXCLUDED.password_hash,
+        region = EXCLUDED.region,
+        role = EXCLUDED.role
+      RETURNING id, email, password_hash, region, role, created_at
+    `;
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error upserting user:', error);
+    throw error;
+  }
+}

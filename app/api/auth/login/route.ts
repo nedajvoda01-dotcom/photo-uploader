@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { checkBootstrapAdmin, checkRegionUser, getUserByEmail } from "@/lib/userAuth";
+import { upsertUser } from "@/lib/models/users";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
 import { AUTH_DEBUG, ADMIN_REGION, IS_PRODUCTION } from "@/lib/config";
 
@@ -37,14 +38,31 @@ export async function POST(request: NextRequest) {
     const bootstrapResult = await checkBootstrapAdmin(email, password);
     
     if (bootstrapResult.isBootstrapAdmin && bootstrapResult.user) {
-      // Bootstrap admin login successful
+      // Bootstrap admin login successful - upsert to database
+      let dbUser;
+      try {
+        // Hash the password for database storage
+        const passwordHash = await bcrypt.hash(password, 10);
+        
+        dbUser = await upsertUser({
+          email: bootstrapResult.user.email,
+          passwordHash: passwordHash,
+          region: bootstrapResult.user.region,
+          role: bootstrapResult.user.role,
+        });
+      } catch (dbError) {
+        console.error('[AUTH] Failed to upsert bootstrap admin to database:', dbError);
+        // Continue with bootstrap user if DB fails
+        dbUser = bootstrapResult.user;
+      }
+      
       let token: string;
       try {
         token = await signSession({
-          userId: bootstrapResult.user.id,
-          email: bootstrapResult.user.email,
-          region: bootstrapResult.user.region,
-          role: bootstrapResult.user.role,
+          userId: dbUser.id,
+          email: dbUser.email,
+          region: dbUser.region,
+          role: dbUser.role,
         });
       } catch (error) {
         if (AUTH_DEBUG && debugInfo) {
@@ -86,14 +104,31 @@ export async function POST(request: NextRequest) {
     const regionUserResult = await checkRegionUser(email, password);
     
     if (regionUserResult.isBootstrapAdmin && regionUserResult.user) {
-      // Region user login successful
+      // Region user login successful - upsert to database
+      let dbUser;
+      try {
+        // Hash the password for database storage
+        const passwordHash = await bcrypt.hash(password, 10);
+        
+        dbUser = await upsertUser({
+          email: regionUserResult.user.email,
+          passwordHash: passwordHash,
+          region: regionUserResult.user.region,
+          role: regionUserResult.user.role,
+        });
+      } catch (dbError) {
+        console.error('[AUTH] Failed to upsert region user to database:', dbError);
+        // Continue with region user if DB fails
+        dbUser = regionUserResult.user;
+      }
+      
       let token: string;
       try {
         token = await signSession({
-          userId: regionUserResult.user.id,
-          email: regionUserResult.user.email,
-          region: regionUserResult.user.region,
-          role: regionUserResult.user.role,
+          userId: dbUser.id,
+          email: dbUser.email,
+          region: dbUser.region,
+          role: dbUser.role,
         });
       } catch (error) {
         if (AUTH_DEBUG && debugInfo) {

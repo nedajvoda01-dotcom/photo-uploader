@@ -239,3 +239,61 @@ export function getSlotTypeNumber(slotType: SlotType): number {
       return 0;
   }
 }
+
+/**
+ * Sanitize a path segment to prevent directory traversal
+ * - Remove/replace dangerous characters: / \ .. : * ? " < > |
+ * - Limit length to 255 chars
+ * - Trim whitespace
+ * - Strip leading/trailing dots
+ * 
+ * @param segment - Path segment to sanitize
+ * @returns Sanitized path segment
+ */
+export function sanitizePathSegment(segment: string): string {
+  return segment
+    .replace(/[\/\\:\*\?"<>\|]/g, '_') // replace dangerous chars
+    .replace(/\.\.+/g, '.') // collapse multiple dots
+    .replace(/^\.+|\.+$/g, '') // strip leading/trailing dots
+    .trim()
+    .substring(0, 255); // filesystem limit
+}
+
+/**
+ * Sanitize filename for Yandex Disk upload
+ * Preserves file extension but sanitizes the name
+ * 
+ * @param filename - Original filename
+ * @returns Sanitized filename
+ */
+export function sanitizeFilename(filename: string): string {
+  // Handle dotfiles (files starting with .)
+  if (filename.startsWith('.') && filename.indexOf('.', 1) === -1) {
+    // This is a dotfile like .gitignore - treat entire name as the basename
+    return sanitizePathSegment(filename);
+  }
+  
+  const lastDotIndex = filename.lastIndexOf('.');
+  
+  // No extension or filename is just an extension
+  if (lastDotIndex === -1 || lastDotIndex === 0) {
+    return sanitizePathSegment(filename);
+  }
+  
+  const name = filename.substring(0, lastDotIndex);
+  const ext = filename.substring(lastDotIndex + 1);
+  
+  const safeName = sanitizePathSegment(name);
+  const safeExt = sanitizePathSegment(ext);
+  
+  // If sanitization removed everything from name, use a default
+  if (!safeName && !safeExt) {
+    return 'file';
+  }
+  
+  if (!safeName) {
+    return safeExt ? `file.${safeExt}` : 'file';
+  }
+  
+  return safeExt ? `${safeName}.${safeExt}` : safeName;
+}

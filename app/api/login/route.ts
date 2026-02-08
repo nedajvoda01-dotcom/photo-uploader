@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { checkBootstrapAdmin } from "@/lib/userAuth";
+import { upsertUser } from "@/lib/models/users";
 import { getUserByEmail } from "@/lib/users";
 import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
 import { AUTH_DEBUG, ADMIN_REGION, IS_PRODUCTION } from "@/lib/config";
@@ -35,14 +36,31 @@ export async function POST(request: NextRequest) {
     const bootstrapResult = await checkBootstrapAdmin(email, password);
     
     if (bootstrapResult.isBootstrapAdmin && bootstrapResult.user) {
-      // Bootstrap admin login successful
+      // Bootstrap admin login successful - upsert to database
+      let dbUser;
+      try {
+        // Hash the password for database storage
+        const passwordHash = await bcrypt.hash(password, 10);
+        
+        dbUser = await upsertUser({
+          email: bootstrapResult.user.email,
+          passwordHash: passwordHash,
+          region: bootstrapResult.user.region,
+          role: bootstrapResult.user.role,
+        });
+      } catch (dbError) {
+        console.error('[AUTH] Failed to upsert bootstrap admin to database:', dbError);
+        // Continue with bootstrap user if DB fails
+        dbUser = bootstrapResult.user;
+      }
+      
       let token: string;
       try {
         token = await signSession({
-          userId: bootstrapResult.user.id,
-          email: bootstrapResult.user.email,
-          region: bootstrapResult.user.region,
-          role: bootstrapResult.user.role,
+          userId: dbUser.id,
+          email: dbUser.email,
+          region: dbUser.region,
+          role: dbUser.role,
         });
       } catch (error) {
         if (AUTH_DEBUG && debugInfo) {

@@ -72,6 +72,27 @@ export async function getCarById(id: number): Promise<Car | null> {
 }
 
 /**
+ * Get car by VIN only (without region filter)
+ * Use this for admin/ALL region access before checking permissions
+ */
+export async function getCarByVin(vin: string): Promise<Car | null> {
+  try {
+    await ensureDbSchema();
+    const result = await sql<Car>`
+      SELECT id, region, make, model, vin, disk_root_path, created_by, created_at, deleted_at
+      FROM cars
+      WHERE UPPER(vin) = UPPER(${vin})
+      LIMIT 1
+    `;
+    
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('Error getting car by vin:', error);
+    throw error;
+  }
+}
+
+/**
  * Get car by region and VIN
  * VIN is the canonical identifier within a region
  */

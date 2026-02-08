@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "smoke-preview": "tsx scripts/smoke-preview.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@types/archiver": "^7.0.0",
@@ -25,6 +27,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "tsx": "^4.21.0",
     "typescript": "5.9.3"
   }
 }

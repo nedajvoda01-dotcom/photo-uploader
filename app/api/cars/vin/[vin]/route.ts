@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin, deleteCarByVin } from "@/lib/models/cars";
+import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
+import { getCarByRegionAndVin, getCarByVin, deleteCarByVin } from "@/lib/models/cars";
 import { listCarSlots } from "@/lib/models/carSlots";
 import { listCarLinks } from "@/lib/models/carLinks";
-import { syncRegion } from "@/lib/sync";
+import { syncRegion, syncCar } from "@/lib/sync";
 import { moveFolder, listFolder, exists } from "@/lib/yandexDisk";
 import { ensureDbSchema } from "@/lib/db";
 import { getBasePath, getAllSlotPaths, getLockMarkerPath } from "@/lib/diskPaths";
+import { ARCHIVE_RETRY_DELAY_MS } from "@/lib/config";
 
 // Constants
 const EXPECTED_SLOT_COUNT = 14; // 1 dealer + 8 buyout + 5 dummies
@@ -37,9 +38,10 @@ export async function GET(
   const vin = params.vin.toUpperCase(); // VINs are case-insensitive, normalize to uppercase
   
   if (!vin || vin.length !== 17) {
-    return NextResponse.json(
-      { error: "Invalid VIN format. VIN must be exactly 17 characters" },
-      { status: 400 }
+    return errorResponse(
+      ErrorCodes.INVALID_VIN,
+      "Неверный формат VIN. VIN должен содержать ровно 17 символов",
+      400
     );
   }
   
@@ -47,58 +49,71 @@ export async function GET(
     // Ensure database schema exists (idempotent, auto-creates tables)
     await ensureDbSchema();
     
-    // Sync region from disk first (DB as cache, Disk as truth)
-    console.log(`[API] Syncing region ${session.region} before getting car ${vin}`);
-    await syncRegion(session.region);
+    // Get car by VIN first (without region filter)
+    // This allows admin with region=ALL to find the car before checking permissions
+    let car = await getCarByVin(vin);
     
-    // Get car by region and VIN (region from session)
-    let car = await getCarByRegionAndVin(session.region, vin);
+    // If car found, sync it from disk
+    if (car && !car.deleted_at) {
+      console.log(`[API] Syncing car ${car.region}/${vin} from disk`);
+      await syncCar(car.region, vin);
+      // Reload car after sync
+      car = await getCarByVin(vin);
+    }
     
-    // If car not found in DB after sync, try to construct from disk
+    // If car not found in DB, try to sync region and look again
     if (!car) {
-      console.log(`[API] Car ${vin} not in DB after sync, checking disk directly`);
+      console.log(`[API] Car ${vin} not in DB, syncing region ${session.region}`);
+      await syncRegion(session.region);
       
-      // Try to find car on disk by scanning region folder
-      const basePath = getBasePath();
-      const regionPath = `${basePath}/${session.region}`;
-      const carsResult = await listFolder(regionPath);
-      
-      if (carsResult.success && carsResult.items) {
-        // Look for folder matching VIN
-        for (const folder of carsResult.items) {
-          if (folder.type === 'dir' && folder.name.endsWith(vin)) {
-            // Found car on disk, construct car object
-            const parts = folder.name.split(' ');
-            if (parts.length >= 3) {
-              const vinPart = parts[parts.length - 1];
-              const model = parts.slice(1, -1).join(' ');
-              const make = parts[0];
-              
-              car = {
-                id: NO_DB_RECORD_ID, // Sentinel: no DB record
-                region: session.region,
-                make,
-                model,
-                vin: vinPart,
-                disk_root_path: folder.path,
-                created_by: null,
-                created_at: new Date(),
-                deleted_at: null,
-              };
-              
-              console.log(`[API] Constructed car from disk: ${make} ${model} ${vin}`);
-              break;
+      // Try to get car again after sync
+      car = await getCarByVin(vin);
+      if (!car) {
+        console.log(`[API] Car ${vin} not in DB after sync, checking disk directly`);
+        
+        // Try to find car on disk by scanning region folder
+        const basePath = getBasePath();
+        const regionPath = `${basePath}/${session.region}`;
+        const carsResult = await listFolder(regionPath);
+        
+        if (carsResult.success && carsResult.items) {
+          // Look for folder matching VIN
+          for (const folder of carsResult.items) {
+            if (folder.type === 'dir' && folder.name.endsWith(vin)) {
+              // Found car on disk, construct car object
+              const parts = folder.name.split(' ');
+              if (parts.length >= 3) {
+                const vinPart = parts[parts.length - 1];
+                const model = parts.slice(1, -1).join(' ');
+                const make = parts[0];
+                
+                car = {
+                  id: NO_DB_RECORD_ID, // Sentinel: no DB record
+                  region: session.region,
+                  make,
+                  model,
+                  vin: vinPart,
+                  disk_root_path: folder.path,
+                  created_by: null,
+                  created_at: new Date(),
+                  deleted_at: null,
+                };
+                
+                console.log(`[API] Constructed car from disk: ${make} ${model} ${vin}`);
+                break;
+              }
             }
           }
         }
-      }
-      
-      // If still not found, return 404
-      if (!car) {
-        return NextResponse.json(
-          { error: "Car not found in your region" },
-          { status: 404 }
-        );
+        
+        // If still not found, return 404
+        if (!car) {
+          return errorResponse(
+            ErrorCodes.CAR_NOT_FOUND,
+            "Автомобиль не найден",
+            404
+          );
+        }
       }
     }
     
@@ -158,17 +173,25 @@ export async function GET(
     // Get links
     const links = car.id > 0 ? await listCarLinks(car.id) : [];
     
-    return NextResponse.json({
-      success: true,
+    // Find the most recent last_sync_at from slots
+    const lastSyncAt = slots.reduce((latest, slot) => {
+      if (!slot.last_sync_at) return latest;
+      if (!latest) return slot.last_sync_at;
+      return slot.last_sync_at > latest ? slot.last_sync_at : latest;
+    }, null as Date | null);
+    
+    return successResponse({
       car,
       slots,
       links,
+      last_sync_at: lastSyncAt,
     });
   } catch (error) {
     console.error("Error getting car details by VIN:", error);
-    return NextResponse.json(
-      { error: "Failed to get car details" },
-      { status: 500 }
+    return errorResponse(
+      ErrorCodes.SERVER_ERROR,
+      error instanceof Error ? error.message : "Не удалось получить данные автомобиля",
+      500
     );
   }
 }
@@ -203,12 +226,12 @@ export async function DELETE(
   }
   
   try {
-    // Get car to find its disk path and details
-    const car = await getCarByRegionAndVin(session.region, vin);
+    // Get car by VIN first (without region filter)
+    const car = await getCarByVin(vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found in your region" },
+        { error: "Car not found" },
         { status: 404 }
       );
     }
@@ -225,15 +248,41 @@ export async function DELETE(
     const archiveName = `${car.region}_${car.make}_${car.model}_${vin}`.replace(/\s+/g, '_');
     const archivePath = `${basePath}/ALL/${archiveName}`;
     
-    console.log(`[Archive] Moving car from ${car.disk_root_path} to ${archivePath}`);
+    // PHASE 1: Move folder on disk (with retry)
+    let moveSuccess = false;
+    let lastError = null;
     
-    const moveResult = await moveFolder(car.disk_root_path, archivePath, false);
-    if (!moveResult.success) {
-      console.error(`Failed to archive folder on Yandex Disk: ${moveResult.error}`);
-      // Continue anyway - mark as deleted in DB even if disk move fails
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`[Archive] Attempt ${attempt}/3: Moving ${car.disk_root_path} to ${archivePath}`);
+      
+      const moveResult = await moveFolder(car.disk_root_path, archivePath, false);
+      
+      if (moveResult.success) {
+        moveSuccess = true;
+        break;
+      }
+      
+      lastError = moveResult.error;
+      console.error(`[Archive] Move attempt ${attempt} failed:`, lastError);
+      
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, ARCHIVE_RETRY_DELAY_MS)); // configurable retry delay
+      }
     }
     
-    // Mark as deleted in database (soft delete with deleted_at)
+    if (!moveSuccess) {
+      console.error(`[Archive] All move attempts failed. NOT updating database.`);
+      return NextResponse.json(
+        { 
+          error: "Failed to archive car on disk after 3 attempts. Database not updated.", 
+          details: lastError 
+        },
+        { status: 500 }
+      );
+    }
+    
+    // PHASE 2: Update database (only after successful move)
+    console.log(`[Archive] Disk move successful. Marking car as deleted in DB.`);
     await deleteCarByVin(car.region, vin);
     
     return NextResponse.json({

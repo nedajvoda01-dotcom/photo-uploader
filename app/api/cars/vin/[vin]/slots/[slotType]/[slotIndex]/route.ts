@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireAdmin, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin } from "@/lib/models/cars";
+import { requireAuth, requireAdmin, requireRegionAccess, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
+import { getCarByVin, getCarByRegionAndVin } from "@/lib/models/cars";
 import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/models/carSlots";
 import { validateSlot, type SlotType, getLockMarkerPath } from "@/lib/diskPaths";
 import { listFolder, downloadFile, exists } from "@/lib/yandexDisk";
@@ -213,11 +213,11 @@ export async function PATCH(
   }
   
   try {
-    const car = await getCarByRegionAndVin(session.region, vin);
+    const car = await getCarByVin(vin);
     
     if (!car) {
       return NextResponse.json(
-        { error: "Car not found in your region" },
+        { error: "Car not found" },
         { status: 404 }
       );
     }
@@ -229,15 +229,9 @@ export async function PATCH(
     }
     
     // Block marking operations on ALL region (archive only)  
-    if (car.region === 'ALL') {
-      return NextResponse.json(
-        { 
-          error: "Cannot modify cars in ALL region",
-          code: "REGION_ALL_FORBIDDEN",
-          message: "ALL region is for archive only. Cannot mark slots in archived cars."
-        },
-        { status: 400 }
-      );
+    const allRegionCheck = validateNotAllRegion(car.region);
+    if ('error' in allRegionCheck) {
+      return allRegionCheck.error;
     }
     
     const slot = await getCarSlot(car.id, slotType, slotIndex);

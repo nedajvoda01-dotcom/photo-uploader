@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, getEffectiveRegion } from "@/lib/apiHelpers";
+import { requireAuth, getEffectiveRegion, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
 import { listCarsByRegion, createCar, carExistsByRegionAndVin, getCarByRegionAndVin } from "@/lib/models/cars";
 import { createCarSlot } from "@/lib/models/carSlots";
-import { carRoot, getAllSlotPaths } from "@/lib/diskPaths";
+import { carRoot, getAllSlotPaths, sanitizePathSegment } from "@/lib/diskPaths";
 import { createFolder, uploadText } from "@/lib/yandexDisk";
 import { syncRegion } from "@/lib/sync";
 import { ensureDbSchema } from "@/lib/db";
@@ -36,31 +36,35 @@ export async function GET(request: NextRequest) {
     const effectiveRegion = getEffectiveRegion(session, queryRegion);
     
     if (!effectiveRegion) {
-      return NextResponse.json(
-        { 
-          error: "region_required",
-          message: "Admin must specify a region via ?region= query parameter" 
-        },
-        { status: 400 }
+      return errorResponse(
+        ErrorCodes.REGION_REQUIRED,
+        "Администратор должен указать регион через параметр ?region=",
+        400
       );
     }
     
     // Sync region from disk first (DB as cache, Disk as truth)
     console.log(`[API] Syncing region ${effectiveRegion} before listing cars`);
-    await syncRegion(effectiveRegion);
+    const syncResult = await syncRegion(effectiveRegion);
     
     const cars = await listCarsByRegion(effectiveRegion);
     
-    return NextResponse.json({
-      success: true,
+    return successResponse({
       cars,
       region: effectiveRegion,
+      sync: {
+        success: syncResult.success,
+        last_sync_at: new Date().toISOString(),
+        cars_found: syncResult.carsFound,
+        from_cache: syncResult.fromCache || false,
+      },
     });
   } catch (error) {
     console.error("Error listing cars:", error);
-    return NextResponse.json(
-      { error: "Failed to list cars" },
-      { status: 500 }
+    return errorResponse(
+      ErrorCodes.SERVER_ERROR,
+      error instanceof Error ? error.message : "Не удалось получить список автомобилей",
+      500
     );
   }
 }
@@ -103,27 +107,19 @@ export async function POST(request: NextRequest) {
     
     // Validate input
     if (!make || !model || !vin) {
-      return NextResponse.json(
-        { 
-          ok: false,
-          code: "validation_error",
-          message: "make, model, and vin are required",
-          status: 400
-        },
-        { status: 400 }
+      return errorResponse(
+        ErrorCodes.VALIDATION_ERROR,
+        "Необходимо указать марку, модель и VIN",
+        400
       );
     }
     
     // Validate VIN format (17 characters)
     if (vin.length !== 17) {
-      return NextResponse.json(
-        { 
-          ok: false,
-          code: "invalid_vin",
-          message: "VIN must be exactly 17 characters",
-          status: 400
-        },
-        { status: 400 }
+      return errorResponse(
+        ErrorCodes.INVALID_VIN,
+        "VIN должен содержать ровно 17 символов",
+        400
       );
     }
     
@@ -135,28 +131,17 @@ export async function POST(request: NextRequest) {
       : session.region;
     
     if (!effectiveRegion) {
-      return NextResponse.json(
-        { 
-          ok: false,
-          code: "region_required",
-          message: "Admin must specify a region in request body",
-          status: 400
-        },
-        { status: 400 }
+      return errorResponse(
+        ErrorCodes.REGION_REQUIRED,
+        "Администратор должен указать регион в теле запроса",
+        400
       );
     }
     
     // Block creation in ALL region (archive only)
-    if (effectiveRegion === 'ALL') {
-      return NextResponse.json(
-        { 
-          ok: false,
-          code: "REGION_ALL_FORBIDDEN",
-          message: "Cannot create cars in ALL region. ALL is for archive only. Please select a specific region.",
-          status: 400
-        },
-        { status: 400 }
-      );
+    const regionCheck = validateNotAllRegion(effectiveRegion);
+    if ('error' in regionCheck) {
+      return regionCheck.error;
     }
     
     // Check if car already exists (idempotent behavior)
@@ -164,8 +149,7 @@ export async function POST(request: NextRequest) {
     if (existingCar) {
       // Car already exists - return success with existing car data (idempotent)
       console.log(`[API] Car already exists: ${effectiveRegion}/${vin}, returning existing car`);
-      return NextResponse.json({
-        ok: true,
+      return successResponse({
         car: {
           id: existingCar.id,
           region: existingCar.region,
@@ -173,25 +157,35 @@ export async function POST(request: NextRequest) {
           model: existingCar.model,
           vin: existingCar.vin,
         }
-      }, { status: 200 });
+      }, 200);
     }
     
-    // Generate root path
-    const rootPath = carRoot(effectiveRegion, make, model, vin);
+    // Sanitize path segments to prevent directory traversal
+    const safeMake = sanitizePathSegment(make);
+    const safeModel = sanitizePathSegment(model);
+    const safeVin = sanitizePathSegment(vin);
+    
+    // Validate sanitized values are not empty
+    if (!safeMake || !safeModel || !safeVin) {
+      return errorResponse(
+        ErrorCodes.INVALID_INPUT,
+        "Марка, модель и VIN должны содержать допустимые символы",
+        400
+      );
+    }
+    
+    // Generate root path with sanitized segments
+    const rootPath = carRoot(effectiveRegion, safeMake, safeModel, safeVin);
     
     // DISK-FIRST: Create car root folder on Yandex Disk (source of truth)
     console.log(`[API] Creating car folder on disk: ${rootPath}`);
     const rootFolderResult = await createFolder(rootPath);
     if (!rootFolderResult.success) {
       console.error(`Failed to create car root folder:`, rootFolderResult.error);
-      return NextResponse.json(
-        { 
-          ok: false,
-          code: "disk_error",
-          message: "Failed to create car folder on Yandex Disk",
-          status: 500
-        },
-        { status: 500 }
+      return errorResponse(
+        ErrorCodes.DISK_ERROR,
+        "Не удалось создать папку автомобиля на Яндекс.Диске",
+        500
       );
     }
     
@@ -211,8 +205,8 @@ export async function POST(request: NextRequest) {
       // Continue anyway - this is metadata only
     }
     
-    // Get all slot paths (14 total)
-    const slotPaths = getAllSlotPaths(effectiveRegion, make, model, vin);
+    // Get all slot paths (14 total) - use sanitized values
+    const slotPaths = getAllSlotPaths(effectiveRegion, safeMake, safeModel, safeVin);
     
     // Create all 14 slot folders on Yandex Disk (DISK-FIRST)
     console.log(`[API] Creating ${slotPaths.length} slot folders on disk`);
@@ -295,21 +289,17 @@ export async function POST(request: NextRequest) {
         model: car.model || model,
         vin: car.vin || vin,
       },
-      db_cache_ok: dbCacheOk,
       ...(dbCacheOk ? {} : { 
-        warning: "Car created on disk, but database cache update failed. Sync will occur automatically." 
+        warning: "DB_CACHE_WRITE_FAILED",
+        message: "Автомобиль создан на диске, но обновление кэша базы данных не удалось. Синхронизация произойдет автоматически." 
       }),
     }, { status: 201 });
   } catch (error) {
     console.error("Error creating car:", error);
-    return NextResponse.json(
-      { 
-        ok: false,
-        code: "server_error",
-        message: error instanceof Error ? error.message : "Failed to create car",
-        status: 500
-      },
-      { status: 500 }
+    return errorResponse(
+      ErrorCodes.SERVER_ERROR,
+      error instanceof Error ? error.message : "Не удалось создать автомобиль",
+      500
     );
   }
 }
