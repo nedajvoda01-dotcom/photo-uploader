@@ -514,19 +514,30 @@ export async function createCar(params: {
   
   await uploadText(`${rootPath}/_CAR.json`, metadata);
   
-  // Create all slot folders (MUST succeed for all 14 slots)
+  // Create all 14 slot folders SYNCHRONOUSLY with explicit error handling
   const slotPaths = getAllSlotPaths(region, make, model, vin);
+  console.log(`[DISK] Creating ${slotPaths.length} slot folders for VIN ${vin}`);
+  
+  let createdCount = 0;
   for (const slot of slotPaths) {
-    const slotResult = await createFolder(slot.path);
-    if (!slotResult.success) {
+    console.log(`[DISK] Creating slot: ${slot.slotType}[${slot.slotIndex}] at ${slot.path}`);
+    
+    const result = await createFolder(slot.path);
+    
+    if (!result.success) {
+      console.error(`[DISK] FAILED to create slot: ${slot.path}. Error: ${result.error}`);
       throw new Error(
-        `Failed to create slot folder (${slot.slotType}[${slot.slotIndex}]): ${slot.path}. Error: ${slotResult.error}`
+        `Failed to create slot folder ${slot.slotType}[${slot.slotIndex}] at ${slot.path}. ` +
+        `Error: ${result.error || 'Unknown error'}. ` +
+        `Created ${createdCount}/${slotPaths.length} slots before failure.`
       );
     }
-    console.log(`[DiskStorage] Created slot: ${slot.slotType}[${slot.slotIndex}] at ${slot.path}`);
+    
+    createdCount++;
+    console.log(`[DISK] ✓ Created slot ${createdCount}/${slotPaths.length}: ${slot.slotType}[${slot.slotIndex}]`);
   }
   
-  console.log(`[DiskStorage] Successfully created car with all 14 slots: ${rootPath}`);
+  console.log(`[DISK] ✓✓✓ SUCCESS: Created all ${createdCount}/${slotPaths.length} slots for ${rootPath}`);
   
   return {
     region,
