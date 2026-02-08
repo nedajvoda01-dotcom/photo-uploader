@@ -7,7 +7,6 @@ import { listFolder, downloadFile, exists } from "@/lib/yandexDisk";
 import { validateZipLimits } from "@/lib/config";
 import archiver from "archiver";
 import { Writable } from "stream";
-import { Readable } from "stream";
 
 interface RouteContext {
   params: Promise<{ vin: string; slotType: string; slotIndex: string }>;
