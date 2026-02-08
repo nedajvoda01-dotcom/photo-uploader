@@ -18,6 +18,9 @@ export const REGIONS = REGIONS_ENV
   ? normalizeRegionList(REGIONS_ENV.split(","))
   : [];
 
+// Export REGIONS_LIST as an alias for consistency with other parts of the codebase
+export const REGIONS_LIST = REGIONS;
+
 if (!isBuildTime && REGIONS.length === 0) {
   throw new Error("REGIONS must contain at least one region");
 }

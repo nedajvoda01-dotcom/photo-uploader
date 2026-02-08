@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, isAdmin } from "@/lib/apiHelpers";
-import { getCarLinkById, deleteCarLink } from "@/lib/infrastructure/db/carLinksRepo";
-import { getCarById } from "@/lib/infrastructure/db/carsRepo";
+import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
+import { findCarByLinkId, deleteLink } from "@/lib/infrastructure/diskStorage/carsRepo";
+import { REGIONS_LIST } from '@/lib/config/index';
 
 interface RouteContext {
   params: Promise<{ linkId: string }>;
@@ -32,9 +32,9 @@ export async function DELETE(
   }
   
   const params = await context.params;
-  const linkId = parseInt(params.linkId, 10);
+  const linkId = params.linkId; // Keep as string, not parseInt
   
-  if (isNaN(linkId)) {
+  if (!linkId) {
     return NextResponse.json(
       { error: "Invalid link ID" },
       { status: 400 }
@@ -42,33 +42,36 @@ export async function DELETE(
   }
   
   try {
-    const link = await getCarLinkById(linkId);
+    // Get regions to search
+    const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
+      ? REGIONS_LIST
+      : [session.region];
     
-    if (!link) {
+    // Find car by link ID
+    const carInfo = await findCarByLinkId(regionsToSearch, linkId);
+    
+    if (!carInfo) {
       return NextResponse.json(
         { error: "Link not found" },
         { status: 404 }
       );
     }
     
-    // Check if user has permission (same region)
-    const car = await getCarById(link.car_id);
+    // Check region permission
+    const regionCheck = requireRegionAccess(session, carInfo.region);
+    if ('error' in regionCheck) {
+      return regionCheck.error;
+    }
     
-    if (!car) {
+    // Delete the link from _LINKS.json
+    const success = await deleteLink(carInfo.carRootPath, linkId);
+    
+    if (!success) {
       return NextResponse.json(
-        { error: "Associated car not found" },
+        { error: "Link not found or already deleted" },
         { status: 404 }
       );
     }
-    
-    if (car.region !== session.region) {
-      return NextResponse.json(
-        { error: "Access denied - region mismatch" },
-        { status: 403 }
-      );
-    }
-    
-    await deleteCarLink(linkId);
     
     return NextResponse.json({
       success: true,

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
-import { getCarByVin } from "@/lib/infrastructure/db/carsRepo";
-import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/infrastructure/db/carSlotsRepo";
+import { getCarWithSlots, getSlot } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/infrastructure/yandexDisk/client";
 import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/domain/disk/paths";
-import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD } from "@/lib/config/index";
+import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD, REGIONS_LIST } from "@/lib/config/index";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
@@ -44,16 +43,32 @@ export async function POST(
   }
   
   try {
-    // Get car by VIN first (without region filter)
-    const car = await getCarByVin(vin);
+    // For admins with region=ALL, search all regions
+    // For regular users, only search their assigned region
+    const regionsToSearch = session.region === 'ALL' && session.role === 'admin'
+      ? REGIONS_LIST
+      : [session.region];
     
-    if (!car) {
+    let carData = null;
+    
+    // Search for car in regions
+    for (const region of regionsToSearch) {
+      const result = await getCarWithSlots(region, vin);
+      if (result) {
+        carData = result;
+        break;
+      }
+    }
+    
+    if (!carData) {
       return errorResponse(
         ErrorCodes.CAR_NOT_FOUND,
         "Автомобиль не найден",
         404
       );
     }
+    
+    const { car } = carData;
     
     // Check region permission
     const regionCheck = requireRegionAccess(session, car.region);
@@ -87,21 +102,13 @@ export async function POST(
       );
     }
     
-    // Get slot from database
-    const slot = await getCarSlot(car.id, slotType, slotIndex);
+    // Get slot from disk storage
+    const slot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
     
     if (!slot) {
       return NextResponse.json(
         { error: "Slot not found" },
         { status: 404 }
-      );
-    }
-    
-    // Check if slot is already locked
-    if (slot.status === 'locked') {
-      return NextResponse.json(
-        { error: "Slot is already locked/filled" },
-        { status: 409 }
       );
     }
     
@@ -203,14 +210,14 @@ export async function POST(
         });
       }
       
-      // Create lock metadata
-      const lockMetadata: LockMetadata = {
-        carId: car.id,
-        slotType: slotType,
-        slotIndex: slotIndex,
-        uploadedBy: session.email || session.userId?.toString() || 'unknown',
-        uploadedAt: new Date().toISOString(),
-        fileCount: uploadedFiles.length,
+      // Create lock metadata with snake_case for consistency
+      const lockMetadata = {
+        slot_type: slotType,
+        slot_index: slotIndex,
+        uploaded_by: session.email || session.userId?.toString() || 'unknown',
+        uploaded_at: new Date().toISOString(),
+        file_count: uploadedFiles.length,
+        total_size_mb: Math.round((totalSize / (1024 * 1024)) * 100) / 100,
         files: uploadedFiles,
       };
       
@@ -221,14 +228,8 @@ export async function POST(
         throw new Error(`Failed to create lock file: ${lockUploadResult.error}`);
       }
       
-      // Update database
-      const updatedSlot = await lockCarSlot(
-        car.id,
-        slotType,
-        slotIndex,
-        session.email || session.userId?.toString() || 'unknown',
-        lockMetadata
-      );
+      // Get updated slot info from disk
+      const updatedSlot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
       
       return NextResponse.json({
         success: true,

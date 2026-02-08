@@ -6,7 +6,7 @@
  * structure defined in DISK_STRUCTURE.md.
  * 
  * Path Structure:
- * ${YANDEX_DISK_BASE_DIR}/Фото/<REGION>/<Make> <Model> <VIN>/...
+ * ${YANDEX_DISK_BASE_DIR}/<REGION>/<Make> <Model> <VIN>/...
  * 
  * @see DISK_STRUCTURE.md for complete documentation
  */
@@ -17,13 +17,13 @@ export type SlotType = 'dealer' | 'buyout' | 'dummies';
 
 /**
  * Get the base path for all photo storage
- * Pattern: ${YANDEX_DISK_BASE_DIR}/Фото
+ * Pattern: ${YANDEX_DISK_BASE_DIR}
  * 
  * @returns Base path for photo storage
- * @example getBasePath() // Returns: "/Фото/Фото"
+ * @example getBasePath() // Returns: "/Фото"
  */
 export function getBasePath(): string {
-  return `${YANDEX_DISK_BASE_DIR}/Фото`;
+  return YANDEX_DISK_BASE_DIR;
 }
 
 /**
@@ -32,7 +32,7 @@ export function getBasePath(): string {
  * 
  * @param region - Region code (e.g., "MSK", "SPB")
  * @returns Region path
- * @example getRegionPath("MSK") // Returns: "/Фото/Фото/MSK"
+ * @example getRegionPath("MSK") // Returns: "/Фото/MSK"
  */
 export function getRegionPath(region: string): string {
   return `${getBasePath()}/${region}`;
@@ -46,7 +46,7 @@ export function getRegionPath(region: string): string {
  * When a car is archived, it's moved from its region folder to this central archive.
  * 
  * @returns Archive path
- * @example getArchivePath() // Returns: "/Фото/Фото/ALL"
+ * @example getArchivePath() // Returns: "/Фото/ALL"
  */
 export function getArchivePath(): string {
   return `${getBasePath()}/ALL`;
@@ -62,7 +62,7 @@ export function getArchivePath(): string {
  * @param vin - Vehicle Identification Number (17 characters)
  * @returns Full archive path for the car
  * @example getCarArchivePath("MSK", "Toyota", "Camry", "1HGBH41JXMN109186")
- *          // Returns: "/Фото/Фото/ALL/MSK_Toyota_Camry_1HGBH41JXMN109186"
+ *          // Returns: "/Фото/ALL/MSK_Toyota_Camry_1HGBH41JXMN109186"
  */
 export function getCarArchivePath(region: string, make: string, model: string, vin: string): string {
   const archiveName = `${region}_${make}_${model}_${vin}`.replace(/\s+/g, '_');
@@ -79,7 +79,7 @@ export function getCarArchivePath(region: string, make: string, model: string, v
  * @param vin - Vehicle Identification Number (17 characters)
  * @returns Car root path
  * @example carRoot("MSK", "Toyota", "Camry", "1HGBH41JXMN109186")
- *          // Returns: "/Фото/Фото/MSK/Toyota Camry 1HGBH41JXMN109186"
+ *          // Returns: "/Фото/MSK/Toyota Camry 1HGBH41JXMN109186"
  */
 export function carRoot(region: string, make: string, model: string, vin: string): string {
   return `${getRegionPath(region)}/${make} ${model} ${vin}`;
@@ -187,8 +187,8 @@ export function getAllSlotPaths(
  * 
  * @param slotPath - Path to the slot folder
  * @returns Path to the _LOCK.json file
- * @example getLockMarkerPath("/Фото/Фото/MSK/Toyota Camry ABC123/1. Дилер фото/Toyota Camry ABC123")
- *          // Returns: "/Фото/Фото/MSK/Toyota Camry ABC123/1. Дилер фото/Toyota Camry ABC123/_LOCK.json"
+ * @example getLockMarkerPath("/Фото/MSK/Toyota Camry ABC123/1. Дилер фото/Toyota Camry ABC123")
+ *          // Returns: "/Фото/MSK/Toyota Camry ABC123/1. Дилер фото/Toyota Camry ABC123/_LOCK.json"
  */
 export function getLockMarkerPath(slotPath: string): string {
   return `${slotPath}/_LOCK.json`;
