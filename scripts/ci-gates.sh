@@ -2,7 +2,7 @@
 # CI Gates Script - Anti-garbage checks
 # This script validates strict requirements and fails the build if violated
 
-set -e
+set -euo pipefail
 
 echo "=========================================="
 echo "Running CI Gates - Anti-Garbage Checks"
@@ -12,7 +12,7 @@ echo ""
 EXIT_CODE=0
 
 # Gate 0: No duplicate old paths after src/ migration
-echo "Gate 0: Checking for old path duplicates (app/, lib/, middleware.ts in root)..."
+echo "Gate 0: Checking for old path duplicates (app/, lib/, middleware.ts, pages/ in root)..."
 OLD_PATHS_FOUND=0
 
 if [ -d "app" ]; then
@@ -25,8 +25,19 @@ if [ -d "lib" ]; then
     OLD_PATHS_FOUND=1
 fi
 
+if [ -d "pages" ]; then
+    echo "❌ FAIL: Found ./pages/ directory in root (should be in src/ if used)"
+    OLD_PATHS_FOUND=1
+fi
+
 if [ -f "middleware.ts" ]; then
     echo "❌ FAIL: Found ./middleware.ts in root (should be in src/)"
+    OLD_PATHS_FOUND=1
+fi
+
+# Verify tsconfig paths point to ./src/*
+if ! grep -q '"@/\*".*"./src/\*"' tsconfig.json 2>/dev/null; then
+    echo "❌ FAIL: tsconfig.json paths should point to ./src/*"
     OLD_PATHS_FOUND=1
 fi
 
@@ -35,7 +46,7 @@ if [ $OLD_PATHS_FOUND -eq 1 ]; then
     echo "   Next.js may pick up wrong file structure if duplicates exist"
     EXIT_CODE=1
 else
-    echo "✅ PASS: No old path duplicates found"
+    echo "✅ PASS: No old path duplicates found, tsconfig correct"
 fi
 echo ""
 
@@ -44,13 +55,16 @@ echo "Gate 1: Checking /api/login endpoint constraints..."
 API_LOGIN_ISSUES=0
 
 # Check for cookie setting
-if grep -r "cookies.set" src/app/api/login/ 2>/dev/null; then
-    echo "❌ FAIL: Found cookie setting in /api/login endpoint"
-    API_LOGIN_ISSUES=1
+if grep -r "cookies.set" src/app/api/login/ 2>/dev/null || true; then
+    if grep -r "cookies.set" src/app/api/login/ 2>/dev/null; then
+        echo "❌ FAIL: Found cookie setting in /api/login endpoint"
+        API_LOGIN_ISSUES=1
+    fi
 fi
 
 # Check for actual fetch calls or response forwarding (not in comments)
-if grep -E "fetch\(|\.forward\(|response\.json\(\)" src/app/api/login/route.ts 2>/dev/null | grep -v "^[[:space:]]*\*" | grep -v "^[[:space:]]*//" ; then
+FETCH_CHECK=$(grep -E "fetch\(|\.forward\(|response\.json\(\)" src/app/api/login/route.ts 2>/dev/null | grep -v "^[[:space:]]*\*" | grep -v "^[[:space:]]*//" || true)
+if [ -n "$FETCH_CHECK" ]; then
     echo "❌ FAIL: Found fetch/proxying in /api/login endpoint"
     API_LOGIN_ISSUES=1
 fi
@@ -76,25 +90,30 @@ echo ""
 
 # Gate 2: No userId: 0 or || 0 in sessions
 echo "Gate 2: Checking for userId=0 or userId || 0 patterns..."
-if grep -rE "userId:\s*0|userId\s*\|\|\s*0" src/app/ src/lib/ --include="*.ts" --include="*.tsx" --exclude-dir="__tests__" 2>/dev/null; then
+USER_ID_CHECK=$(grep -rE "userId:\s*0|userId\s*\|\|\s*0" src/app/ src/lib/ --include="*.ts" --include="*.tsx" --exclude-dir="__tests__" 2>/dev/null || true)
+if [ -n "$USER_ID_CHECK" ]; then
     echo "❌ FAIL: Found userId=0 or userId || 0 pattern in production code"
     echo "   Sessions must never have userId = 0"
+    echo "$USER_ID_CHECK"
     EXIT_CODE=1
 else
     echo "✅ PASS: No userId=0 patterns found"
 fi
 echo ""
 
-# Gate 3: No process.env outside src/lib/config/**
+# Gate 3: No process.env outside src/lib/config/** (and src/middleware.ts can import from config)
 echo "Gate 3: Checking for process.env usage outside src/lib/config/..."
-# Note: src/middleware.ts is allowed to import from src/lib/config but not use process.env directly
-if grep -r "process\.env\." src/app/ src/lib/ --include="*.ts" --include="*.tsx" \
+# Only src/lib/config/** is allowed to use process.env directly
+# src/middleware.ts must import from config, not use process.env directly
+PROCESS_ENV_CHECK=$(grep -r "process\.env\." src/app/ src/lib/ --include="*.ts" --include="*.tsx" 2>/dev/null \
     | grep -v "src/lib/config/" \
     | grep -v "test" \
-    | grep -v "NEXT_PHASE" 2>/dev/null; then
+    | grep -v "NEXT_PHASE" || true)
+if [ -n "$PROCESS_ENV_CHECK" ]; then
     echo "❌ FAIL: Found process.env usage outside src/lib/config/"
     echo "   All environment variables must be accessed through src/lib/config/"
     echo "   src/middleware.ts can import from config but not use process.env directly"
+    echo "$PROCESS_ENV_CHECK"
     EXIT_CODE=1
 else
     echo "✅ PASS: No direct process.env usage outside config"

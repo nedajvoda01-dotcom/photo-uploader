@@ -36,6 +36,9 @@ jobs:
         AUTH_SECRET: test-secret-key-at-least-32-characters-long-for-testing-purposes-only
         REGIONS: R1,R2,R3,K1,V,S1,S2
         ADMIN_REGION: ALL
+        ADMIN_EMAIL: test@example.com
+        ADMIN_PASSWORD: test-password-123
+        POSTGRES_URL: postgresql://test:test@localhost:5432/test
     
     - name: Run CI gates
       run: npm run ci-gates
@@ -46,3 +49,6 @@ jobs:
         AUTH_SECRET: test-secret-key-at-least-32-characters-long-for-testing-purposes-only
         REGIONS: R1,R2,R3,K1,V,S1,S2
         ADMIN_REGION: ALL
+        ADMIN_EMAIL: test@example.com
+        ADMIN_PASSWORD: test-password-123
+        POSTGRES_URL: postgresql://test:test@localhost:5432/test

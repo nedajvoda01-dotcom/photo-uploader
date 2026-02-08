@@ -9,14 +9,11 @@ import { NextRequest, NextResponse } from "next/server";
  * DO NOT USE THIS ENDPOINT FOR NEW CODE
  * This endpoint does NOT set cookies and does NOT proxy responses
  */
-export async function POST(request: NextRequest) {
-  const authLoginUrl = new URL('/api/auth/login', request.url);
-  
+export async function POST(_request: NextRequest) {
   return NextResponse.json(
     { 
       error: "This endpoint is permanently deprecated.",
-      use: "/api/auth/login",
-      redirect: authLoginUrl.toString()
+      use: "/api/auth/login"
     },
     { status: 410 } // 410 Gone - resource permanently unavailable
   );
