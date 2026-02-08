@@ -514,11 +514,19 @@ export async function createCar(params: {
   
   await uploadText(`${rootPath}/_CAR.json`, metadata);
   
-  // Create all slot folders
+  // Create all slot folders (MUST succeed for all 14 slots)
   const slotPaths = getAllSlotPaths(region, make, model, vin);
   for (const slot of slotPaths) {
-    await createFolder(slot.path);
+    const slotResult = await createFolder(slot.path);
+    if (!slotResult.success) {
+      throw new Error(
+        `Failed to create slot folder (${slot.slotType}[${slot.slotIndex}]): ${slot.path}. Error: ${slotResult.error}`
+      );
+    }
+    console.log(`[DiskStorage] Created slot: ${slot.slotType}[${slot.slotIndex}] at ${slot.path}`);
   }
+  
+  console.log(`[DiskStorage] Successfully created car with all 14 slots: ${rootPath}`);
   
   return {
     region,
