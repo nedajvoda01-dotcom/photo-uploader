@@ -11,7 +11,7 @@
  * @see DISK_STRUCTURE.md for complete documentation
  */
 
-import { YANDEX_DISK_BASE_DIR } from "./config";
+import { YANDEX_DISK_BASE_DIR } from "@/lib/config/disk";
 
 export type SlotType = 'dealer' | 'buyout' | 'dummies';
 

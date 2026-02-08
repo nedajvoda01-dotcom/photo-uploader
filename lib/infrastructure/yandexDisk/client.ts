@@ -1,7 +1,8 @@
 /**
- * Yandex.Disk API integration for uploading files and managing folders
+ * Infrastructure: Yandex Disk Client
+ * Integration with Yandex.Disk API for uploading files and managing folders
  */
-import { YANDEX_DISK_TOKEN } from "./config";
+import { YANDEX_DISK_TOKEN } from "@/lib/config/disk";
 
 const YANDEX_DISK_API_BASE = "https://cloud-api.yandex.net/v1/disk";
 const MAX_RETRIES = 3;
@@ -52,8 +53,13 @@ async function withRetry<T>(
       lastError = error instanceof Error ? error : new Error(String(error));
       
       // Don't retry on 4xx errors (client errors)
-      if (error instanceof Error && error.message.includes('4')) {
-        throw error;
+      // Check if error message contains HTTP 4xx status code
+      if (error instanceof Error) {
+        const statusMatch = error.message.match(/\b4\d{2}\b/);
+        if (statusMatch) {
+          // This is a 4xx client error, don't retry
+          throw error;
+        }
       }
       
       if (i < retries - 1) {

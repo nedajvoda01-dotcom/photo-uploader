@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireAdmin, requireRegionAccess, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
-import { getCarByVin, getCarByRegionAndVin } from "@/lib/models/cars";
-import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/models/carSlots";
-import { validateSlot, type SlotType, getLockMarkerPath } from "@/lib/diskPaths";
-import { listFolder, downloadFile, exists } from "@/lib/yandexDisk";
-import { validateZipLimits } from "@/lib/config";
+import { getCarByVin, getCarByRegionAndVin } from "@/lib/infrastructure/db/carsRepo";
+import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/infrastructure/db/carSlotsRepo";
+import { validateSlot, type SlotType, getLockMarkerPath } from "@/lib/domain/disk/paths";
+import { listFolder, downloadFile, exists } from "@/lib/infrastructure/yandexDisk/client";
+import { validateZipLimits } from "@/lib/config/index";
 import archiver from "archiver";
 import { Writable } from "stream";
 

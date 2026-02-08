@@ -1,7 +1,9 @@
 /**
- * Car slots model for database operations
+ * Infrastructure: Car Slots Repository
+ * Database operations for car slots
  */
-import { sql, ensureDbSchema } from '../db';
+import { sql } from './connection';
+import { ensureDbSchema } from './schema';
 
 export interface CarSlot {
   id: number;

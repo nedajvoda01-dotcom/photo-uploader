@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionCookieName } from "@/lib/auth";
-import { IS_PRODUCTION } from "@/lib/config";
+import { COOKIE_NAME } from "@/lib/domain/auth/session";
+import { IS_PRODUCTION } from "@/lib/config/auth";
 
 export async function POST() {
   const response = NextResponse.json(
@@ -9,7 +9,7 @@ export async function POST() {
   );
 
   // Clear the session cookie by setting Max-Age to 0
-  response.cookies.set(getSessionCookieName(), "", {
+  response.cookies.set(COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
     secure: IS_PRODUCTION,

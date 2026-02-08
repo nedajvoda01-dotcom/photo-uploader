@@ -1,7 +1,10 @@
 /**
- * User model for database operations
+ * Infrastructure: Users Repository
+ * Database operations for users
  */
-import { sql, ensureDbSchema } from '../db';
+
+import { sql } from './connection';
+import { ensureDbSchema } from './schema';
 
 export interface User {
   id: number;

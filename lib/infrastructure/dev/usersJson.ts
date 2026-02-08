@@ -1,6 +1,11 @@
+/**
+ * Infrastructure: Users JSON File Reader (Dev Only)
+ * Reads users from data/users.json file
+ * Only works in development mode
+ */
 import fs from "fs";
 import path from "path";
-import { ADMIN_EMAIL, ADMIN_PASSWORD_HASH, IS_PRODUCTION } from "./config";
+import { ADMIN_EMAIL, ADMIN_PASSWORD_HASH, IS_PRODUCTION } from "@/lib/config/auth";
 
 export interface User {
   email: string;

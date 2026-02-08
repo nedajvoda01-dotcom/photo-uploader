@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getEffectiveRegion, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
-import { listCarsByRegion, createCar, carExistsByRegionAndVin, getCarByRegionAndVin } from "@/lib/models/cars";
-import { createCarSlot } from "@/lib/models/carSlots";
-import { carRoot, getAllSlotPaths, sanitizePathSegment } from "@/lib/diskPaths";
-import { createFolder, uploadText } from "@/lib/yandexDisk";
+import { listCarsByRegion, createCar, carExistsByRegionAndVin, getCarByRegionAndVin } from "@/lib/infrastructure/db/carsRepo";
+import { createCarSlot } from "@/lib/infrastructure/db/carSlotsRepo";
+import { carRoot, getAllSlotPaths, sanitizePathSegment } from "@/lib/domain/disk/paths";
+import { createFolder, uploadText } from "@/lib/infrastructure/yandexDisk/client";
 import { syncRegion } from "@/lib/sync";
-import { ensureDbSchema } from "@/lib/db";
+import { ensureDbSchema } from "@/lib/infrastructure/db/schema";
 
 /**
  * GET /api/cars

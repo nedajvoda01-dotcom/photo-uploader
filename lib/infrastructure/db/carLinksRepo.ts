@@ -1,7 +1,9 @@
 /**
- * Car links model for database operations
+ * Infrastructure: Car Links Repository
+ * Database operations for car links
  */
-import { sql, ensureDbSchema } from '../db';
+import { sql } from './connection';
+import { ensureDbSchema } from './schema';
 
 export interface CarLink {
   id: number;

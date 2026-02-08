@@ -12,9 +12,10 @@
  * - TTL-based caching prevents redundant syncs (30 seconds default)
  */
 
-import { sql, ensureDbSchema } from './db';
-import { getBasePath, getLockMarkerPath } from './diskPaths';
-import { listFolder, exists, downloadFile } from './yandexDisk';
+import { sql } from './infrastructure/db/connection';
+import { ensureDbSchema } from './infrastructure/db/schema';
+import { getBasePath, getLockMarkerPath } from './domain/disk/paths';
+import { listFolder, exists, downloadFile } from './infrastructure/yandexDisk/client';
 
 // TTL-based sync cache (30 seconds by default)
 const SYNC_TTL_MS = 30 * 1000; // 30 seconds

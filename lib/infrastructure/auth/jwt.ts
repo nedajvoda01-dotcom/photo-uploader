@@ -1,8 +1,11 @@
-import { SignJWT, jwtVerify } from "jose";
-import { AUTH_SECRET } from "./config";
+/**
+ * Infrastructure: JWT Token Operations
+ * Handles JWT signing and verification using jose
+ */
 
-const COOKIE_NAME = "session";
-const TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+import { SignJWT, jwtVerify } from "jose";
+import { AUTH_SECRET } from "@/lib/config/auth";
+import { SessionPayload, TOKEN_TTL } from "@/lib/domain/auth/session";
 
 // Lazy initialization of secret to avoid build-time errors
 let secret: Uint8Array | null = null;
@@ -15,14 +18,6 @@ function getSecret(): Uint8Array {
     secret = new TextEncoder().encode(AUTH_SECRET);
   }
   return secret;
-}
-
-export interface SessionPayload {
-  userId: number;
-  email: string;
-  region: string;
-  role: string;
-  [key: string]: unknown;
 }
 
 /**
@@ -55,13 +50,6 @@ export async function verifySession(
     console.error("Session verification failed:", error);
     return null;
   }
-}
-
-/**
- * Get the cookie name for session
- */
-export function getSessionCookieName(): string {
-  return COOKIE_NAME;
 }
 
 /**

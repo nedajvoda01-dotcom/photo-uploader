@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarById } from "@/lib/models/cars";
-import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/models/carSlots";
-import { validateSlot, type SlotType } from "@/lib/diskPaths";
+import { getCarById } from "@/lib/infrastructure/db/carsRepo";
+import { getCarSlot, markSlotAsUsed, markSlotAsUnused } from "@/lib/infrastructure/db/carSlotsRepo";
+import { validateSlot, type SlotType } from "@/lib/domain/disk/paths";
 
 interface RouteContext {
   params: Promise<{ id: string; slotType: string; slotIndex: string }>;
