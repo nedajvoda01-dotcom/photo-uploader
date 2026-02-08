@@ -178,10 +178,13 @@ export async function uploadToYandexDisk(
       success: true,
       path: path,
     };
-  }).catch(error => ({
-    success: false,
-    error: error instanceof Error ? error.message : "Unknown error occurred"
-  }));
+  }).catch(error => {
+    console.error("Yandex.Disk upload error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  });
 }
 
 /**
