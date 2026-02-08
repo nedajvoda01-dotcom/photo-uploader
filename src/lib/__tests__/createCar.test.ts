@@ -98,4 +98,4 @@ describe('createCar Slot Creation', () => {
 // should be run via smoke test script (npm run smoke) with real credentials
 console.log('\n✓ All createCar tests passed!');
 console.log('\nNote: For full integration testing with actual Yandex Disk operations,');
-console.log('run: npm run smoke -- --baseUrl=http://localhost:3000 --email=admin@example.com --password=pass --region=R1');
+console.log('run: npm run smoke -- --baseUrl=http://localhost:3000 --email=your@email.com --password=your-password --region=R1');
