@@ -19,7 +19,7 @@ async function runTests() {
   try {
     console.log('1/3: Config Parsing Tests');
     console.log('---');
-    await import('../lib/__tests__/config-parsing.test.ts');
+    await import('../src/lib/__tests__/config-parsing.test.ts');
     console.log('');
   } catch (error) {
     console.error('Config tests failed:', error);
@@ -29,7 +29,7 @@ async function runTests() {
   try {
     console.log('2/3: Authentication Tests');
     console.log('---');
-    await import('../lib/__tests__/auth.test.ts');
+    await import('../src/lib/__tests__/auth.test.ts');
     console.log('');
   } catch (error) {
     console.error('Auth tests failed:', error);
@@ -39,7 +39,7 @@ async function runTests() {
   try {
     console.log('3/3: Strict Requirements Tests');
     console.log('---');
-    await import('../lib/__tests__/strict-requirements.test.ts');
+    await import('../src/lib/__tests__/strict-requirements.test.ts');
     console.log('');
   } catch (error) {
     console.error('Strict requirements tests failed:', error);

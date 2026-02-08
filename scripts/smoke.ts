@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Enhanced Comprehensive Smoke Test Script - Definition of Done
  * 
@@ -255,8 +256,8 @@ class EnhancedSmokeTest {
   }
 
   private async testLogin(): Promise<void> {
-    const stepName = 'POST /api/login';
-    const endpoint = `${this.baseUrl}/api/login`;
+    const stepName = 'POST /api/auth/login';
+    const endpoint = `${this.baseUrl}/api/auth/login`;
     const startTime = Date.now();
 
     try {
@@ -276,7 +277,7 @@ class EnhancedSmokeTest {
 
       // Check for 404/405 (wrong endpoint)
       if (status === 404 || status === 405) {
-        throw new Error(`Endpoint error: ${status}. Check if /api/login exists in app/api/login/route.ts`);
+        throw new Error(`Endpoint error: ${status}. Check if /api/auth/login exists in src/app/api/auth/login/route.ts`);
       }
 
       const success = status === 200;

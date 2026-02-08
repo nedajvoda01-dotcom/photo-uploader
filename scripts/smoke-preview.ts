@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Smoke Test Script for Preview Environment
  * 
@@ -122,9 +123,9 @@ class SmokeTest {
 
   async runLogin(): Promise<boolean> {
     try {
-      this.log('Step 1: POST /api/login');
+      this.log('Step 1: POST /api/auth/login');
       
-      const { status, body } = await this.makeRequest('POST', '/api/login', {
+      const { status, body } = await this.makeRequest('POST', '/api/auth/login', {
         email: this.email,
         password: this.password,
       });
@@ -132,7 +133,7 @@ class SmokeTest {
       const success = status === 200 && this.cookies.length > 0;
 
       this.addResult({
-        step: 'POST /api/login',
+        step: 'POST /api/auth/login',
         success,
         status,
         body,
@@ -142,7 +143,7 @@ class SmokeTest {
       return success;
     } catch (error) {
       this.addResult({
-        step: 'POST /api/login',
+        step: 'POST /api/auth/login',
         success: false,
         error: error instanceof Error ? error.message : String(error),
       });
