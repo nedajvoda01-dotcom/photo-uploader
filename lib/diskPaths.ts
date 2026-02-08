@@ -39,6 +39,37 @@ export function getRegionPath(region: string): string {
 }
 
 /**
+ * Get the archive path (ALL region)
+ * Pattern: ${BASE_PATH}/ALL
+ * 
+ * This is the destination for archived cars from all regions.
+ * When a car is archived, it's moved from its region folder to this central archive.
+ * 
+ * @returns Archive path
+ * @example getArchivePath() // Returns: "/Фото/Фото/ALL"
+ */
+export function getArchivePath(): string {
+  return `${getBasePath()}/ALL`;
+}
+
+/**
+ * Generate full archive path for a specific car
+ * Pattern: ${BASE_PATH}/ALL/{region}_{make}_{model}_{vin}
+ * 
+ * @param region - Original region code of the car
+ * @param make - Car manufacturer
+ * @param model - Car model
+ * @param vin - Vehicle Identification Number (17 characters)
+ * @returns Full archive path for the car
+ * @example getCarArchivePath("MSK", "Toyota", "Camry", "1HGBH41JXMN109186")
+ *          // Returns: "/Фото/Фото/ALL/MSK_Toyota_Camry_1HGBH41JXMN109186"
+ */
+export function getCarArchivePath(region: string, make: string, model: string, vin: string): string {
+  const archiveName = `${region}_${make}_${model}_${vin}`.replace(/\s+/g, '_');
+  return `${getArchivePath()}/${archiveName}`;
+}
+
+/**
  * Generate root path for a car on Yandex Disk
  * Pattern: ${BASE_PATH}/<REGION>/<Make> <Model> <VIN>
  * 

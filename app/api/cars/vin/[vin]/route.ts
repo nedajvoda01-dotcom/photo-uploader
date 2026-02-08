@@ -6,7 +6,7 @@ import { listCarLinks } from "@/lib/models/carLinks";
 import { syncRegion, syncCar } from "@/lib/sync";
 import { moveFolder, listFolder, exists } from "@/lib/yandexDisk";
 import { ensureDbSchema } from "@/lib/db";
-import { getBasePath, getAllSlotPaths, getLockMarkerPath } from "@/lib/diskPaths";
+import { getBasePath, getAllSlotPaths, getLockMarkerPath, getCarArchivePath } from "@/lib/diskPaths";
 import { ARCHIVE_RETRY_DELAY_MS } from "@/lib/config";
 
 // Constants
@@ -244,9 +244,7 @@ export async function DELETE(
     
     // Archive: Move folder to /Фото/ALL/ instead of deleting
     // Archive path format: /Фото/ALL/{region}_{make}_{model}_{vin}
-    const basePath = getBasePath();
-    const archiveName = `${car.region}_${car.make}_${car.model}_${vin}`.replace(/\s+/g, '_');
-    const archivePath = `${basePath}/ALL/${archiveName}`;
+    const archivePath = getCarArchivePath(car.region, car.make, car.model, vin);
     
     // PHASE 1: Move folder on disk (with retry)
     let moveSuccess = false;
