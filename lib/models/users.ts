@@ -112,8 +112,8 @@ export interface UpsertUserParams {
 
 /**
  * Upsert a user (insert if not exists)
- * For existing users, does NOT update password/region/role to avoid unnecessary writes
- * This is critical to prevent password re-hashing on every login
+ * Uses ON CONFLICT DO NOTHING to handle race conditions
+ * This prevents password re-hashing on every login
  */
 export async function upsertUser(params: UpsertUserParams): Promise<User> {
   try {
@@ -123,14 +123,7 @@ export async function upsertUser(params: UpsertUserParams): Promise<User> {
     // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
     
-    // Check if user exists first
-    const existingUser = await getUserByEmail(normalizedEmail);
-    if (existingUser) {
-      // User exists - return existing user without updating
-      return existingUser;
-    }
-    
-    // User doesn't exist - insert new user
+    // Try to insert new user (ON CONFLICT DO NOTHING handles existing users)
     const result = await sql<User>`
       INSERT INTO users (email, password_hash, region, role)
       VALUES (${normalizedEmail}, ${passwordHash}, ${region}, ${role})
@@ -138,7 +131,7 @@ export async function upsertUser(params: UpsertUserParams): Promise<User> {
       RETURNING id, email, password_hash, region, role, created_at
     `;
     
-    // If ON CONFLICT DO NOTHING was triggered (race condition), fetch the user
+    // If ON CONFLICT DO NOTHING was triggered (user exists), fetch the user
     if (result.rows.length === 0) {
       const user = await getUserByEmail(normalizedEmail);
       if (!user) {

@@ -17,7 +17,7 @@ if (!isBuildTime) {
   
   // Validate AUTH_SECRET length (minimum 32 characters for security)
   if (AUTH_SECRET.length < 32) {
-    throw new Error(`AUTH_SECRET must be at least 32 characters long (current: ${AUTH_SECRET.length}). Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`);
+    throw new Error('AUTH_SECRET must be at least 32 characters long. Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
   }
 
   if (!YANDEX_DISK_TOKEN) {
@@ -253,7 +253,7 @@ export function generateStableEnvUserId(email: string): number {
   for (let i = 0; i < email.length; i++) {
     const char = email.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash | 0; // Convert to 32bit signed integer
   }
   // Return negative number to distinguish from DB IDs
   // Use absolute value and negate to ensure it's always negative

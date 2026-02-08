@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
  * It redirects all requests to the new endpoint for backward compatibility
  * 
  * DO NOT USE THIS ENDPOINT FOR NEW CODE
+ * 
+ * Note: Uses internal fetch for simplicity. While this adds HTTP overhead,
+ * it keeps code simple and this endpoint should not be used in production.
  */
 export async function POST(request: NextRequest) {
   try {
