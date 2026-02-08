@@ -8,9 +8,9 @@ import { AUTH_DEBUG, ADMIN_REGION, IS_PRODUCTION } from "@/lib/config";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email: rawEmail, password } = body;
+    const { email: rawEmail, password: rawPassword } = body;
 
-    if (!rawEmail || !password) {
+    if (!rawEmail || !rawPassword) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 }
@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
 
     // Normalize email: trim whitespace and convert to lowercase
     const email = rawEmail.trim().toLowerCase();
+    // Normalize password: trim whitespace
+    const password = rawPassword.trim();
 
     // Debug diagnostics (only if AUTH_DEBUG=1)
     let debugInfo: Record<string, boolean | string | number> | null = null;
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
-        debugInfo.reasonCode = "user_not_found";
+        debugInfo.reasonCode = "USER_NOT_FOUND";
         console.warn("[AUTH_DEBUG] Login attempt failed - user not found:", debugInfo);
       }
       return NextResponse.json(
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
     } catch {
       if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
-        debugInfo.reasonCode = "hash_compare_error";
+        debugInfo.reasonCode = "PASSWORD_COMPARE_ERROR";
         console.warn("[AUTH_DEBUG] Login attempt failed - bcrypt compare error:", debugInfo);
       }
       return NextResponse.json(
@@ -199,7 +201,7 @@ export async function POST(request: NextRequest) {
     if (!isValid) {
       if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
-        debugInfo.reasonCode = "password_mismatch_hash";
+        debugInfo.reasonCode = "PASSWORD_MISMATCH";
         console.warn("[AUTH_DEBUG] Login attempt failed - invalid password:", debugInfo);
       }
       return NextResponse.json(

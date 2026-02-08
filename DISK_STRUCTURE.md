@@ -18,30 +18,38 @@ This creates the structure: `/Фото/Фото/` (base dir + subdirectory)
 
 ```
 ${YANDEX_DISK_BASE_DIR}/Фото/
-└── <REGION>/
-    └── <Марка> <Модель> <VIN>/
+├── <REGION>/
+│   └── <Марка> <Модель> <VIN>/
+│       ├── 1. Дилер фото/
+│       │   └── <Марка> <Модель> <VIN>/
+│       │       ├── photo1.jpg
+│       │       ├── photo2.jpg
+│       │       └── _LOCK.json
+│       ├── 2. Выкуп фото/
+│       │   ├── 1. <Марка> <Модель> <VIN>/
+│       │   │   ├── photo1.jpg
+│       │   │   └── _LOCK.json
+│       │   ├── 2. <Марка> <Модель> <VIN>/
+│       │   │   └── ...
+│       │   ...
+│       │   └── 8. <Марка> <Модель> <VIN>/
+│       │       └── ...
+│       └── 3. Муляги фото/
+│           ├── 1. <Марка> <Модель> <VIN>/
+│           │   └── ...
+│           ├── 2. <Марка> <Модель> <VIN>/
+│           │   └── ...
+│           ...
+│           └── 5. <Марка> <Модель> <VIN>/
+│               └── ...
+└── ALL/
+    └── <REGION>_<Марка>_<Модель>_<VIN>/
         ├── 1. Дилер фото/
-        │   └── <Марка> <Модель> <VIN>/
-        │       ├── photo1.jpg
-        │       ├── photo2.jpg
-        │       └── _LOCK.json
+        │   └── ...
         ├── 2. Выкуп фото/
-        │   ├── 1. <Марка> <Модель> <VIN>/
-        │   │   ├── photo1.jpg
-        │   │   └── _LOCK.json
-        │   ├── 2. <Марка> <Модель> <VIN>/
-        │   │   └── ...
-        │   ...
-        │   └── 8. <Марка> <Модель> <VIN>/
-        │       └── ...
+        │   └── ...
         └── 3. Муляги фото/
-            ├── 1. <Марка> <Модель> <VIN>/
-            │   └── ...
-            ├── 2. <Марка> <Модель> <VIN>/
-            │   └── ...
-            ...
-            └── 5. <Марка> <Модель> <VIN>/
-                └── ...
+            └── ...
 ```
 
 ## Path Components
@@ -57,7 +65,19 @@ ${YANDEX_DISK_BASE_DIR}/Фото/
 - **Valid regions:** Configured in `REGIONS` environment variable
 - **Purpose:** Organize cars by geographical region
 
-### 3. Car Root Path
+### 3. Archive Path (ALL Region)
+- **Pattern:** `${BASE_PATH}/ALL`
+- **Example:** `/Фото/Фото/ALL`
+- **Purpose:** Central archive for cars deleted/archived from all regions
+- **Note:** The "ALL" region is reserved for archived cars only
+
+#### Archived Car Path
+- **Pattern:** `${BASE_PATH}/ALL/<REGION>_<Марка>_<Модель>_<VIN>`
+- **Example:** `/Фото/Фото/ALL/MSK_Toyota_Camry_1HGBH41JXMN109186`
+- **Format:** Underscore-separated components (spaces replaced with underscores)
+- **Purpose:** When a car is archived/deleted, its entire folder structure is moved from the region folder to the ALL archive folder
+
+### 4. Car Root Path
 - **Pattern:** `${REGION_PATH}/<Марка> <Модель> <VIN>`
 - **Example:** `/Фото/Фото/MSK/Toyota Camry 1HGBH41JXMN109186`
 - **Components:**
@@ -67,7 +87,7 @@ ${YANDEX_DISK_BASE_DIR}/Фото/
 - **Format:** Components separated by single spaces
 - **Uniqueness:** VIN must be unique within each region
 
-### 4. Slot Type Paths
+### 5. Slot Type Paths
 
 #### Dealer Photos (1 slot)
 - **Pattern:** `${CAR_ROOT}/1. Дилер фото/<Марка> <Модель> <VIN>`
@@ -87,7 +107,7 @@ ${YANDEX_DISK_BASE_DIR}/Фото/
 - **Index range:** 1-5
 - **Purpose:** Template/placeholder photos
 
-### 5. Lock Marker File
+### 6. Lock Marker File
 - **Pattern:** `${SLOT_PATH}/_LOCK.json`
 - **Example:** `/Фото/Фото/MSK/Toyota Camry 1HGBH41JXMN109186/2. Выкуп фото/3. Toyota Camry 1HGBH41JXMN109186/_LOCK.json`
 - **Purpose:** Indicates slot is filled and locked

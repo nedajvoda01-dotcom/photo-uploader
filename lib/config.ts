@@ -52,6 +52,20 @@ if (!isBuildTime && REGIONS.length === 0) {
 // Admin region (default: ALL)
 export const ADMIN_REGION = process.env.ADMIN_REGION || "ALL";
 
+// Validate ADMIN_REGION configuration
+if (!isBuildTime) {
+  // Note: ADMIN_REGION is typically "ALL" which is correct for admins
+  // This is a special region that grants access to all regions
+  // However, if it's explicitly set to something else in production, validate it exists
+  if (ADMIN_REGION !== "ALL" && REGIONS.length > 0 && !REGIONS.includes(ADMIN_REGION)) {
+    console.warn(
+      `WARNING: ADMIN_REGION is set to "${ADMIN_REGION}" but this region is not in REGIONS list [${REGIONS.join(', ')}]. ` +
+      `Admins will only have access to region "${ADMIN_REGION}". ` +
+      `Consider setting ADMIN_REGION="ALL" for full admin access.`
+    );
+  }
+}
+
 // Bootstrap admin credentials (2 pairs supported)
 // Admin pair #1
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || null;
@@ -136,6 +150,7 @@ if (!isBuildTime) {
 if (!isBuildTime) {
   const allRegionUsers: string[] = [];
   const emailToRegion: Map<string, string[]> = new Map();
+  const missingPasswords: string[] = [];
   
   for (const [region, users] of Object.entries(REGION_USERS)) {
     for (const email of users) {
@@ -149,9 +164,19 @@ if (!isBuildTime) {
       
       // Check if email has a password in USER_PASSWORD_MAP
       if (!USER_PASSWORD_MAP[email]) {
-        throw new Error(`User ${email} in region ${region} does not have a password in USER_PASSWORD_MAP`);
+        missingPasswords.push(`${email} (region: ${region})`);
       }
     }
+  }
+  
+  // Log missing passwords with clear error message
+  if (missingPasswords.length > 0) {
+    const errorMsg = 
+      `ERROR: Missing passwords in USER_PASSWORD_MAP for the following region users:\n` +
+      missingPasswords.map(email => `  - ${email}`).join('\n') + '\n' +
+      `Please add these users to USER_PASSWORD_MAP environment variable with format: email1:12345,email2:54321`;
+    console.error(errorMsg);
+    throw new Error(`Missing passwords for ${missingPasswords.length} user(s) in USER_PASSWORD_MAP. Check server logs for details.`);
   }
   
   // Check that each email belongs to exactly one region

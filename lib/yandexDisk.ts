@@ -126,7 +126,7 @@ export async function uploadToYandexDisk(
 ): Promise<UploadResult> {
   const { path, bytes, contentType } = params;
 
-  try {
+  return withRetry(async () => {
     // Step 1: Ensure the directory exists
     // Extract directory path from the file path (e.g., "/mvp_uploads" from "/mvp_uploads/photo.jpg")
     const lastSlashIndex = path.lastIndexOf("/");
@@ -148,20 +148,14 @@ export async function uploadToYandexDisk(
 
     if (!uploadUrlResponse.ok) {
       const errorData = await uploadUrlResponse.json().catch(() => ({}));
-      return {
-        success: false,
-        error: `Failed to get upload URL: ${uploadUrlResponse.status} ${uploadUrlResponse.statusText}. ${JSON.stringify(errorData)}`,
-      };
+      throw new Error(`Failed to get upload URL: ${uploadUrlResponse.status} ${uploadUrlResponse.statusText}. ${JSON.stringify(errorData)}`);
     }
 
     const uploadUrlData = await uploadUrlResponse.json();
     const uploadUrl = uploadUrlData.href;
 
     if (!uploadUrl) {
-      return {
-        success: false,
-        error: "No upload URL received from Yandex.Disk",
-      };
+      throw new Error("No upload URL received from Yandex.Disk");
     }
 
     // Step 3: Upload file to the received URL
@@ -177,23 +171,20 @@ export async function uploadToYandexDisk(
     });
 
     if (!uploadResponse.ok) {
-      return {
-        success: false,
-        error: `Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`,
-      };
+      throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
     }
 
     return {
       success: true,
       path: path,
     };
-  } catch (error) {
+  }).catch(error => {
     console.error("Yandex.Disk upload error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred",
+      error: error instanceof Error ? error.message : "Unknown error occurred"
     };
-  }
+  });
 }
 
 /**
