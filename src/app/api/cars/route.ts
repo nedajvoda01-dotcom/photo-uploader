@@ -166,6 +166,8 @@ export async function POST(request: NextRequest) {
       created_by: session.email || session.userId?.toString() || null,
     });
     
+    console.log(`[API] Successfully created car with 14 slots: ${effectiveRegion}/${vin}`);
+    
     return NextResponse.json({
       ok: true,
       car: {
@@ -176,7 +178,7 @@ export async function POST(request: NextRequest) {
       },
     }, { status: 201 });
   } catch (error) {
-    console.error("Error creating car:", error);
+    console.error(`[API] Failed to create car ${effectiveRegion}/${vin}:`, error);
     return errorResponse(
       ErrorCodes.SERVER_ERROR,
       error instanceof Error ? error.message : "Не удалось создать автомобиль",
