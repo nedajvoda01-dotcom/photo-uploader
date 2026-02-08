@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, isAdmin } from "@/lib/apiHelpers";
-import { getCarByVin } from "@/lib/models/cars";
-import { listCarLinks, createCarLink } from "@/lib/models/carLinks";
+import { getCarByVin } from "@/lib/infrastructure/db/carsRepo";
+import { listCarLinks, createCarLink } from "@/lib/infrastructure/db/carLinksRepo";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;

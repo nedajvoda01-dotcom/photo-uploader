@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin, getCarByVin, deleteCarByVin } from "@/lib/models/cars";
-import { listCarSlots } from "@/lib/models/carSlots";
-import { listCarLinks } from "@/lib/models/carLinks";
+import { getCarByRegionAndVin, getCarByVin, deleteCarByVin } from "@/lib/infrastructure/db/carsRepo";
+import { listCarSlots } from "@/lib/infrastructure/db/carSlotsRepo";
+import { listCarLinks } from "@/lib/infrastructure/db/carLinksRepo";
 import { syncRegion, syncCar } from "@/lib/sync";
-import { moveFolder, listFolder, exists } from "@/lib/yandexDisk";
-import { ensureDbSchema } from "@/lib/db";
-import { getBasePath, getAllSlotPaths, getLockMarkerPath, getCarArchivePath } from "@/lib/diskPaths";
-import { ARCHIVE_RETRY_DELAY_MS } from "@/lib/config";
+import { moveFolder, listFolder, exists } from "@/lib/infrastructure/yandexDisk/client";
+import { ensureDbSchema } from "@/lib/infrastructure/db/schema";
+import { getBasePath, getAllSlotPaths, getLockMarkerPath, getCarArchivePath } from "@/lib/domain/disk/paths";
+import { ARCHIVE_RETRY_DELAY_MS } from "@/lib/config/index";
 
 // Constants
 const EXPECTED_SLOT_COUNT = 14; // 1 dealer + 8 buyout + 5 dummies

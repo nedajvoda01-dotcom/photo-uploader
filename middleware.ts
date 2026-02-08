@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession, getSessionCookieName } from "@/lib/auth";
+import { verifySession } from "@/lib/infrastructure/auth/jwt";
+import { COOKIE_NAME } from "@/lib/domain/auth/session";
+import { IS_PRODUCTION } from "@/lib/config/auth";
 
 // Paths that don't require authentication
 const PUBLIC_PATHS = ["/login", "/api/login", "/api/auth/login", "/api/logout"];
@@ -16,7 +18,7 @@ export async function middleware(request: NextRequest) {
   const isApiRoute = pathname.startsWith("/api/");
   
   // Check for session cookie
-  const sessionCookie = request.cookies.get(getSessionCookieName());
+  const sessionCookie = request.cookies.get(COOKIE_NAME);
   
   if (!sessionCookie?.value) {
     // No session - return JSON for API routes, redirect for pages
@@ -46,10 +48,10 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.redirect(loginUrl);
     
     // Clear invalid session cookie
-    response.cookies.set(getSessionCookieName(), "", {
+    response.cookies.set(COOKIE_NAME, "", {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: IS_PRODUCTION,
       maxAge: 0,
       path: "/",
     });

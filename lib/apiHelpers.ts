@@ -3,8 +3,9 @@
  */
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSessionCookieName, verifySession, SessionPayload } from "./auth";
-import { hasRegionAccess } from "./config";
+import { verifySession } from "./infrastructure/auth/jwt";
+import { SessionPayload, COOKIE_NAME } from "./domain/auth/session";
+import { hasRegionAccess } from "./config/index";
 
 /**
  * Standard error codes for API responses
@@ -78,7 +79,7 @@ export function successResponse(
  */
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(getSessionCookieName());
+  const sessionCookie = cookieStore.get(COOKIE_NAME);
   
   if (!sessionCookie) {
     return null;

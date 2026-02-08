@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarById } from "@/lib/models/cars";
-import { getCarSlot } from "@/lib/models/carSlots";
-import { validateSlot, type SlotType } from "@/lib/diskPaths";
-import { listFolder } from "@/lib/yandexDisk";
-import { validateZipLimits } from "@/lib/config";
+import { getCarById } from "@/lib/infrastructure/db/carsRepo";
+import { getCarSlot } from "@/lib/infrastructure/db/carSlotsRepo";
+import { validateSlot, type SlotType } from "@/lib/domain/disk/paths";
+import { listFolder } from "@/lib/infrastructure/yandexDisk/client";
+import { validateZipLimits } from "@/lib/config/index";
 
 interface RouteContext {
   params: Promise<{ id: string }>;

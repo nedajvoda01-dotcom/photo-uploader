@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { checkBootstrapAdmin, checkRegionUser, getUserByEmail } from "@/lib/userAuth";
-import { upsertUser } from "@/lib/models/users";
-import { signSession, getSessionCookieName, getSessionTTL } from "@/lib/auth";
-import { AUTH_DEBUG, ADMIN_REGION, IS_PRODUCTION } from "@/lib/config";
+import { loginUseCase } from "@/lib/application/auth/loginUseCase";
+import { signSession, getSessionTTL } from "@/lib/infrastructure/auth/jwt";
+import { COOKIE_NAME } from "@/lib/domain/auth/session";
+import { AUTH_DEBUG, IS_PRODUCTION } from "@/lib/config/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,193 +35,29 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Step 1: Check bootstrap admins FIRST (from ENV)
-    const bootstrapResult = await checkBootstrapAdmin(email, password);
-    
-    if (bootstrapResult.isBootstrapAdmin && bootstrapResult.user) {
-      // Bootstrap admin login successful - try to upsert to database
-      let dbUser;
-      try {
-        // Use pre-hashed password from checkBootstrapAdmin (don't re-hash)
-        dbUser = await upsertUser({
-          email: bootstrapResult.user.email,
-          passwordHash: bootstrapResult.user.passwordHash!,
-          region: bootstrapResult.user.region,
-          role: bootstrapResult.user.role,
-        });
-      } catch (dbError) {
-        console.error('[AUTH] Failed to upsert bootstrap admin to database:', dbError);
-        // Continue with ENV user if DB fails (use stable ENV ID)
-        dbUser = bootstrapResult.user;
-      }
-      
-      let token: string;
-      try {
-        token = await signSession({
-          userId: dbUser.id,
-          email: dbUser.email,
-          region: dbUser.region,
-          role: dbUser.role,
-        });
-      } catch (error) {
-        if (AUTH_DEBUG && debugInfo) {
-          debugInfo.result = "fail";
-          debugInfo.reasonCode = "jwt_sign_error";
-          console.warn("[AUTH_DEBUG] Login attempt failed - JWT signing error:", debugInfo);
-        }
-        console.error("JWT signing error:", error);
-        return NextResponse.json(
-          { error: "Internal server error" },
-          { status: 500 }
-        );
-      }
+    // Execute login use case
+    const loginResult = await loginUseCase(email, password);
 
-      const response = NextResponse.json(
-        { success: true, message: "Login successful" },
-        { status: 200 }
-      );
-
-      // Use IS_PRODUCTION from config
-      response.cookies.set(getSessionCookieName(), token, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: IS_PRODUCTION,
-        maxAge: getSessionTTL(),
-        path: "/",
-      });
-
-      if (AUTH_DEBUG && debugInfo) {
-        debugInfo.result = "ok";
-        debugInfo.reasonCode = "bootstrap_admin";
-        console.info("[AUTH_DEBUG] Bootstrap admin login successful:", debugInfo);
-      }
-
-      return response;
-    }
-
-    // Step 2: Check region users from ENV (REGION_USERS + USER_PASSWORD_MAP)
-    const regionUserResult = await checkRegionUser(email, password);
-    
-    if (regionUserResult.isBootstrapAdmin && regionUserResult.user) {
-      // Region user login successful - try to upsert to database
-      let dbUser;
-      try {
-        // Use pre-hashed password from checkRegionUser (don't re-hash)
-        dbUser = await upsertUser({
-          email: regionUserResult.user.email,
-          passwordHash: regionUserResult.user.passwordHash!,
-          region: regionUserResult.user.region,
-          role: regionUserResult.user.role,
-        });
-      } catch (dbError) {
-        console.error('[AUTH] Failed to upsert region user to database:', dbError);
-        // Continue with ENV user if DB fails (use stable ENV ID)
-        dbUser = regionUserResult.user;
-      }
-      
-      let token: string;
-      try {
-        token = await signSession({
-          userId: dbUser.id,
-          email: dbUser.email,
-          region: dbUser.region,
-          role: dbUser.role,
-        });
-      } catch (error) {
-        if (AUTH_DEBUG && debugInfo) {
-          debugInfo.result = "fail";
-          debugInfo.reasonCode = "jwt_sign_error";
-          console.warn("[AUTH_DEBUG] Login attempt failed - JWT signing error:", debugInfo);
-        }
-        console.error("JWT signing error:", error);
-        return NextResponse.json(
-          { error: "Internal server error" },
-          { status: 500 }
-        );
-      }
-
-      const response = NextResponse.json(
-        { success: true, message: "Login successful" },
-        { status: 200 }
-      );
-
-      // Use IS_PRODUCTION from config
-      response.cookies.set(getSessionCookieName(), token, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: IS_PRODUCTION,
-        maxAge: getSessionTTL(),
-        path: "/",
-      });
-
-      if (AUTH_DEBUG && debugInfo) {
-        debugInfo.result = "ok";
-        debugInfo.reasonCode = "env_region_user";
-        console.info("[AUTH_DEBUG] Region user login successful:", debugInfo);
-      }
-
-      return response;
-    }
-
-    // Step 3: Find user in database or file/env
-    const user = await getUserByEmail(email);
-    if (!user) {
+    if (!loginResult.success || !loginResult.user) {
       if (AUTH_DEBUG && debugInfo) {
         debugInfo.result = "fail";
-        debugInfo.reasonCode = "USER_NOT_FOUND";
-        console.warn("[AUTH_DEBUG] Login attempt failed - user not found:", debugInfo);
+        debugInfo.reasonCode = "LOGIN_USE_CASE_FAILED";
+        console.warn("[AUTH_DEBUG] Login attempt failed:", debugInfo);
       }
       return NextResponse.json(
-        { error: "Invalid email or password" },
+        { error: loginResult.error || "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    // Step 3: Verify password using bcrypt hash
-    let isValid = false;
-    try {
-      isValid = await bcrypt.compare(password, user.passwordHash);
-    } catch {
-      if (AUTH_DEBUG && debugInfo) {
-        debugInfo.result = "fail";
-        debugInfo.reasonCode = "PASSWORD_COMPARE_ERROR";
-        console.warn("[AUTH_DEBUG] Login attempt failed - bcrypt compare error:", debugInfo);
-      }
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
-    }
-
-    if (!isValid) {
-      if (AUTH_DEBUG && debugInfo) {
-        debugInfo.result = "fail";
-        debugInfo.reasonCode = "PASSWORD_MISMATCH";
-        console.warn("[AUTH_DEBUG] Login attempt failed - invalid password:", debugInfo);
-      }
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
-    }
-
-    // Step 4: Create session token
-    // Forbid userId = 0 in sessions (security requirement)
-    if (!user.id || user.id === 0) {
-      console.error('[AUTH] Cannot create session: user has no valid database ID');
-      return NextResponse.json(
-        { error: "Authentication configuration error" },
-        { status: 500 }
-      );
-    }
-    
+    // Create session token
     let token: string;
     try {
-      token = await signSession({ 
-        userId: user.id,
-        email: user.email,
-        region: user.region || ADMIN_REGION,
-        role: user.role || 'user'
+      token = await signSession({
+        userId: loginResult.user.id,
+        email: loginResult.user.email,
+        region: loginResult.user.region,
+        role: loginResult.user.role,
       });
     } catch (error) {
       if (AUTH_DEBUG && debugInfo) {
@@ -242,8 +77,8 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Use IS_PRODUCTION from config
-    response.cookies.set(getSessionCookieName(), token, {
+    // Set session cookie
+    response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: "lax",
       secure: IS_PRODUCTION,
@@ -253,6 +88,7 @@ export async function POST(request: NextRequest) {
 
     if (AUTH_DEBUG && debugInfo) {
       debugInfo.result = "ok";
+      debugInfo.reasonCode = loginResult.source || "unknown";
       console.info("[AUTH_DEBUG] Login successful:", debugInfo);
     }
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByVin } from "@/lib/models/cars";
-import { getCarSlot, setSlotPublicUrl } from "@/lib/models/carSlots";
-import { publish } from "@/lib/yandexDisk";
-import { validateSlot, type SlotType } from "@/lib/diskPaths";
+import { getCarByVin } from "@/lib/infrastructure/db/carsRepo";
+import { getCarSlot, setSlotPublicUrl } from "@/lib/infrastructure/db/carSlotsRepo";
+import { publish } from "@/lib/infrastructure/yandexDisk/client";
+import { validateSlot, type SlotType } from "@/lib/domain/disk/paths";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;

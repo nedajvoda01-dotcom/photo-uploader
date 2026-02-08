@@ -5,8 +5,8 @@
  * It's maintained for backward compatibility but should not be used in new code.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { uploadToYandexDisk } from "@/lib/yandexDisk";
-import { LEGACY_UPLOAD_DIR, UPLOAD_MAX_MB } from "@/lib/config";
+import { uploadToYandexDisk } from "@/lib/infrastructure/yandexDisk/client";
+import { LEGACY_UPLOAD_DIR, UPLOAD_MAX_MB } from "@/lib/config/index";
 
 const MAX_FILE_SIZE = UPLOAD_MAX_MB * 1024 * 1024; // Convert MB to bytes
 

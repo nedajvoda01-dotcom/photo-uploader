@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarById } from "@/lib/models/cars";
-import { listCarSlots } from "@/lib/models/carSlots";
-import { listCarLinks } from "@/lib/models/carLinks";
+import { getCarById } from "@/lib/infrastructure/db/carsRepo";
+import { listCarSlots } from "@/lib/infrastructure/db/carSlotsRepo";
+import { listCarLinks } from "@/lib/infrastructure/db/carLinksRepo";
 import { syncRegion } from "@/lib/sync";
 
 interface RouteContext {

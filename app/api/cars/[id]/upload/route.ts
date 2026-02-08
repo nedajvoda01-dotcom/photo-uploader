@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarById } from "@/lib/models/cars";
-import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/models/carSlots";
-import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/yandexDisk";
-import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/diskPaths";
-import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD } from "@/lib/config";
+import { getCarById } from "@/lib/infrastructure/db/carsRepo";
+import { getCarSlot, lockCarSlot, type LockMetadata } from "@/lib/infrastructure/db/carSlotsRepo";
+import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/infrastructure/yandexDisk/client";
+import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/domain/disk/paths";
+import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD } from "@/lib/config/index";
 
 interface RouteContext {
   params: Promise<{ id: string }>;

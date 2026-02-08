@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { REGIONS } from "@/lib/config";
+import { REGIONS } from "@/lib/config/index";
 
 /**
  * GET /api/config/regions
