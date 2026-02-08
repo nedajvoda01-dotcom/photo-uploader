@@ -198,9 +198,14 @@ export async function uploadToYandexDisk(
  * @param path Folder path to create
  */
 export async function createFolder(path: string): Promise<{ success: boolean; error?: string }> {
+  console.log(`[YandexDisk] createFolder: ${path}`);
+  
   return withRetry(async () => {
+    const url = `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`;
+    console.log(`[YandexDisk] PUT ${url}`);
+    
     const response = await fetch(
-      `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(path)}`,
+      url,
       {
         method: "PUT",
         headers: {
@@ -208,6 +213,8 @@ export async function createFolder(path: string): Promise<{ success: boolean; er
         },
       }
     );
+    
+    console.log(`[YandexDisk] Status: ${response.status}`);
     
     // 201 = created successfully, 409 = already exists (both acceptable)
     if (response.status === 201 || response.status === 409) {

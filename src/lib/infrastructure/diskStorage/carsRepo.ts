@@ -514,30 +514,37 @@ export async function createCar(params: {
   
   await uploadText(`${rootPath}/_CAR.json`, metadata);
   
-  // Create all 14 slot folders SYNCHRONOUSLY with explicit error handling
+  // Create all slot folders with DETAILED LOGGING
   const slotPaths = getAllSlotPaths(region, make, model, vin);
-  console.log(`[DISK] Creating ${slotPaths.length} slot folders for VIN ${vin}`);
+  console.log(`[DISK] Starting creation of ${slotPaths.length} slot folders`);
   
   let createdCount = 0;
-  for (const slot of slotPaths) {
-    console.log(`[DISK] Creating slot: ${slot.slotType}[${slot.slotIndex}] at ${slot.path}`);
+  for (let i = 0; i < slotPaths.length; i++) {
+    const slot = slotPaths[i];
+    console.log(`\n[DISK] [${i + 1}/${slotPaths.length}] Creating: ${slot.slotType}[${slot.slotIndex}]`);
+    console.log(`[DISK] Path: ${slot.path}`);
     
-    const result = await createFolder(slot.path);
+    const slotResult = await createFolder(slot.path);
+    console.log(`[DISK] Result:`, slotResult);
     
-    if (!result.success) {
-      console.error(`[DISK] FAILED to create slot: ${slot.path}. Error: ${result.error}`);
-      throw new Error(
-        `Failed to create slot folder ${slot.slotType}[${slot.slotIndex}] at ${slot.path}. ` +
-        `Error: ${result.error || 'Unknown error'}. ` +
-        `Created ${createdCount}/${slotPaths.length} slots before failure.`
-      );
+    if (!slotResult.success) {
+      console.error(`[DISK] FAILED:`, slotResult.error);
+      throw new Error(`Failed to create slot ${slot.slotType}[${slot.slotIndex}]: ${slotResult.error}`);
+    }
+    
+    // Verify it exists
+    const existsCheck = await exists(slot.path);
+    console.log(`[DISK] Exists check: ${existsCheck ? 'YES' : 'NO'}`);
+    
+    if (!existsCheck) {
+      throw new Error(`Slot created but NOT FOUND: ${slot.path}`);
     }
     
     createdCount++;
-    console.log(`[DISK] ✓ Created slot ${createdCount}/${slotPaths.length}: ${slot.slotType}[${slot.slotIndex}]`);
+    console.log(`[DISK] SUCCESS ${createdCount}/${slotPaths.length}`);
   }
   
-  console.log(`[DISK] ✓✓✓ SUCCESS: Created all ${createdCount}/${slotPaths.length} slots for ${rootPath}`);
+  console.log(`[DISK] FINAL: Created ${createdCount}/${slotPaths.length} slots`);
   
   return {
     region,
