@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter
+      run: npm run lint
+    
+    - name: Run tests
+      run: npm run test
+      env:
+        AUTH_SECRET: test-secret-key-at-least-32-characters-long-for-testing-purposes-only
+        REGIONS: R1,R2,R3,K1,V,S1,S2
+        ADMIN_REGION: ALL
+    
+    - name: Run CI gates
+      run: npm run ci-gates
+    
+    - name: Build project
+      run: npm run build
+      env:
+        AUTH_SECRET: test-secret-key-at-least-32-characters-long-for-testing-purposes-only
+        REGIONS: R1,R2,R3,K1,V,S1,S2
+        ADMIN_REGION: ALL

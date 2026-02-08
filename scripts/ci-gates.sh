@@ -11,14 +11,66 @@ echo ""
 
 EXIT_CODE=0
 
-# Gate 1: No /api/login with cookie setting
-echo "Gate 1: Checking for legacy /api/login with cookie setting..."
-if grep -r "cookies.set" src/app/api/login/ 2>/dev/null; then
-    echo "❌ FAIL: Found cookie setting in /api/login endpoint"
-    echo "   /api/login must not set cookies directly"
+# Gate 0: No duplicate old paths after src/ migration
+echo "Gate 0: Checking for old path duplicates (app/, lib/, middleware.ts in root)..."
+OLD_PATHS_FOUND=0
+
+if [ -d "app" ]; then
+    echo "❌ FAIL: Found ./app/ directory in root (should be in src/)"
+    OLD_PATHS_FOUND=1
+fi
+
+if [ -d "lib" ]; then
+    echo "❌ FAIL: Found ./lib/ directory in root (should be in src/)"
+    OLD_PATHS_FOUND=1
+fi
+
+if [ -f "middleware.ts" ]; then
+    echo "❌ FAIL: Found ./middleware.ts in root (should be in src/)"
+    OLD_PATHS_FOUND=1
+fi
+
+if [ $OLD_PATHS_FOUND -eq 1 ]; then
+    echo "   After migration to src/, old paths must not exist"
+    echo "   Next.js may pick up wrong file structure if duplicates exist"
     EXIT_CODE=1
 else
-    echo "✅ PASS: No cookie setting in /api/login"
+    echo "✅ PASS: No old path duplicates found"
+fi
+echo ""
+
+# Gate 1: No /api/login with cookie setting or proxying
+echo "Gate 1: Checking /api/login endpoint constraints..."
+API_LOGIN_ISSUES=0
+
+# Check for cookie setting
+if grep -r "cookies.set" src/app/api/login/ 2>/dev/null; then
+    echo "❌ FAIL: Found cookie setting in /api/login endpoint"
+    API_LOGIN_ISSUES=1
+fi
+
+# Check for actual fetch calls or response forwarding (not in comments)
+if grep -E "fetch\(|\.forward\(|response\.json\(\)" src/app/api/login/route.ts 2>/dev/null | grep -v "^[[:space:]]*\*" | grep -v "^[[:space:]]*//" ; then
+    echo "❌ FAIL: Found fetch/proxying in /api/login endpoint"
+    API_LOGIN_ISSUES=1
+fi
+
+# Verify correct status code (410 Gone)
+if ! grep -q "status: 410" src/app/api/login/route.ts 2>/dev/null; then
+    echo "⚠️  WARNING: /api/login should use status 410 (Gone)"
+    API_LOGIN_ISSUES=1
+fi
+
+# Verify it includes "use" field in response
+if ! grep -qE 'use:|"use":' src/app/api/login/route.ts 2>/dev/null; then
+    echo "⚠️  WARNING: /api/login should include 'use' field pointing to /api/auth/login"
+fi
+
+if [ $API_LOGIN_ISSUES -eq 0 ]; then
+    echo "✅ PASS: /api/login endpoint properly configured (410 Gone, no cookies, no proxying)"
+else
+    echo "   /api/login must not set cookies or proxy responses"
+    EXIT_CODE=1
 fi
 echo ""
 
@@ -35,12 +87,14 @@ echo ""
 
 # Gate 3: No process.env outside src/lib/config/**
 echo "Gate 3: Checking for process.env usage outside src/lib/config/..."
+# Note: src/middleware.ts is allowed to import from src/lib/config but not use process.env directly
 if grep -r "process\.env\." src/app/ src/lib/ --include="*.ts" --include="*.tsx" \
     | grep -v "src/lib/config/" \
     | grep -v "test" \
     | grep -v "NEXT_PHASE" 2>/dev/null; then
     echo "❌ FAIL: Found process.env usage outside src/lib/config/"
     echo "   All environment variables must be accessed through src/lib/config/"
+    echo "   src/middleware.ts can import from config but not use process.env directly"
     EXIT_CODE=1
 else
     echo "✅ PASS: No direct process.env usage outside config"
