@@ -5,7 +5,33 @@
 
 // Yandex Disk configuration
 const YANDEX_DISK_TOKEN = process.env.YANDEX_DISK_TOKEN;
-export const YANDEX_DISK_BASE_DIR = process.env.YANDEX_DISK_BASE_DIR || "/Фото";
+const RAW_BASE_DIR = process.env.YANDEX_DISK_BASE_DIR || "/Фото";
+
+// Validate base directory format
+function validateBaseDirFormat(dir: string): string {
+  if (!dir || typeof dir !== 'string') {
+    throw new Error(`YANDEX_DISK_BASE_DIR is invalid: ${JSON.stringify(dir)}`);
+  }
+  
+  if (!dir.startsWith('/')) {
+    console.error(`ERROR: YANDEX_DISK_BASE_DIR must start with '/', got: ${dir}`);
+    throw new Error(`YANDEX_DISK_BASE_DIR must be an absolute Yandex Disk path starting with '/'`);
+  }
+  
+  if (dir.includes('\\')) {
+    console.error(`ERROR: YANDEX_DISK_BASE_DIR contains backslash: ${dir}`);
+    throw new Error(`YANDEX_DISK_BASE_DIR must not contain Windows-style backslashes (\\)`);
+  }
+  
+  if (dir.match(/^[A-Z]:\\/i)) {
+    console.error(`ERROR: YANDEX_DISK_BASE_DIR looks like Windows path: ${dir}`);
+    throw new Error(`YANDEX_DISK_BASE_DIR must be a Yandex Disk path, not a Windows path`);
+  }
+  
+  return dir;
+}
+
+export const YANDEX_DISK_BASE_DIR = validateBaseDirFormat(RAW_BASE_DIR);
 
 // Only warn about missing token in non-build environments
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
