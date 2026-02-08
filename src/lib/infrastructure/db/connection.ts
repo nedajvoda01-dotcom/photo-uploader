@@ -42,6 +42,7 @@ if (typeof window === 'undefined') { // Only log on server side
 }
 
 // Lazy import of sql to avoid errors when DB is not configured
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _sql: any = null;
 
 function getSql() {
@@ -50,6 +51,7 @@ function getSql() {
   }
   if (!_sql) {
     // Lazy import @vercel/postgres only when needed
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { sql: pgSql } = require('@vercel/postgres');
     _sql = pgSql;
   }
@@ -57,6 +59,7 @@ function getSql() {
 }
 
 // Create a proxy that acts like sql template tag but only loads DB when needed
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const sql: any = function(strings: TemplateStringsArray, ...values: any[]) {
   const sqlInstance = getSql();
   return sqlInstance(strings, ...values);

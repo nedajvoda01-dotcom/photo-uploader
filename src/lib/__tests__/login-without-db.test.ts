@@ -69,6 +69,7 @@ describe('Login without Database', () => {
     try {
       // Force re-import to pick up new env vars
       delete require.cache[require.resolve('../infrastructure/db/connection')];
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { checkDatabaseConnection, isDatabaseConfigured } = require('../infrastructure/db/connection');
       
       // Verify database is not configured
@@ -104,6 +105,7 @@ describe('Login without Database', () => {
     try {
       // Force re-import to pick up new env vars
       delete require.cache[require.resolve('../infrastructure/db/connection')];
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { sql } = require('../infrastructure/db/connection');
       
       // Attempting to use sql should throw a clear error about missing config
