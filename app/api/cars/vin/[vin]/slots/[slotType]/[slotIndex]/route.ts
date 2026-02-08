@@ -7,6 +7,7 @@ import { listFolder, downloadFile, exists } from "@/lib/yandexDisk";
 import { validateZipLimits } from "@/lib/config";
 import archiver from "archiver";
 import { Writable } from "stream";
+import { Readable } from "stream";
 
 interface RouteContext {
   params: Promise<{ vin: string; slotType: string; slotIndex: string }>;
@@ -131,11 +132,22 @@ export async function GET(
     const filename = `${sanitize(car.make)}_${sanitize(car.model)}_${sanitize(vin)}_${slotType}_${slotIndex}.zip`;
     headers.set('Content-Disposition', `attachment; filename="${filename}"`);
     
-    // Create a readable stream from archiver
+    // Create a TransformStream for converting Node.js stream to Web Stream
     const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
     
-    // Pipe archiver to writable stream (using Writable wrapper)
-    archive.pipe(writable as unknown as Writable);
+    // Wrap the writer in a Node.js Writable stream
+    const nodeWritable = new Writable({
+      write(chunk, encoding, callback) {
+        writer.write(chunk).then(() => callback()).catch(callback);
+      },
+      final(callback) {
+        writer.close().then(() => callback()).catch(callback);
+      }
+    });
+    
+    // Pipe archiver to the Node.js writable stream
+    archive.pipe(nodeWritable);
     
     // Add files to archive asynchronously
     (async () => {
