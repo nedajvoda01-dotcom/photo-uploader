@@ -141,37 +141,31 @@ export function slotPath(
   const parts = carRootPath.split('/');
   const carName = parts[parts.length - 1]; // "<Make> <Model> <VIN>"
   
-  let path: string;
   switch (slotType) {
     case 'dealer':
       // Only one dealer slot (index should be 1)
       if (slotIndex !== 1) {
         throw new Error(`Invalid dealer slot index: ${slotIndex}. Must be 1.`);
       }
-      path = `${carRootPath}/1. Дилер фото/${carName}`;
-      break;
+      return normalizeDiskPath(`${carRootPath}/1. Дилер фото/${carName}`);
     
     case 'buyout':
       // 8 buyout slots (index 1-8)
       if (slotIndex < 1 || slotIndex > 8) {
         throw new Error(`Invalid buyout slot index: ${slotIndex}. Must be 1-8.`);
       }
-      path = `${carRootPath}/2. Выкуп фото/${slotIndex}. ${carName}`;
-      break;
+      return normalizeDiskPath(`${carRootPath}/2. Выкуп фото/${slotIndex}. ${carName}`);
     
     case 'dummies':
       // 5 dummy slots (index 1-5)
       if (slotIndex < 1 || slotIndex > 5) {
         throw new Error(`Invalid dummies slot index: ${slotIndex}. Must be 1-5.`);
       }
-      path = `${carRootPath}/3. Муляги фото/${slotIndex}. ${carName}`;
-      break;
+      return normalizeDiskPath(`${carRootPath}/3. Муляги фото/${slotIndex}. ${carName}`);
     
     default:
       throw new Error(`Unknown slot type: ${slotType}`);
   }
-  
-  return normalizeDiskPath(path);
 }
 
 /**
