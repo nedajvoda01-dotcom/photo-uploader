@@ -64,7 +64,8 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Retry a function with exponential backoff
- * Handles transient errors (5xx, 409) with 2-3 attempts
+ * Handles transient errors (5xx) with 2-3 attempts
+ * Also retries 409 for race conditions during concurrent operations
  */
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -82,13 +83,14 @@ async function withRetry<T>(
       if (error instanceof Error) {
         const message = error.message;
         
-        // Don't retry on 4xx errors EXCEPT 409 (conflict - already exists)
+        // Don't retry on 4xx errors EXCEPT 409 (conflict)
         const statusMatch = message.match(/\b(\d{3})\b/);
         if (statusMatch) {
           const status = parseInt(statusMatch[1]);
           
-          // 409 is retryable (folder might be being created by another request)
+          // 409 is retryable for race conditions (e.g., concurrent folder creation)
           // 5xx are retryable (server errors)
+          // Note: ensureDir() handles 409 as success internally, so it won't throw
           const isRetryable = status === 409 || status >= 500;
           
           if (status >= 400 && status < 500 && !isRetryable) {
