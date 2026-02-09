@@ -34,6 +34,10 @@ export default function CarsPage() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [activeRegion, setActiveRegion] = useState<string>("");
   const [availableRegions, setAvailableRegions] = useState<string[]>([]);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [selectedCarToRestore, setSelectedCarToRestore] = useState<Car | null>(null);
+  const [restoreTargetRegion, setRestoreTargetRegion] = useState<string>("");
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     fetchAvailableRegions();
@@ -146,6 +150,58 @@ export default function CarsPage() {
       buyout: Math.min(Math.max(car.locked_slots - 1, 0), 8),
       dummies: Math.max(car.locked_slots - 9, 0),
     };
+  };
+
+  const handleRestoreClick = (car: Car) => {
+    setSelectedCarToRestore(car);
+    setRestoreTargetRegion(availableRegions[0] || "");
+    setShowRestoreModal(true);
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!selectedCarToRestore || !restoreTargetRegion) {
+      return;
+    }
+
+    setRestoring(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/cars/vin/${selectedCarToRestore.vin}/restore`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          targetRegion: restoreTargetRegion,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to restore car");
+      }
+
+      // Success - refresh the cars list
+      setShowRestoreModal(false);
+      setSelectedCarToRestore(null);
+      await fetchCars();
+      
+      // Optionally redirect to the restored car in the target region
+      // router.push(`/cars/${selectedCarToRestore.vin}?region=${restoreTargetRegion}`);
+    } catch (err) {
+      console.error("Error restoring car:", err);
+      setError(err instanceof Error ? err.message : "Failed to restore car from archive");
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const handleRestoreCancel = () => {
+    setShowRestoreModal(false);
+    setSelectedCarToRestore(null);
+    setRestoreTargetRegion("");
   };
 
   if (loading) {
@@ -318,18 +374,77 @@ export default function CarsPage() {
                     </div>
                   </div>
 
-                  <Link
-                    href={`/cars/${car.vin}`}
-                    className={styles.openButton}
-                  >
-                    Open Car →
-                  </Link>
+                  <div className={styles.carActions}>
+                    <Link
+                      href={`/cars/${car.vin}`}
+                      className={styles.openButton}
+                    >
+                      Open Car →
+                    </Link>
+                    
+                    {isAdmin && activeRegion === 'ALL' && (
+                      <button
+                        onClick={() => handleRestoreClick(car)}
+                        className={styles.restoreButton}
+                      >
+                        ↩️ Restore from Archive
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Restore Modal */}
+      {showRestoreModal && selectedCarToRestore && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h2 className={styles.modalTitle}>Restore Car from Archive</h2>
+            <p className={styles.modalDescription}>
+              Restore <strong>{selectedCarToRestore.make} {selectedCarToRestore.model}</strong> (VIN: {selectedCarToRestore.vin}) from archive to a target region.
+            </p>
+            
+            <div className={styles.modalField}>
+              <label htmlFor="restore-region" className={styles.modalLabel}>
+                Select Target Region:
+              </label>
+              <select
+                id="restore-region"
+                value={restoreTargetRegion}
+                onChange={(e) => setRestoreTargetRegion(e.target.value)}
+                className={styles.modalSelect}
+                disabled={restoring}
+              >
+                {availableRegions.map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={handleRestoreCancel}
+                className={styles.modalCancelButton}
+                disabled={restoring}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRestoreConfirm}
+                className={styles.modalConfirmButton}
+                disabled={restoring || !restoreTargetRegion}
+              >
+                {restoring ? "Restoring..." : "Restore"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
