@@ -34,17 +34,20 @@ The system uses a **JSON = DB** approach where all metadata is stored in structu
 
 **Location:** `${YANDEX_DISK_BASE_DIR}/{REGION}/_REGION.json`
 
-**Purpose:** Index of all cars in a region. Avoids expensive folder listing.
+**Purpose:** Index of all cars in a region with TTL caching. Avoids expensive folder listing. Enables O(1) region loading.
 
 **Schema:**
 ```typescript
 interface RegionIndex {
+  version: number;       // Schema version (currently 1)
+  updated_at: string;    // ISO 8601 timestamp
   cars: Array<{
     make: string;
     model: string;
     vin: string;
     disk_root_path: string;
     created_at?: string;
+    created_by?: string;
   }>;
 }
 ```
@@ -52,19 +55,35 @@ interface RegionIndex {
 **Example:**
 ```json
 {
+  "version": 1,
+  "updated_at": "2026-02-09T10:30:00Z",
   "cars": [
     {
       "make": "Toyota",
       "model": "Camry",
       "vin": "1HGBH41JXMN109186",
       "disk_root_path": "/Фото/R1/Toyota Camry 1HGBH41JXMN109186",
-      "created_at": "2026-02-09T10:00:00Z"
+      "created_at": "2026-02-09T10:00:00Z",
+      "created_by": "user@example.com"
     }
   ]
 }
 ```
 
-**Auto-rebuild:** Yes, from folder listing if missing or corrupted
+**TTL (Time To Live):** 5 minutes (300,000ms, configurable via `REGION_INDEX_TTL_MS`)
+
+**Cache Invalidation:**
+- Missing file → rebuild with `listFolder(region)`
+- Parse error → rebuild
+- Schema validation failure → rebuild
+- Age > TTL → rebuild
+
+**Performance:**
+- Cache hit: O(1) - single file read (~50-100ms)
+- Cache miss: O(n) - one `listFolder` + n metadata reads (~500-1000ms)
+- Zero nested scans regardless of cache state
+
+**Auto-rebuild:** Yes, from folder listing if missing, corrupted, or expired
 
 ---
 
