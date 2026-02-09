@@ -48,6 +48,16 @@ function NewCarForm() {
       return;
     }
 
+    // Capture form VIN as fallback - normalize with trim and uppercase
+    const formVin = vin.trim().toUpperCase();
+    
+    // Ensure VIN is not empty after trimming
+    if (!formVin || formVin.length !== 17) {
+      setError("VIN must be exactly 17 characters");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/cars", {
         method: "POST",
@@ -57,16 +67,15 @@ function NewCarForm() {
         body: JSON.stringify({ 
           make, 
           model, 
-          vin: vin.toUpperCase(),
-          region: region || undefined, // Include region for admins
+          vin: formVin,
+          region: region || undefined,
         }),
       });
 
       const data = await response.json();
 
-      // Handle new standardized response format
+      // Handle error response
       if (data.ok === false) {
-        // Error response with detailed information
         const errorMessage = data.message || "Failed to create car";
         const errorCode = data.code ? ` (${data.code})` : "";
         const statusCode = data.status || response.status;
@@ -77,35 +86,28 @@ function NewCarForm() {
         }
         
         setError(`Error ${statusCode}: ${errorMessage}${errorCode}`);
-        setLoading(false);
-        return;
+        return; // loading will be reset in finally
       }
 
-      // Success - handle both new creation (201) and existing car (200)
-      if (data.ok === true && data.car) {
-        const carVin = data.car.vin;
-        console.log(`Car ${response.status === 201 ? 'created' : 'already exists'}: ${carVin}`);
-        // Redirect to car details page
-        router.push(`/cars/${carVin}`);
-        return;
+      // Success - extract VIN with fallback
+      const carVin = data?.car?.vin ?? formVin;
+      
+      if (!carVin) {
+        setError("Failed to get car VIN from response");
+        return; // loading will be reset in finally
       }
 
-      // Legacy response format support (success: true)
-      if (data.success && data.car) {
-        router.push(`/cars/${data.car.vin}`);
-        return;
-      }
-
-      // Fallback for unexpected response format
-      if (!response.ok) {
-        setError(data.error || `Error ${response.status}: Failed to create car`);
-        setLoading(false);
-        return;
-      }
+      console.log(`Car ${response.status === 201 ? 'created' : 'already exists'}: ${carVin}`);
+      
+      // CRITICAL: Use router.replace for immediate navigation
+      router.replace(`/cars/${carVin}`);
+      return;
 
     } catch (err) {
       console.error("Error creating car:", err);
       setError("Network error: Unable to connect to the server. Please try again.");
+    } finally {
+      // GUARANTEE: Always reset loading state
       setLoading(false);
     }
   };

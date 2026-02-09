@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import styles from "./carDetail.module.css";
@@ -302,12 +302,28 @@ export default function CarDetailPage() {
   const [userRole, setUserRole] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
   const [archiving, setArchiving] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  
+  // Ref to store timeout ID for cleanup
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const MAX_RETRIES = 10;
+  const RETRY_DELAYS = [500, 1000, 1500, 2000, 2500, 3000, 3000, 3000, 3000, 3000]; // Total ~20s
 
   useEffect(() => {
     if (vin) {
       fetchCarData();
       fetchUserRole();
     }
+    
+    // Cleanup function to cancel pending timeouts on unmount
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vin]);
 
@@ -324,7 +340,7 @@ export default function CarDetailPage() {
     }
   };
 
-  const fetchCarData = async () => {
+  const fetchCarData = async (attemptNumber = 0) => {
     try {
       const response = await fetch(`/api/cars/vin/${vin}`);
 
@@ -333,11 +349,43 @@ export default function CarDetailPage() {
           router.push("/login");
           return;
         }
+        
         if (response.status === 403) {
           setError("Access denied - different region");
           setLoading(false);
+          setIsRetrying(false);
           return;
         }
+        
+        // Handle 404 with retry logic
+        if (response.status === 404) {
+          if (attemptNumber < MAX_RETRIES) {
+            // Car might be still creating, retry with backoff
+            setIsRetrying(true);
+            setRetryCount(attemptNumber + 1);
+            setLoading(false); // Clear loading since we're in retry mode
+            const delay = RETRY_DELAYS[attemptNumber] || 3000;
+            
+            // Clear any existing timeout before setting a new one
+            if (retryTimeoutRef.current) {
+              clearTimeout(retryTimeoutRef.current);
+            }
+            
+            // Store timeout ID for cleanup
+            retryTimeoutRef.current = setTimeout(() => {
+              retryTimeoutRef.current = null;
+              fetchCarData(attemptNumber + 1);
+            }, delay);
+            return;
+          }
+          
+          // Max retries reached
+          setError("Car not found");
+          setLoading(false);
+          setIsRetrying(false);
+          return;
+        }
+        
         throw new Error("Failed to fetch car data");
       }
 
@@ -345,11 +393,15 @@ export default function CarDetailPage() {
       setCar(data.car);
       setSlots(data.slots || []);
       setLinks(data.links || []);
+      setIsRetrying(false);
+      setRetryCount(0);
+      setLoading(false);
     } catch (err) {
       console.error("Error fetching car:", err);
       setError("Failed to load car data");
-    } finally {
       setLoading(false);
+      setIsRetrying(false);
+      setRetryCount(0);
     }
   };
 
@@ -417,10 +469,14 @@ export default function CarDetailPage() {
     }
   };
 
-  if (loading) {
+  if (loading || isRetrying) {
     return (
       <div className={styles.page}>
-        <div className={styles.loading}>Loading car data...</div>
+        <div className={styles.loading}>
+          {isRetrying 
+            ? `Creating car... (attempt ${retryCount + 1}/${MAX_RETRIES})`
+            : "Loading car data..."}
+        </div>
       </div>
     );
   }
@@ -430,9 +486,22 @@ export default function CarDetailPage() {
       <div className={styles.page}>
         <div className={styles.container}>
           <div className={styles.error}>{error || "Car not found"}</div>
-          <Link href="/cars" className={styles.backLink}>
-            ← Back to Cars
-          </Link>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <Link href="/cars" className={styles.backLink}>
+              ← Back to Cars
+            </Link>
+            <button 
+              onClick={() => {
+                setError("");
+                setLoading(true);
+                fetchCarData(0);
+              }}
+              className={styles.backLink}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+            >
+              🔄 Retry
+            </button>
+          </div>
         </div>
       </div>
     );
