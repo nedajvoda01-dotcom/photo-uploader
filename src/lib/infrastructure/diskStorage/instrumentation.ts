@@ -5,6 +5,8 @@
  * Provides insights into optimization effectiveness
  */
 
+import { DEBUG_DISK_CALLS } from '@/lib/config/index';
+
 export interface DiskCallCounter {
   listFolder: number;
   downloadFile: number;
@@ -24,7 +26,7 @@ interface RequestContext {
   startTime: number;
 }
 
-const DEBUG_ENABLED = process.env.DEBUG_DISK_CALLS === '1' || process.env.DEBUG_DISK_CALLS === 'true';
+const DEBUG_ENABLED = DEBUG_DISK_CALLS;
 
 // Store per-request tracking
 const requestContexts = new Map<string, RequestContext>();
