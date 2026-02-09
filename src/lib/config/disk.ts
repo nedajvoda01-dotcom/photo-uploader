@@ -56,6 +56,17 @@ export const MAX_FILES_PER_UPLOAD = parseInt(process.env.MAX_FILES_PER_UPLOAD ||
 // Photo index limits
 export const MAX_PHOTOS_PER_SLOT = parseInt(process.env.MAX_PHOTOS_PER_SLOT || "40", 10); // hard limit per slot
 
+/**
+ * TTL for _REGION.json cache in milliseconds (5 minutes)
+ * After this time, the cache is considered stale and will be rebuilt
+ */
+export const REGION_INDEX_TTL_MS = parseInt(process.env.REGION_INDEX_TTL_MS || "300000", 10); // 5 minutes
+
+/**
+ * Enable debug logging for region index operations
+ */
+export const DEBUG_REGION_INDEX = process.env.DEBUG_REGION_INDEX === '1' || process.env.DEBUG_REGION_INDEX === 'true';
+
 // Debug configuration
 export const DEBUG_DISK_CALLS = process.env.DEBUG_DISK_CALLS === '1' || process.env.DEBUG_DISK_CALLS === 'true';
 

@@ -3,7 +3,7 @@
  * Manages car data using only Yandex Disk (no database)
  * 
  * Storage Structure:
- * - Region index: {regionPath}/_REGION.json (list of cars)
+ * - Region index: {regionPath}/_REGION.json (list of cars with TTL)
  * - Car metadata: {carRoot}/_CAR.json
  * - Photo index: {slotPath}/_PHOTOS.json (SSOT with version, limit)
  * - Slot stats: {slotPath}/_SLOT.json (count, cover, updated_at)
@@ -28,7 +28,7 @@ import {
   createFolder,
   deleteFile
 } from "@/lib/infrastructure/yandexDisk/client";
-import { MAX_PHOTOS_PER_SLOT } from "@/lib/config/disk";
+import { MAX_PHOTOS_PER_SLOT, REGION_INDEX_TTL_MS, DEBUG_REGION_INDEX } from "@/lib/config/disk";
 
 /**
  * Expected total number of slot folders per car
@@ -83,6 +83,16 @@ export interface Link {
   url: string;
   created_by?: string;
   created_at: string;
+}
+
+/**
+ * Region index structure (_REGION.json)
+ * Caches list of cars in a region with TTL
+ */
+export interface RegionIndex {
+  version: number; // Schema version
+  updated_at: string; // ISO timestamp
+  cars: Car[];
 }
 
 /**
@@ -818,6 +828,7 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
 /**
  * Read region index from _REGION.json
  * Returns list of cars in the region without folder scanning
+ * Implements TTL check - returns null if expired
  */
 async function readRegionIndex(regionPath: string): Promise<Car[] | null> {
   try {
@@ -825,40 +836,99 @@ async function readRegionIndex(regionPath: string): Promise<Car[] | null> {
     const indexExists = await exists(regionIndexPath);
     
     if (!indexExists) {
+      if (DEBUG_REGION_INDEX) {
+        console.log(`[RegionIndex] Cache miss: ${regionIndexPath} does not exist`);
+      }
       return null;
     }
     
     const result = await downloadFile(regionIndexPath);
     if (!result.success || !result.data) {
+      if (DEBUG_REGION_INDEX) {
+        console.log(`[RegionIndex] Cache miss: Failed to download ${regionIndexPath}`);
+      }
       return null;
     }
     
     const content = result.data.toString('utf-8');
-    const indexData = JSON.parse(content);
+    const indexData = JSON.parse(content) as RegionIndex;
+    
+    // Validate schema
+    if (!validateRegionIndexSchema(indexData)) {
+      console.warn(`[RegionIndex] Invalid schema at ${regionIndexPath}, will rebuild`);
+      return null;
+    }
+    
+    // Check TTL
+    if (indexData.updated_at) {
+      const updatedTime = new Date(indexData.updated_at).getTime();
+      const now = Date.now();
+      const age = now - updatedTime;
+      
+      if (age > REGION_INDEX_TTL_MS) {
+        if (DEBUG_REGION_INDEX) {
+          console.log(`[RegionIndex] Cache expired: age=${Math.round(age / 1000)}s, TTL=${Math.round(REGION_INDEX_TTL_MS / 1000)}s`);
+        }
+        return null; // Expired
+      }
+      
+      if (DEBUG_REGION_INDEX) {
+        console.log(`[RegionIndex] Cache hit: age=${Math.round(age / 1000)}s, ${indexData.cars.length} cars`);
+      }
+    }
     
     return indexData.cars || null;
   } catch (error) {
-    console.error(`Error reading region index from ${regionPath}:`, error);
+    console.error(`[RegionIndex] Error reading from ${regionPath}:`, error);
     return null;
   }
 }
 
 /**
+ * Validate RegionIndex schema
+ */
+function validateRegionIndexSchema(data: any): data is RegionIndex {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  
+  if (typeof data.version !== 'number' || data.version < 1) {
+    return false;
+  }
+  
+  if (typeof data.updated_at !== 'string' || !data.updated_at) {
+    return false;
+  }
+  
+  if (!Array.isArray(data.cars)) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Write region index to _REGION.json
- * Updates the list of cars in the region
+ * Updates the list of cars in the region with versioning
  */
 async function writeRegionIndex(regionPath: string, cars: Car[]): Promise<boolean> {
   try {
     const regionIndexPath = `${regionPath}/_REGION.json`;
-    const indexData = {
-      cars: cars,
+    const indexData: RegionIndex = {
+      version: 1,
       updated_at: new Date().toISOString(),
+      cars: cars,
     };
     
     const result = await uploadText(regionIndexPath, indexData);
+    
+    if (result.success && DEBUG_REGION_INDEX) {
+      console.log(`[RegionIndex] Cache written: ${cars.length} cars at ${regionIndexPath}`);
+    }
+    
     return result.success;
   } catch (error) {
-    console.error(`Error writing region index to ${regionPath}:`, error);
+    console.error(`[RegionIndex] Error writing to ${regionPath}:`, error);
     return false;
   }
 }
@@ -897,16 +967,18 @@ function buildDeterministicSlots(carRootPath: string, region: string, make: stri
  */
 export async function listCarsByRegion(region: string): Promise<CarWithProgress[]> {
   const cars: CarWithProgress[] = [];
+  let listFolderCalls = 0;
+  let nestedScans = 0;
   
   try {
     const regionPath = getRegionPath(region);
     
-    // Try to read from _REGION.json first
+    // Try to read from _REGION.json first (O(1) cache hit)
     const indexedCars = await readRegionIndex(regionPath);
     
     if (indexedCars && indexedCars.length > 0) {
       // Use indexed data - very fast, no folder scanning
-      console.log(`[DiskStorage] Using _REGION.json index for region ${region}, found ${indexedCars.length} cars`);
+      console.log(`[RegionLoad] ✅ Cache hit: region=${region}, cars=${indexedCars.length}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
       
       for (const car of indexedCars) {
         cars.push({
@@ -927,11 +999,13 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       return cars;
     }
     
-    // Fallback: List car folders in the region (slower)
-    console.log(`[DiskStorage] _REGION.json not found or empty, falling back to folder listing for region ${region}`);
+    // Fallback: List car folders in the region (cache miss/expired)
+    console.log(`[RegionLoad] Cache miss/expired for region ${region}, performing listFolder`);
+    listFolderCalls = 1; // Count this API call
+    
     const carsResult = await listFolder(regionPath);
     if (!carsResult.success || !carsResult.items) {
-      console.log(`[DiskStorage] No cars found in region ${region}`);
+      console.log(`[RegionLoad] ⚠️ No cars found: region=${region}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
       return cars;
     }
     
@@ -945,7 +1019,7 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       // Parse car folder name
       const carInfo = parseCarFolderName(carFolder.name);
       if (!carInfo) {
-        console.warn(`[DiskStorage] Could not parse car folder name: ${carFolder.name}`);
+        console.warn(`[RegionLoad] Could not parse car folder name: ${carFolder.name}`);
         continue;
       }
       
@@ -978,14 +1052,16 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       });
     }
     
+    console.log(`[RegionLoad] ✅ Rebuilt index: region=${region}, cars=${scannedCars.length}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
+    
     // Write _REGION.json for future use (fire and forget)
     if (scannedCars.length > 0) {
       writeRegionIndex(regionPath, scannedCars).catch(err => 
-        console.warn(`Failed to write region index for ${region}:`, err)
+        console.warn(`[RegionLoad] Failed to write cache for ${region}:`, err)
       );
     }
   } catch (error) {
-    console.error(`[DiskStorage] Error listing cars in region ${region}:`, error);
+    console.error(`[RegionLoad] ❌ Error: region=${region}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`, error);
   }
   
   return cars;
