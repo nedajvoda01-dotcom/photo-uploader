@@ -619,54 +619,56 @@ export async function readPhotosIndex(slotPath: string, skipTTL: boolean = false
  * Validate PhotoIndex JSON schema
  * Returns true if valid, false otherwise
  */
-function validatePhotosIndexSchema(data: any): data is PhotoIndex {
+function validatePhotosIndexSchema(data: unknown): data is PhotoIndex {
   if (typeof data !== 'object' || data === null) {
     return false;
   }
+  const obj = data as Record<string, unknown>;
   
   // Required fields with correct types
-  if (typeof data.version !== 'number' || data.version < 1) {
+  if (typeof obj.version !== 'number' || obj.version < 1) {
     return false;
   }
   
-  if (typeof data.count !== 'number' || data.count < 0) {
+  if (typeof obj.count !== 'number' || obj.count < 0) {
     return false;
   }
   
-  if (typeof data.limit !== 'number' || data.limit !== MAX_PHOTOS_PER_SLOT) {
+  if (typeof obj.limit !== 'number' || obj.limit !== MAX_PHOTOS_PER_SLOT) {
     return false;
   }
   
-  if (typeof data.updatedAt !== 'string' || !data.updatedAt) {
+  if (typeof obj.updatedAt !== 'string' || !obj.updatedAt) {
     return false;
   }
   
-  if (data.cover !== null && typeof data.cover !== 'string') {
+  if (obj.cover !== null && typeof obj.cover !== 'string') {
     return false;
   }
   
-  if (!Array.isArray(data.items)) {
+  if (!Array.isArray(obj.items)) {
     return false;
   }
   
   // Validate each item
-  for (const item of data.items) {
+  for (const item of obj.items) {
     if (typeof item !== 'object' || item === null) {
       return false;
     }
-    if (typeof item.name !== 'string' || !item.name) {
+    const photoItem = item as Record<string, unknown>;
+    if (typeof photoItem.name !== 'string' || !photoItem.name) {
       return false;
     }
-    if (typeof item.size !== 'number' || item.size < 0) {
+    if (typeof photoItem.size !== 'number' || photoItem.size < 0) {
       return false;
     }
-    if (typeof item.modified !== 'string' || !item.modified) {
+    if (typeof photoItem.modified !== 'string' || !photoItem.modified) {
       return false;
     }
   }
   
   // Consistency check: count should match items.length
-  if (data.count !== data.items.length) {
+  if (obj.count !== obj.items.length) {
     return false;
   }
   
@@ -960,20 +962,21 @@ async function readRegionIndex(regionPath: string): Promise<Car[] | null> {
 /**
  * Validate RegionIndex schema
  */
-function validateRegionIndexSchema(data: any): data is RegionIndex {
+function validateRegionIndexSchema(data: unknown): data is RegionIndex {
   if (typeof data !== 'object' || data === null) {
     return false;
   }
+  const obj = data as Record<string, unknown>;
   
-  if (typeof data.version !== 'number' || data.version < 1) {
+  if (typeof obj.version !== 'number' || obj.version < 1) {
     return false;
   }
   
-  if (typeof data.updated_at !== 'string' || !data.updated_at) {
+  if (typeof obj.updated_at !== 'string' || !obj.updated_at) {
     return false;
   }
   
-  if (!Array.isArray(data.cars)) {
+  if (!Array.isArray(obj.cars)) {
     return false;
   }
   
@@ -1041,7 +1044,7 @@ function buildDeterministicSlots(carRootPath: string, region: string, make: stri
 export async function listCarsByRegion(region: string): Promise<CarWithProgress[]> {
   const cars: CarWithProgress[] = [];
   let listFolderCalls = 0;
-  let nestedScans = 0;
+  const nestedScans = 0;
   
   try {
     const regionPath = getRegionPath(region);

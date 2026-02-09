@@ -57,12 +57,13 @@ function test(name: string, fn: () => void) {
 const MAX_PHOTOS_PER_SLOT = 40;
 
 // Simulate the validation function
-function validatePhotosIndexSchema(data: any): boolean {
+function validatePhotosIndexSchema(data: unknown): boolean {
   if (typeof data !== 'object' || data === null) return false;
-  if (typeof data.version !== 'number' || data.version < 1) return false;
-  if (typeof data.count !== 'number' || data.count < 0) return false;
-  if (typeof data.limit !== 'number' || data.limit !== MAX_PHOTOS_PER_SLOT) return false;
-  if (typeof data.updatedAt !== 'string' || !data.updatedAt) return false;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.version !== 'number' || obj.version < 1) return false;
+  if (typeof obj.count !== 'number' || obj.count < 0) return false;
+  if (typeof obj.limit !== 'number' || obj.limit !== MAX_PHOTOS_PER_SLOT) return false;
+  if (typeof obj.updatedAt !== 'string' || !obj.updatedAt) return false;
   if (data.cover !== null && typeof data.cover !== 'string') return false;
   if (!Array.isArray(data.items)) return false;
   

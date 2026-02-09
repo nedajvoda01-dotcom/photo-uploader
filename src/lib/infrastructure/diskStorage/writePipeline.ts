@@ -187,7 +187,7 @@ export async function commitData(
     for (const file of files) {
       const filePath = `${slotPath}/${file.name}`;
       let attempts = 0;
-      let lastError: Error | null = null;
+      const lastError: Error | null = null;
       
       stageLog(`Uploading ${file.name} (${file.bytes.length} bytes)...`);
       

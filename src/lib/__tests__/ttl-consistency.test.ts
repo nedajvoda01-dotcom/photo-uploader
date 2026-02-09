@@ -28,27 +28,27 @@ function it(name: string, fn: () => void) {
   }
 }
 
-const expect = (value: any) => ({
+const expect = (value: unknown) => ({
   toBeDefined: () => {
     if (value === undefined) throw new Error(`Expected value to be defined`);
   },
-  toBe: (expected: any) => {
+  toBe: (expected: unknown) => {
     if (value !== expected) throw new Error(`Expected ${value} to be ${expected}`);
   },
   toBeGreaterThan: (expected: number) => {
-    if (value <= expected) throw new Error(`Expected ${value} to be greater than ${expected}`);
+    if (typeof value !== 'number' || value <= expected) throw new Error(`Expected ${value} to be greater than ${expected}`);
   },
   toBeGreaterThanOrEqual: (expected: number) => {
-    if (value < expected) throw new Error(`Expected ${value} to be >= ${expected}`);
+    if (typeof value !== 'number' || value < expected) throw new Error(`Expected ${value} to be >= ${expected}`);
   },
   toBeLessThan: (expected: number) => {
-    if (value >= expected) throw new Error(`Expected ${value} to be less than ${expected}`);
+    if (typeof value !== 'number' || value >= expected) throw new Error(`Expected ${value} to be less than ${expected}`);
   },
   toBeLessThanOrEqual: (expected: number) => {
-    if (value > expected) throw new Error(`Expected ${value} to be <= ${expected}`);
+    if (typeof value !== 'number' || value > expected) throw new Error(`Expected ${value} to be <= ${expected}`);
   },
   not: {
-    toBe: (expected: any) => {
+    toBe: (expected: unknown) => {
       if (value === expected) throw new Error(`Expected ${value} not to be ${expected}`);
     },
   },

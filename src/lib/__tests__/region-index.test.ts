@@ -55,11 +55,12 @@ function test(name: string, fn: () => void) {
 const REGION_INDEX_TTL_MS = 300000; // 5 minutes
 
 // Mock validation function
-function validateRegionIndexSchema(data: any): boolean {
+function validateRegionIndexSchema(data: unknown): boolean {
   if (typeof data !== 'object' || data === null) return false;
-  if (typeof data.version !== 'number' || data.version < 1) return false;
-  if (typeof data.updated_at !== 'string' || !data.updated_at) return false;
-  if (!Array.isArray(data.cars)) return false;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.version !== 'number' || obj.version < 1) return false;
+  if (typeof obj.updated_at !== 'string' || !obj.updated_at) return false;
+  if (!Array.isArray(obj.cars)) return false;
   return true;
 }
 

@@ -17,8 +17,7 @@ console.log('Expected log format before each Disk API call:');
 console.log('[DiskAPI] {"requestId":"req_...","stage":"...","normalizedPath":"..."}\n');
 
 // Import after setting env var
-const { assertDiskPath } = require('../src/lib/domain/disk/paths');
-const client = require('../src/lib/infrastructure/yandexDisk/client');
+import { assertDiskPath } from '../src/lib/domain/disk/paths';
 
 console.log('Testing path validation with logging:\n');
 

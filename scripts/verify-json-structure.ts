@@ -79,13 +79,16 @@ console.log('5. JSON SCHEMA VALIDATION');
 console.log('─────────────────────────────');
 
 // Simple validation check
-function validatePhotoIndex(data: any): boolean {
+function validatePhotoIndex(data: unknown): boolean {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  
   const checks = [
-    ['version >= 1', typeof data.version === 'number' && data.version >= 1],
-    ['count >= 0', typeof data.count === 'number' && data.count >= 0],
-    ['limit === 40', data.limit === 40],
-    ['updatedAt exists', typeof data.updatedAt === 'string' && data.updatedAt],
-    ['cover valid', data.cover === null || typeof data.cover === 'string'],
+    ['version >= 1', typeof obj.version === 'number' && obj.version >= 1],
+    ['count >= 0', typeof obj.count === 'number' && obj.count >= 0],
+    ['limit === 40', obj.limit === 40],
+    ['updatedAt exists', typeof obj.updatedAt === 'string' && obj.updatedAt],
+    ['cover valid', obj.cover === null || typeof obj.cover === 'string'],
     ['items is array', Array.isArray(data.items)],
     ['count === items.length', data.count === data.items.length],
   ];
