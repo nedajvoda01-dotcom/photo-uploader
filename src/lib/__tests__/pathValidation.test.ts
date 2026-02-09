@@ -180,6 +180,31 @@ describe('Path Validation', () => {
   test('REQUIREMENT: forbidden ":" in first segment → structured error', () => {
     expect(() => normalizeDiskPath('/C:/Фото/MSK')).toThrow('path segment contains colon');
   });
+  
+  // Path traversal prevention tests
+  test('REQUIREMENT: ban ".." for path traversal prevention', () => {
+    expect(() => normalizeDiskPath('/Фото/../etc/passwd')).toThrow('path traversal attempt');
+  });
+  
+  test('normalizeDiskPath rejects ".." at start of path', () => {
+    expect(() => normalizeDiskPath('/../Фото/R1')).toThrow('path traversal attempt');
+  });
+  
+  test('normalizeDiskPath rejects ".." in middle of path', () => {
+    expect(() => normalizeDiskPath('/Фото/R1/../R2')).toThrow('path traversal attempt');
+  });
+  
+  test('normalizeDiskPath rejects ".." at end of path', () => {
+    expect(() => normalizeDiskPath('/Фото/R1/..')).toThrow('path traversal attempt');
+  });
+  
+  test('normalizeDiskPath allows "..." (three dots) which is not traversal', () => {
+    expect(normalizeDiskPath('/Фото/R1/...')).toBe('/Фото/R1/...');
+  });
+  
+  test('normalizeDiskPath allows single "." in path', () => {
+    expect(normalizeDiskPath('/Фото/R1/.')).toBe('/Фото/R1/.');
+  });
 });
 
 // Tests for assertDiskPath
@@ -210,6 +235,11 @@ describe('assertDiskPath Function', () => {
   
   test('assertDiskPath throws on empty path', () => {
     expect(() => assertDiskPath('', 'testStage')).toThrow('[testStage]');
+  });
+  
+  test('assertDiskPath rejects path traversal with ".."', () => {
+    expect(() => assertDiskPath('/Фото/../etc', 'testStage')).toThrow('[testStage]');
+    expect(() => assertDiskPath('/Фото/../etc', 'testStage')).toThrow('path traversal');
   });
 });
 

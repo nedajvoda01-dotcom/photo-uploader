@@ -72,6 +72,13 @@ export function normalizeDiskPath(path: string): string {
     }
   }
   
+  // 8. Validate: no path segment may be '..' (path traversal prevention)
+  for (const segment of segments) {
+    if (segment === '..') {
+      throw new Error(`normalizeDiskPath: path traversal attempt detected (..) in path: ${path}`);
+    }
+  }
+  
   return normalized;
 }
 

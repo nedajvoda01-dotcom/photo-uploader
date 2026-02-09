@@ -24,6 +24,7 @@ Located in: `src/lib/domain/disk/paths.ts`
 5. Collapse multiple slashes: `//+` → `/`
 6. Ensure path starts with `/`
 7. Validate: no path segment may contain `:` character
+8. **Security: Prevent path traversal - reject `..` segments**
 
 **Examples:**
 ```typescript
@@ -32,6 +33,7 @@ normalizeDiskPath(" /Фото / R1 / ... ")        // → "/Фото/R1/..."
 normalizeDiskPath("\\Фото\\MSK\\car")          // → "/Фото/MSK/car"
 normalizeDiskPath("/Фото//MSK///car")          // → "/Фото/MSK/car"
 normalizeDiskPath("/C:/Фото")                  // → throws Error (colon in segment)
+normalizeDiskPath("/Фото/../etc")              // → throws Error (path traversal attempt)
 ```
 
 ### 2. Path Assertion: `assertDiskPath(p, stage)`
@@ -95,10 +97,52 @@ npm run dev
 DEBUG_DISK_CALLS=1 npm run dev
 ```
 
+### 4. Path Segment Sanitization
+
+Located in: `src/lib/domain/disk/paths.ts`
+
+**Functions:**
+- `sanitizePathSegment(segment)` - Sanitizes individual path segments (VIN, make, model, region)
+- `sanitizeFilename(filename)` - Sanitizes filenames while preserving extensions
+
+**Sanitization Rules:**
+1. Replace dangerous characters with `_`: `/ \ : * ? " < > |`
+2. Collapse multiple dots: `..` → `.`
+3. Strip leading and trailing dots
+4. Trim whitespace
+5. Limit length to 255 characters (filesystem limit)
+
+**Security Benefits:**
+- Prevents path traversal attacks
+- Blocks injection of dangerous filesystem characters
+- Ensures all user-provided names (VIN, make, model, filenames) are safe
+
+**Examples:**
+```typescript
+sanitizePathSegment('Toyota/Camry')            // → "Toyota_Camry"
+sanitizePathSegment('../../../etc/passwd')     // → "_._._etc_passwd"
+sanitizePathSegment('test:file*name?.txt')     // → "test_file_name_.txt"
+sanitizeFilename('my<file>name?.jpg')          // → "my_file_name_.jpg"
+```
+
+**Usage in Code:**
+All VIN, make, model inputs are sanitized before creating car paths:
+```typescript
+const safeMake = sanitizePathSegment(make);
+const safeModel = sanitizePathSegment(model);
+const safeVin = sanitizePathSegment(vin);
+```
+
+All uploaded file names are sanitized:
+```typescript
+const safeFilename = sanitizeFilename(file.name);
+```
+
 ## Test Coverage
 
 ### Unit Tests
 
+**Path Validation Tests**
 Location: `src/lib/__tests__/pathValidation.test.ts`
 
 **Test Categories:**
@@ -106,11 +150,12 @@ Location: `src/lib/__tests__/pathValidation.test.ts`
 2. Space handling around slashes
 3. `disk:/` prefix stripping
 4. Colon validation in path segments
-5. Empty/invalid path rejection
-6. `assertDiskPath` function behavior
-7. Stage information in errors
+5. **Path traversal prevention (`..` detection)**
+6. Empty/invalid path rejection
+7. `assertDiskPath` function behavior
+8. Stage information in errors
 
-**Test Count:** 35+ tests covering all normalization rules and edge cases
+**Test Count:** 42+ tests covering all normalization rules and edge cases
 
 **Specific Requirement Tests:**
 ```typescript
@@ -125,7 +170,24 @@ test('REQUIREMENT: " /Фото / R1 / ... " → "/Фото/R1/..."', () => {
 test('REQUIREMENT: forbidden ":" in first segment → structured error', () => {
   expect(() => normalizeDiskPath('/C:/Фото/MSK')).toThrow('path segment contains colon');
 });
+
+test('REQUIREMENT: ban ".." for path traversal prevention', () => {
+  expect(() => normalizeDiskPath('/Фото/../etc/passwd')).toThrow('path traversal attempt');
+});
 ```
+
+**Sanitization Tests**
+Location: `src/lib/__tests__/sanitization.test.ts`
+
+**Test Categories:**
+1. Dangerous character removal (/ \ : * ? " < > |)
+2. Path traversal prevention (..)
+3. Length limits (255 chars)
+4. Whitespace handling
+5. VIN/Make/Model sanitization
+6. Filename sanitization with extension preservation
+
+**Test Count:** 31+ tests covering all sanitization requirements
 
 ### Running Tests
 
