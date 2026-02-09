@@ -154,7 +154,9 @@ export default function CarsPage() {
 
   const handleRestoreClick = (car: Car) => {
     setSelectedCarToRestore(car);
-    setRestoreTargetRegion(availableRegions[0] || "");
+    // Filter out ALL from available regions for restore target
+    const validRegions = availableRegions.filter(r => r !== 'ALL');
+    setRestoreTargetRegion(validRegions[0] || "");
     setShowRestoreModal(true);
   };
 
@@ -418,7 +420,7 @@ export default function CarsPage() {
                 className={styles.modalSelect}
                 disabled={restoring}
               >
-                {availableRegions.map((region) => (
+                {availableRegions.filter(r => r !== 'ALL').map((region) => (
                   <option key={region} value={region}>
                     {region}
                   </option>
