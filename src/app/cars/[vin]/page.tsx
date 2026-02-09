@@ -342,6 +342,7 @@ export default function CarDetailPage() {
         if (response.status === 403) {
           setError("Access denied - different region");
           setLoading(false);
+          setIsRetrying(false);
           return;
         }
         
@@ -351,6 +352,7 @@ export default function CarDetailPage() {
             // Car might be still creating, retry with backoff
             setIsRetrying(true);
             setRetryCount(attemptNumber + 1);
+            setLoading(false); // Clear loading since we're in retry mode
             const delay = RETRY_DELAYS[attemptNumber] || 3000;
             
             setTimeout(() => {
@@ -375,11 +377,13 @@ export default function CarDetailPage() {
       setLinks(data.links || []);
       setIsRetrying(false);
       setRetryCount(0);
+      setLoading(false);
     } catch (err) {
       console.error("Error fetching car:", err);
       setError("Failed to load car data");
-    } finally {
       setLoading(false);
+      setIsRetrying(false);
+      setRetryCount(0);
     }
   };
 
