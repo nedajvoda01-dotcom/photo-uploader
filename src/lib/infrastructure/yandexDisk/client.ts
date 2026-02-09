@@ -138,7 +138,7 @@ async function withRetry<T>(
  */
 async function ensureDir(path: string): Promise<void> {
   // Normalize and validate path at API boundary
-  const { normalizedPath, requestId } = validateAndNormalizePath(path, 'ensureDir');
+  const { normalizedPath } = validateAndNormalizePath(path, 'ensureDir');
   
   // Split the path into segments and recursively create each directory
   const segments = normalizedPath.split("/").filter((seg) => seg.length > 0);
@@ -193,11 +193,9 @@ export async function uploadToYandexDisk(
 
   // Normalize and validate path at API boundary
   let normalizedPath: string;
-  let requestId: string;
   try {
     const result = validateAndNormalizePath(path, 'uploadToYandexDisk');
     normalizedPath = result.normalizedPath;
-    requestId = result.requestId;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -305,11 +303,9 @@ export async function uploadToYandexDisk(
 export async function createFolder(path: string): Promise<{ success: boolean; error?: string }> {
   // Normalize and validate path at API boundary
   let normalizedPath: string;
-  let requestId: string;
   try {
     const result = validateAndNormalizePath(path, 'createFolder');
     normalizedPath = result.normalizedPath;
-    requestId = result.requestId;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
