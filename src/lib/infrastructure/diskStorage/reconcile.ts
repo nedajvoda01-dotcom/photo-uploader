@@ -2,16 +2,52 @@
  * Reconcile/Repair Utilities
  * 
  * Self-healing functions to rebuild indexes when missing or corrupted
+ * Implements problem statement #5: Reconcile (самолечение)
  */
 
 import { listFolder, downloadFile, uploadText, exists } from '@/lib/infrastructure/yandexDisk/client';
 import { getRegionPath } from '@/lib/domain/disk/paths';
+import { MAX_PHOTOS_PER_SLOT } from '@/lib/config/disk';
 import type { PhotoIndex, PhotoItem } from './carsRepo';
 
 export interface ReconcileResult {
   actionsPerformed: string[];
   repairedFiles: string[];
   errors: string[];
+}
+
+export type ReconcileDepth = 'slot' | 'car' | 'region';
+
+/**
+ * Unified reconcile function with depth parameter
+ * 
+ * @param path - Path to reconcile (slot path, car path, or region path)
+ * @param depth - Reconcile depth: 'slot' | 'car' | 'region'
+ * @returns ReconcileResult with actions performed, repaired files, and errors
+ * 
+ * Example:
+ * - reconcile('/Фото/R1', 'region') - Reconcile entire region
+ * - reconcile('/Фото/R1/Car1', 'car') - Reconcile car and all slots
+ * - reconcile('/Фото/R1/Car1/1. Dealer photos/1', 'slot') - Reconcile single slot
+ */
+export async function reconcile(path: string, depth: ReconcileDepth = 'slot'): Promise<ReconcileResult> {
+  switch (depth) {
+    case 'slot':
+      return reconcileSlot(path);
+    case 'car':
+      return reconcileCar(path);
+    case 'region':
+      // Extract region name from path
+      const regionMatch = path.match(/\/Фото\/([^\/]+)/);
+      const regionName = regionMatch ? regionMatch[1] : path;
+      return reconcileRegion(regionName);
+    default:
+      return {
+        actionsPerformed: [],
+        repairedFiles: [],
+        errors: [`Unknown depth: ${depth}`],
+      };
+  }
 }
 
 /**
@@ -60,6 +96,7 @@ export async function reconcileRegion(region: string): Promise<ReconcileResult> 
     // Write _REGION.json
     const regionIndexPath = `${regionPath}/_REGION.json`;
     const regionData = {
+      version: 1, // Schema version
       cars,
       updated_at: new Date().toISOString(),
     };
@@ -80,7 +117,11 @@ export async function reconcileRegion(region: string): Promise<ReconcileResult> 
 }
 
 /**
- * Reconcile a car: rebuild slot indexes
+ * Reconcile a car: verify structure and rebuild slot indexes
+ * Validates:
+ * - _CAR.json exists and is valid
+ * - Expected slot structure (1 dealer + 8 buyout + 5 dummy = 14 slots)
+ * - All slot indexes are present
  */
 export async function reconcileCar(carRootPath: string): Promise<ReconcileResult> {
   const result: ReconcileResult = {
@@ -92,6 +133,35 @@ export async function reconcileCar(carRootPath: string): Promise<ReconcileResult
   try {
     result.actionsPerformed.push(`Scanning car: ${carRootPath}`);
     
+    // Check _CAR.json exists and is valid
+    const carJsonPath = `${carRootPath}/_CAR.json`;
+    const carJsonExists = await exists(carJsonPath);
+    
+    if (!carJsonExists) {
+      result.errors.push(`Missing _CAR.json at ${carJsonPath}`);
+      result.actionsPerformed.push(`⚠️ _CAR.json not found - car metadata missing`);
+    } else {
+      // Validate _CAR.json structure
+      try {
+        const carJsonResult = await downloadFile(carJsonPath);
+        if (carJsonResult.success && carJsonResult.data) {
+          const carData = JSON.parse(carJsonResult.data.toString('utf-8'));
+          
+          // Validate required fields
+          const requiredFields = ['region', 'make', 'model', 'vin', 'disk_root_path'];
+          const missingFields = requiredFields.filter(field => !carData[field]);
+          
+          if (missingFields.length > 0) {
+            result.errors.push(`_CAR.json missing required fields: ${missingFields.join(', ')}`);
+          } else {
+            result.actionsPerformed.push(`✅ _CAR.json validated`);
+          }
+        }
+      } catch (error) {
+        result.errors.push(`Failed to parse _CAR.json: ${error}`);
+      }
+    }
+    
     // List slot type folders
     const listResult = await listFolder(carRootPath);
     if (!listResult.success || !listResult.items) {
@@ -99,14 +169,29 @@ export async function reconcileCar(carRootPath: string): Promise<ReconcileResult
       return result;
     }
     
-    const slotTypeFolders = listResult.items.filter(item => item.type === 'dir');
+    const slotTypeFolders = listResult.items.filter(item => item.type === 'dir' && !item.name.startsWith('_'));
     result.actionsPerformed.push(`Found ${slotTypeFolders.length} slot type folders`);
+    
+    // Count total slots across all types
+    let totalSlots = 0;
+    const expectedSlotStructure = {
+      '1. Dealer photos': 1,
+      '2. Buyout (front-back)': 8,
+      '3. Dummy photos': 5,
+    };
     
     // Reconcile each slot type folder
     for (const slotTypeFolder of slotTypeFolders) {
       const slotsResult = await listFolder(slotTypeFolder.path);
       if (slotsResult.success && slotsResult.items) {
         const slotFolders = slotsResult.items.filter(item => item.type === 'dir');
+        totalSlots += slotFolders.length;
+        
+        // Check if slot count matches expected
+        const expected = expectedSlotStructure[slotTypeFolder.name as keyof typeof expectedSlotStructure];
+        if (expected && slotFolders.length !== expected) {
+          result.actionsPerformed.push(`⚠️ ${slotTypeFolder.name}: found ${slotFolders.length} slots, expected ${expected}`);
+        }
         
         for (const slotFolder of slotFolders) {
           const slotReconcile = await reconcileSlot(slotFolder.path);
@@ -115,6 +200,14 @@ export async function reconcileCar(carRootPath: string): Promise<ReconcileResult
           result.errors.push(...slotReconcile.errors);
         }
       }
+    }
+    
+    // Validate total slot count (expected: 1 dealer + 8 buyout + 5 dummy = 14)
+    const expectedTotal = 14;
+    if (totalSlots !== expectedTotal) {
+      result.actionsPerformed.push(`⚠️ Total slots: ${totalSlots}, expected ${expectedTotal}`);
+    } else {
+      result.actionsPerformed.push(`✅ Slot structure validated: ${totalSlots} slots`);
     }
     
   } catch (error) {
@@ -179,7 +272,9 @@ export async function reconcileSlot(slotPath: string): Promise<ReconcileResult> 
     }));
     
     const photosData: PhotoIndex = {
+      version: 1, // Schema version
       count: fileCount,
+      limit: MAX_PHOTOS_PER_SLOT, // Hard limit (40)
       updatedAt: now,
       cover,
       items: photoItems,
