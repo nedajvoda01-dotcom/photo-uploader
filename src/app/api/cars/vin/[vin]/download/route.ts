@@ -79,8 +79,8 @@ export async function GET(
       return regionCheck.error;
     }
     
-    // Build slot path from disk
-    const diskSlotPath = slotPath(car.region, car.make, car.model, car.vin, slotType as SlotType, slotIndex);
+    // Build slot path using car's root path
+    const diskSlotPath = slotPath(car.disk_root_path, slotType as SlotType, slotIndex);
     
     // Get slot stats
     const stats = await getSlotStats(diskSlotPath);

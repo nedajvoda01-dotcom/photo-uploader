@@ -24,10 +24,13 @@ export {
   loadCarSlotCounts,
   getSlot,
   getSlotStats,
-  getCarLinks,
+  listLinks,
+  findCarByLinkId,
   
   // Write operations (all go through pipeline)
   createCar,
+  createLink,
+  deleteLink,
   
   // Types
   type Car,
@@ -65,7 +68,6 @@ export {
   carRoot,
   slotPath,
   getAllSlotPaths,
-  buildDeterministicSlots,
   sanitizePathSegment,
   sanitizeFilename,
   validateSlot,
