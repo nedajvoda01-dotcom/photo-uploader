@@ -533,7 +533,7 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
  * Returns null if file doesn't exist or is invalid
  * Validates JSON schema and auto-rebuilds if broken
  */
-async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
+export async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
   try {
     const photosIndexPath = `${slotPath}/_PHOTOS.json`;
     const indexExists = await exists(photosIndexPath);
@@ -629,7 +629,7 @@ function validatePhotosIndexSchema(data: any): data is PhotoIndex {
  * Rebuild _PHOTOS.json from disk by listing folder
  * Used when index is missing or corrupted
  */
-async function rebuildPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
+export async function rebuildPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
   try {
     console.log(`[PhotoIndex] Rebuilding _PHOTOS.json for ${slotPath}`);
     

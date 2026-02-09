@@ -57,10 +57,23 @@ export const MAX_FILES_PER_UPLOAD = parseInt(process.env.MAX_FILES_PER_UPLOAD ||
 export const MAX_PHOTOS_PER_SLOT = parseInt(process.env.MAX_PHOTOS_PER_SLOT || "40", 10); // hard limit per slot
 
 /**
+ * Maximum total size for a slot in MB (20MB)
+ * Used in Stage A - Preflight to reject uploads that would exceed slot size limit
+ */
+export const MAX_SLOT_SIZE_MB = parseInt(process.env.MAX_SLOT_SIZE_MB || "20", 10);
+
+/**
  * TTL for _REGION.json cache in milliseconds (5 minutes)
  * After this time, the cache is considered stale and will be rebuilt
  */
 export const REGION_INDEX_TTL_MS = parseInt(process.env.REGION_INDEX_TTL_MS || "300000", 10); // 5 minutes
+
+/**
+ * TTL for _LOCK.json in milliseconds (5 minutes)
+ * Lock automatically expires after this time to prevent deadlocks
+ * Used in Stage C - Commit index
+ */
+export const LOCK_TTL_MS = parseInt(process.env.LOCK_TTL_MS || "300000", 10); // 5 minutes
 
 /**
  * Enable debug logging for region index operations
@@ -71,6 +84,11 @@ export const DEBUG_REGION_INDEX = process.env.DEBUG_REGION_INDEX === '1' || proc
  * Enable debug logging for car/slot loading operations
  */
 export const DEBUG_CAR_LOADING = process.env.DEBUG_CAR_LOADING === '1' || process.env.DEBUG_CAR_LOADING === 'true';
+
+/**
+ * Enable debug logging for write pipeline operations (upload/delete/rename)
+ */
+export const DEBUG_WRITE_PIPELINE = process.env.DEBUG_WRITE_PIPELINE === '1' || process.env.DEBUG_WRITE_PIPELINE === 'true';
 
 // Debug configuration
 export const DEBUG_DISK_CALLS = process.env.DEBUG_DISK_CALLS === '1' || process.env.DEBUG_DISK_CALLS === 'true';
