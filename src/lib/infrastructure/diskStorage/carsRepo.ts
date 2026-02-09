@@ -336,7 +336,7 @@ async function reconcileSlot(slotPath: string): Promise<{ fileCount: number; tot
  * Optimization: Tries to read cached stats from _PHOTOS.json first, then _SLOT.json
  * If not available or marked dirty, calls reconcileSlot() to rebuild the indexes
  */
-async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
+export async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
     // Check for _DIRTY.json flag first
     // Critical Fix: Auto-heal dirty slots
