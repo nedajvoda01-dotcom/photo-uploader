@@ -1001,7 +1001,7 @@ async function addCarToRegionIndex(region: string, car: Car): Promise<void> {
  * Remove car from region index
  * Updates _REGION.json to remove the car
  */
-async function removeCarFromRegionIndex(region: string, vin: string): Promise<void> {
+export async function removeCarFromRegionIndex(region: string, vin: string): Promise<void> {
   try {
     const regionPath = getRegionPath(region);
     

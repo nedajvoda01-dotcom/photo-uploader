@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
 import { loadCarSlotCounts } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { REGIONS_LIST } from "@/lib/config/index";

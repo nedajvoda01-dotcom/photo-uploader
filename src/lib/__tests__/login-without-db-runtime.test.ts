@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 /**
  * Test: Login without Postgres Database
  * 
@@ -36,11 +39,12 @@ if (!hasPostgresEnv) {
 console.log("\nTest 2: Import users module without DB");
 try {
   // This import should not crash even without DB
-  const { checkBootstrapAdmin } = require('../application/auth/loginUseCase');
+  // Using dynamic import to avoid linting issues
+  await import('../application/auth/loginUseCase');
   console.log("  ✓ Successfully imported auth modules");
-} catch (error) {
-  console.error("  ✗ Failed to import auth modules:", error);
-  throw error;
+} catch (importError) {
+  console.error("  ✗ Failed to import auth modules:", importError);
+  throw importError;
 }
 
 // Test 3: Verify bootstrap admin can be checked
@@ -59,15 +63,13 @@ try {
   } else {
     console.log("  ⚠ No bootstrap admin configured (requires ADMIN_EMAIL + password)");
   }
-} catch (error) {
-  console.error("  ✗ Error checking bootstrap admin:", error);
+} catch (configError) {
+  console.error("  ✗ Error checking bootstrap admin:", configError);
 }
 
 // Test 4: Verify file-based users fallback works
 console.log("\nTest 4: Check file-based users fallback");
 try {
-  const fs = require('fs');
-  const path = require('path');
   const usersJsonPath = path.join(process.cwd(), 'data', 'users.json');
   
   if (fs.existsSync(usersJsonPath)) {
@@ -75,7 +77,7 @@ try {
   } else {
     console.log("  ℹ data/users.json not found (not required in production)");
   }
-} catch (error) {
+} catch {
   console.log("  ℹ Could not check data/users.json");
 }
 

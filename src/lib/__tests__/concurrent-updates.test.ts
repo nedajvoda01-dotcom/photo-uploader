@@ -26,7 +26,7 @@ interface PhotoIndex {
 }
 
 // Simulate current index
-let currentIndex: PhotoIndex = {
+const currentIndex: PhotoIndex = {
   count: 2,
   updatedAt: "2024-01-01T00:00:00Z",
   cover: "photo1.jpg",

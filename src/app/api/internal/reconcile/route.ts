@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireAdmin, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
+import { NextRequest } from "next/server";
+import { requireAdmin, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
 import { reconcileRegion, reconcileCar, reconcileSlot } from "@/lib/infrastructure/diskStorage/reconcile";
 import { getCarByRegionAndVin } from "@/lib/infrastructure/diskStorage/carsRepo";
 
