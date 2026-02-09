@@ -107,7 +107,7 @@ export async function POST(
       created_at: carInArchive.created_at,
       created_by: carInArchive.created_by,
       restored_at: new Date().toISOString(),
-      restored_by: session.email || session.userId?.toString() || null,
+      restored_by: session.email || (session.userId ? session.userId.toString() : "unknown"),
     };
     
     const metadataResult = await uploadText(metadataPath, updatedMetadata);
@@ -164,7 +164,8 @@ async function addCarToTargetRegionIndex(region: string, car: Car): Promise<void
       try {
         const indexData = JSON.parse(indexResult.data.toString('utf-8'));
         cars = indexData.cars || [];
-      } catch {
+      } catch (parseError) {
+        console.error('[Restore] Failed to parse region index:', parseError);
         // Invalid JSON, start fresh
         cars = [];
       }
