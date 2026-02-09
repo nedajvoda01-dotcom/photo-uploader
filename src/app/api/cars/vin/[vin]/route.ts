@@ -183,6 +183,8 @@ export async function DELETE(
         
         lastError = overwriteResult.error;
         console.error(`[Archive] Overwrite attempt also failed:`, lastError);
+        // If overwrite failed, break out of retry loop since 409 is a permanent condition
+        break;
       }
       
       if (attempt < 3) {
