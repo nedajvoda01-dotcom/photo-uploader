@@ -28,7 +28,7 @@ import {
   createFolder,
   deleteFile
 } from "@/lib/infrastructure/yandexDisk/client";
-import { MAX_PHOTOS_PER_SLOT, REGION_INDEX_TTL_MS, DEBUG_REGION_INDEX, DEBUG_CAR_LOADING } from "@/lib/config/disk";
+import { MAX_PHOTOS_PER_SLOT, REGION_INDEX_TTL_MS, PHOTOS_INDEX_TTL_MS, SLOT_STATS_TTL_MS, DEBUG_REGION_INDEX, DEBUG_CAR_LOADING } from "@/lib/config/disk";
 
 /**
  * Expected total number of slot folders per car
@@ -533,7 +533,13 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
  * Returns null if file doesn't exist or is invalid
  * Validates JSON schema and auto-rebuilds if broken
  */
-export async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
+/**
+ * Read _PHOTOS.json for a slot with TTL checking
+ * @param slotPath Path to the slot folder
+ * @param skipTTL If true, bypass TTL check (used after writes). Problem Statement #6: После write TTL игнорируется
+ * @returns PhotoIndex or null if missing/invalid/expired
+ */
+export async function readPhotosIndex(slotPath: string, skipTTL: boolean = false): Promise<PhotoIndex | null> {
   try {
     const photosIndexPath = `${slotPath}/_PHOTOS.json`;
     const indexExists = await exists(photosIndexPath);
@@ -556,6 +562,23 @@ export async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | nu
       console.warn(`[PhotoIndex] Invalid _PHOTOS.json schema at ${slotPath}, rebuilding...`);
       // Auto-rebuild broken JSON
       return await rebuildPhotosIndex(slotPath);
+    }
+    
+    // TTL checking (unless skipTTL=true for post-write reads)
+    // Problem Statement #6: _PHOTOS.json: 1-2 мин
+    if (!skipTTL && indexData.updatedAt) {
+      const age = Date.now() - new Date(indexData.updatedAt).getTime();
+      if (age > PHOTOS_INDEX_TTL_MS) {
+        if (DEBUG_CAR_LOADING) {
+          console.log(`[PhotoIndex] TTL expired: age=${Math.round(age/1000)}s, TTL=${Math.round(PHOTOS_INDEX_TTL_MS/1000)}s`);
+        }
+        return null; // Expired → triggers reconcile
+      }
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[PhotoIndex] TTL valid: age=${Math.round(age/1000)}s, TTL=${Math.round(PHOTOS_INDEX_TTL_MS/1000)}s`);
+      }
+    } else if (skipTTL && DEBUG_CAR_LOADING) {
+      console.log(`[PhotoIndex] Skipping TTL check (skipTTL=true)`);
     }
     
     return indexData;

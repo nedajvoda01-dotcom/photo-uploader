@@ -63,10 +63,25 @@ export const MAX_PHOTOS_PER_SLOT = parseInt(process.env.MAX_PHOTOS_PER_SLOT || "
 export const MAX_SLOT_SIZE_MB = parseInt(process.env.MAX_SLOT_SIZE_MB || "20", 10);
 
 /**
- * TTL for _REGION.json cache in milliseconds (5 minutes)
+ * TTL for _REGION.json cache in milliseconds (10 minutes default, configurable 10-30 min)
  * After this time, the cache is considered stale and will be rebuilt
+ * Problem Statement #6: _REGION.json: 10-30 мин
  */
-export const REGION_INDEX_TTL_MS = parseInt(process.env.REGION_INDEX_TTL_MS || "300000", 10); // 5 minutes
+export const REGION_INDEX_TTL_MS = parseInt(process.env.REGION_INDEX_TTL_MS || "600000", 10); // 10 minutes
+
+/**
+ * TTL for _PHOTOS.json cache in milliseconds (2 minutes default, configurable 1-2 min)
+ * After this time, the photo index is considered stale and will be reconciled
+ * Problem Statement #6: _PHOTOS.json: 1-2 мин
+ */
+export const PHOTOS_INDEX_TTL_MS = parseInt(process.env.PHOTOS_INDEX_TTL_MS || "120000", 10); // 2 minutes
+
+/**
+ * TTL for _SLOT.json cache in milliseconds (2 minutes default, configurable 1-2 min)
+ * After this time, the slot stats are considered stale and will be reconciled
+ * Problem Statement #6: _SLOT.json: 1-2 мин
+ */
+export const SLOT_STATS_TTL_MS = parseInt(process.env.SLOT_STATS_TTL_MS || "120000", 10); // 2 minutes
 
 /**
  * TTL for _LOCK.json in milliseconds (5 minutes)
