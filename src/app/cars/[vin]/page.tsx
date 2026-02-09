@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import styles from "./carDetail.module.css";
@@ -305,6 +305,9 @@ export default function CarDetailPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   
+  // Ref to store timeout ID for cleanup
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const MAX_RETRIES = 10;
   const RETRY_DELAYS = [500, 1000, 1500, 2000, 2500, 3000, 3000, 3000, 3000, 3000]; // Total ~20s
 
@@ -313,6 +316,14 @@ export default function CarDetailPage() {
       fetchCarData();
       fetchUserRole();
     }
+    
+    // Cleanup function to cancel pending timeouts on unmount
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vin]);
 
@@ -355,7 +366,14 @@ export default function CarDetailPage() {
             setLoading(false); // Clear loading since we're in retry mode
             const delay = RETRY_DELAYS[attemptNumber] || 3000;
             
-            setTimeout(() => {
+            // Clear any existing timeout before setting a new one
+            if (retryTimeoutRef.current) {
+              clearTimeout(retryTimeoutRef.current);
+            }
+            
+            // Store timeout ID for cleanup
+            retryTimeoutRef.current = setTimeout(() => {
+              retryTimeoutRef.current = null;
               fetchCarData(attemptNumber + 1);
             }, delay);
             return;
@@ -456,7 +474,7 @@ export default function CarDetailPage() {
       <div className={styles.page}>
         <div className={styles.loading}>
           {isRetrying 
-            ? `Creating car... (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`
+            ? `Creating car... (attempt ${retryCount + 1}/${MAX_RETRIES})`
             : "Loading car data..."}
         </div>
       </div>

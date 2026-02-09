@@ -48,8 +48,15 @@ function NewCarForm() {
       return;
     }
 
-    // Capture form VIN as fallback
-    const formVin = vin.toUpperCase();
+    // Capture form VIN as fallback - normalize with trim and uppercase
+    const formVin = vin.trim().toUpperCase();
+    
+    // Ensure VIN is not empty after trimming
+    if (!formVin || formVin.length !== 17) {
+      setError("VIN must be exactly 17 characters");
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch("/api/cars", {
