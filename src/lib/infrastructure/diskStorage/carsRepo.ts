@@ -5,6 +5,7 @@
  * Storage Structure:
  * - Region index: {regionPath}/_REGION.json (list of cars)
  * - Car metadata: {carRoot}/_CAR.json
+ * - Photo index: {slotPath}/_PHOTOS.json (SSOT with version, limit)
  * - Slot stats: {slotPath}/_SLOT.json (count, cover, updated_at)
  * - Slot locks: {slotPath}/_LOCK.json
  * - Links: {carRoot}/_LINKS.json
@@ -27,6 +28,7 @@ import {
   createFolder,
   deleteFile
 } from "@/lib/infrastructure/yandexDisk/client";
+import { MAX_PHOTOS_PER_SLOT } from "@/lib/config/disk";
 
 /**
  * Expected total number of slot folders per car
@@ -95,10 +97,13 @@ export interface PhotoItem {
 /**
  * Photo index for a slot (_PHOTOS.json)
  * Hard limit: MAX_PHOTOS_PER_SLOT (40) photos per slot
+ * This is the SSOT (Single Source of Truth) for slot photo metadata
  */
 export interface PhotoIndex {
-  count: number;
+  version: number; // Schema version for future compatibility
   updatedAt: string; // ISO timestamp
+  count: number;
+  limit: number; // Hard limit (40 photos per slot)
   cover: string | null; // First photo filename or null if empty
   items: PhotoItem[];
 }
@@ -431,8 +436,10 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
     }));
     
     const photosData: PhotoIndex = {
-      count: fileCount,
+      version: 1,
       updatedAt: now,
+      count: fileCount,
+      limit: MAX_PHOTOS_PER_SLOT,
       cover: cover,
       items: photoItems,
     };
@@ -449,6 +456,7 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
 /**
  * Read _PHOTOS.json index from slot
  * Returns null if file doesn't exist or is invalid
+ * Validates JSON schema and auto-rebuilds if broken
  */
 async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
   try {
@@ -467,17 +475,79 @@ async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
     const content = result.data.toString('utf-8');
     const indexData = JSON.parse(content) as PhotoIndex;
     
-    // Validate structure
-    if (typeof indexData.count !== 'number' || !Array.isArray(indexData.items)) {
-      console.warn(`Invalid _PHOTOS.json structure at ${slotPath}`);
-      return null;
+    // JSON schema validation
+    const isValid = validatePhotosIndexSchema(indexData);
+    if (!isValid) {
+      console.warn(`[PhotoIndex] Invalid _PHOTOS.json schema at ${slotPath}, rebuilding...`);
+      // Auto-rebuild broken JSON
+      return await rebuildPhotosIndex(slotPath);
     }
     
     return indexData;
   } catch (error) {
-    console.error(`Error reading _PHOTOS.json from ${slotPath}:`, error);
-    return null;
+    console.error(`[PhotoIndex] Error reading _PHOTOS.json from ${slotPath}:`, error);
+    // Auto-rebuild on parse error
+    console.log(`[PhotoIndex] Attempting to rebuild due to error...`);
+    return await rebuildPhotosIndex(slotPath);
   }
+}
+
+/**
+ * Validate PhotoIndex JSON schema
+ * Returns true if valid, false otherwise
+ */
+function validatePhotosIndexSchema(data: any): data is PhotoIndex {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  
+  // Required fields with correct types
+  if (typeof data.version !== 'number' || data.version < 1) {
+    return false;
+  }
+  
+  if (typeof data.count !== 'number' || data.count < 0) {
+    return false;
+  }
+  
+  if (typeof data.limit !== 'number' || data.limit !== MAX_PHOTOS_PER_SLOT) {
+    return false;
+  }
+  
+  if (typeof data.updatedAt !== 'string' || !data.updatedAt) {
+    return false;
+  }
+  
+  if (data.cover !== null && typeof data.cover !== 'string') {
+    return false;
+  }
+  
+  if (!Array.isArray(data.items)) {
+    return false;
+  }
+  
+  // Validate each item
+  for (const item of data.items) {
+    if (typeof item !== 'object' || item === null) {
+      return false;
+    }
+    if (typeof item.name !== 'string' || !item.name) {
+      return false;
+    }
+    if (typeof item.size !== 'number' || item.size < 0) {
+      return false;
+    }
+    if (typeof item.modified !== 'string' || !item.modified) {
+      return false;
+    }
+  }
+  
+  // Consistency check: count should match items.length
+  if (data.count !== data.items.length) {
+    return false;
+  }
+  
+  return true;
 }
 
 /**
@@ -506,8 +576,10 @@ async function rebuildPhotosIndex(slotPath: string): Promise<PhotoIndex | null> 
     }));
     
     const index: PhotoIndex = {
-      count: items.length,
+      version: 1,
       updatedAt: now,
+      count: items.length,
+      limit: MAX_PHOTOS_PER_SLOT,
       cover: items.length > 0 ? items[0].name : null,
       items: items,
     };
@@ -557,8 +629,10 @@ export async function writePhotosIndex(slotPath: string, newPhotos: PhotoItem[])
       
       // Create updated index
       const updatedIndex: PhotoIndex = {
-        count: allItems.length,
+        version: 1,
         updatedAt: new Date().toISOString(),
+        count: allItems.length,
+        limit: MAX_PHOTOS_PER_SLOT,
         cover: allItems.length > 0 ? allItems[0].name : null,
         items: allItems,
       };
