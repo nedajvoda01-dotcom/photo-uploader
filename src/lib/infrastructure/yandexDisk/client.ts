@@ -407,14 +407,95 @@ export async function listFolder(path: string): Promise<{
 }
 
 /**
- * Upload text/JSON content to Yandex.Disk
+ * Move/rename a file on Yandex.Disk
+ * This is used for atomic writes (tmp → final)
+ * @param fromPath Source path
+ * @param toPath Destination path
+ */
+export async function moveFile(fromPath: string, toPath: string): Promise<UploadResult> {
+  try {
+    const { normalizedPath: normalizedFrom } = validateAndNormalizePath(fromPath, 'moveFile:from');
+    const { normalizedPath: normalizedTo } = validateAndNormalizePath(toPath, 'moveFile:to');
+    
+    const response = await fetch(
+      `${YANDEX_DISK_API_BASE}/resources/move?from=${encodeURIComponent(normalizedFrom)}&path=${encodeURIComponent(normalizedTo)}&overwrite=true`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `OAuth ${YANDEX_DISK_TOKEN}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: `Failed to move file: ${response.status} ${JSON.stringify(errorData)}`,
+        stage: 'moveFile'
+      };
+    }
+    
+    return {
+      success: true,
+      path: normalizedTo,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[YandexDisk] moveFile failed:", error);
+    return {
+      success: false,
+      error: message,
+      stage: 'moveFile'
+    };
+  }
+}
+
+/**
+ * Upload text/JSON content to Yandex.Disk with atomic write guarantee
+ * Uses tmp → rename pattern to prevent corrupt JSON on network failures
+ * 
  * @param path Remote path on Yandex.Disk
  * @param content Text or JSON content
+ * @param atomic If true (default), uses tmp → rename for safety
  */
-export async function uploadText(path: string, content: string | object): Promise<UploadResult> {
+export async function uploadText(
+  path: string, 
+  content: string | object,
+  atomic: boolean = true
+): Promise<UploadResult> {
   const textContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
   const bytes = Buffer.from(textContent, 'utf-8');
   
+  // For atomic writes: upload to tmp file, then rename
+  if (atomic) {
+    const tmpPath = `${path}.tmp`;
+    
+    // Step 1: Upload to temporary file
+    const uploadResult = await uploadToYandexDisk({
+      path: tmpPath,
+      bytes,
+      contentType: 'application/json',
+    });
+    
+    if (!uploadResult.success) {
+      return uploadResult;
+    }
+    
+    // Step 2: Atomic rename tmp → final
+    const moveResult = await moveFile(tmpPath, path);
+    
+    // Clean up tmp file if rename failed (best effort)
+    if (!moveResult.success) {
+      await deleteFile(tmpPath).catch(() => {
+        // Ignore cleanup errors
+      });
+    }
+    
+    return moveResult;
+  }
+  
+  // Non-atomic path (for backwards compatibility or non-critical files)
   return uploadToYandexDisk({
     path,
     bytes,
