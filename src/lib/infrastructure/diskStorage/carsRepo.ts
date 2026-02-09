@@ -28,7 +28,7 @@ import {
   createFolder,
   deleteFile
 } from "@/lib/infrastructure/yandexDisk/client";
-import { MAX_PHOTOS_PER_SLOT, REGION_INDEX_TTL_MS, DEBUG_REGION_INDEX } from "@/lib/config/disk";
+import { MAX_PHOTOS_PER_SLOT, REGION_INDEX_TTL_MS, DEBUG_REGION_INDEX, DEBUG_CAR_LOADING } from "@/lib/config/disk";
 
 /**
  * Expected total number of slot folders per car
@@ -258,9 +258,84 @@ async function isSlotLocked(slotPath: string): Promise<boolean> {
 }
 
 /**
+ * Reconcile slot - rebuild _PHOTOS.json and _SLOT.json from disk
+ * Called when JSON files are missing or corrupted
+ */
+async function reconcileSlot(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
+  if (DEBUG_CAR_LOADING) {
+    console.log(`[SlotReconcile] Reconciling slot: ${slotPath}`);
+  }
+  
+  // List folder to get actual files
+  const result = await listFolder(slotPath);
+  if (!result.success || !result.items) {
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[SlotReconcile] No files found in ${slotPath}`);
+    }
+    return { fileCount: 0, totalSizeMB: 0 };
+  }
+  
+  const files = result.items.filter(item => 
+    item.type === 'file' && !item.name.startsWith('_')
+  );
+  
+  const fileCount = files.length;
+  const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+  const totalSizeMB = totalSizeBytes / (1024 * 1024);
+  
+  if (DEBUG_CAR_LOADING) {
+    console.log(`[SlotReconcile] Found ${fileCount} files, ${Math.round(totalSizeMB * 100) / 100}MB in ${slotPath}`);
+  }
+  
+  // Write both _PHOTOS.json and _SLOT.json
+  try {
+    const now = new Date().toISOString();
+    const cover = files.length > 0 ? files[0].name : null;
+    
+    // Write _PHOTOS.json (detailed index)
+    const photoItems = files.map(file => ({
+      name: file.name,
+      size: file.size || 0,
+      modified: now,
+    }));
+    
+    const photosData = {
+      version: 1,
+      updatedAt: now,
+      count: fileCount,
+      limit: MAX_PHOTOS_PER_SLOT,
+      cover: cover,
+      items: photoItems,
+    };
+    
+    const photosPath = `${slotPath}/_PHOTOS.json`;
+    await uploadText(photosPath, photosData);
+    
+    // Write _SLOT.json (quick stats)
+    const statsData = {
+      count: fileCount,
+      cover: cover,
+      total_size_mb: totalSizeMB,
+      updated_at: now,
+    };
+    
+    const slotJsonPath = `${slotPath}/_SLOT.json`;
+    await uploadText(slotJsonPath, statsData);
+    
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[SlotReconcile] ✅ Reconciled ${slotPath}: wrote _PHOTOS.json and _SLOT.json`);
+    }
+  } catch (error) {
+    console.warn(`[SlotReconcile] Failed to write reconciled data for ${slotPath}:`, error);
+  }
+  
+  return { fileCount, totalSizeMB };
+}
+
+/**
  * Get slot statistics (file count and size)
  * Optimization: Tries to read cached stats from _PHOTOS.json first, then _SLOT.json
- * If not available, lists folder and writes stats to _SLOT.json for future use
+ * If not available, calls reconcileSlot() to rebuild the indexes
  */
 async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
@@ -269,6 +344,11 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
     if (photosIndex && photosIndex.count !== undefined) {
       const totalSizeBytes = photosIndex.items.reduce((sum, item) => sum + item.size, 0);
       const totalSizeMB = totalSizeBytes / (1024 * 1024);
+      
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[SlotStats] ✅ Read from _PHOTOS.json: ${photosIndex.count} files in ${slotPath}`);
+      }
+      
       return {
         fileCount: photosIndex.count,
         totalSizeMB: totalSizeMB,
@@ -289,6 +369,11 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
           // Use stats from _SLOT.json if available
           if (slotData.count !== undefined) {
             const totalSizeMB = slotData.total_size_mb || 0;
+            
+            if (DEBUG_CAR_LOADING) {
+              console.log(`[SlotStats] ✅ Read from _SLOT.json: ${slotData.count} files in ${slotPath}`);
+            }
+            
             return {
               fileCount: slotData.count,
               totalSizeMB: totalSizeMB,
@@ -312,49 +397,29 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
           const lockData = JSON.parse(lockContent);
           
           if (lockData.file_count !== undefined && lockData.total_size_mb !== undefined) {
+            if (DEBUG_CAR_LOADING) {
+              console.log(`[SlotStats] ✅ Read from _LOCK.json: ${lockData.file_count} files in ${slotPath}`);
+            }
+            
             return {
               fileCount: lockData.file_count,
               totalSizeMB: lockData.total_size_mb,
             };
           }
         } catch {
-          // Fall through to listing
+          // Fall through to reconcile
         }
       }
     }
     
-    // Fallback: list folder and calculate (expensive operation)
-    const result = await listFolder(slotPath);
-    if (!result.success || !result.items) {
-      return { fileCount: 0, totalSizeMB: 0 };
+    // No JSON available - reconcile the slot
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[SlotStats] ⚠️ No JSON found for ${slotPath}, calling reconcileSlot()`);
     }
     
-    const files = result.items.filter(item => 
-      item.type === 'file' && !item.name.startsWith('_')
-    );
-    
-    const fileCount = files.length;
-    const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
-    const totalSizeMB = totalSizeBytes / (1024 * 1024);
-    
-    // Write stats to _SLOT.json for future use (fire and forget)
-    try {
-      const cover = files.length > 0 ? files[0].name : null;
-      const statsData = {
-        count: fileCount,
-        cover: cover,
-        total_size_mb: totalSizeMB,
-        updated_at: new Date().toISOString(),
-      };
-      await uploadText(slotJsonPath, statsData);
-    } catch (error) {
-      // Don't fail if we can't write stats
-      console.warn(`Failed to write stats cache to ${slotJsonPath}:`, error);
-    }
-    
-    return { fileCount, totalSizeMB };
+    return await reconcileSlot(slotPath);
   } catch (error) {
-    console.error(`Error getting slot stats for ${slotPath}:`, error);
+    console.error(`[SlotStats] ❌ Error getting stats for ${slotPath}:`, error);
     return { fileCount: 0, totalSizeMB: 0 };
   }
 }
@@ -1273,23 +1338,36 @@ export async function createCar(params: {
  * Get car with all slots
  * Phase 1 optimization: Builds slot structure deterministically without scanning
  * Slots returned with stats_loaded=false, must call loadCarSlotCounts separately
+ * 
+ * Performance: O(1) - no listFolder calls for slots
  */
 export async function getCarWithSlots(region: string, vin: string): Promise<{
   car: Car;
   slots: Slot[];
 } | null> {
   try {
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CarOpen] Opening car: region=${region}, vin=${vin}`);
+    }
+    
     const car = await getCarByRegionAndVin(region, vin);
     if (!car) {
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[CarOpen] ❌ Car not found: ${region}/${vin}`);
+      }
       return null;
     }
     
-    // Phase 1: Build slots deterministically (O(1) API calls)
+    // Phase 1: Build slots deterministically (O(1) - no API calls)
     const slots = buildDeterministicSlots(car.disk_root_path, region, car.make, car.model, car.vin);
+    
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CarOpen] ✅ Instant open: region=${region}, vin=${vin}, slots=${slots.length}, listFolder=0`);
+    }
     
     return { car, slots };
   } catch (error) {
-    console.error(`[DiskStorage] Error getting car with slots ${region}/${vin}:`, error);
+    console.error(`[CarOpen] ❌ Error: ${region}/${vin}`, error);
     return null;
   }
 }
@@ -1298,20 +1376,34 @@ export async function getCarWithSlots(region: string, vin: string): Promise<{
  * Phase 2: Load actual slot counts and status from disk
  * This is called separately after initial card render for lazy loading
  * Returns slots with stats_loaded=true
+ * 
+ * Performance: Reads from _PHOTOS.json/_SLOT.json when available
+ * Only does listFolder when JSON is missing (reconcile)
  */
 export async function loadCarSlotCounts(region: string, vin: string): Promise<Slot[] | null> {
   try {
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CountsLoad] Loading counts: region=${region}, vin=${vin}`);
+    }
+    
     const car = await getCarByRegionAndVin(region, vin);
     if (!car) {
       return null;
     }
     
-    // Load full slot data with counts (this makes the disk API calls)
+    // Load full slot data with counts (reads from JSON, reconciles if missing)
     const slots = await getCarSlots(car.disk_root_path);
+    
+    const jsonReads = slots.length; // Approximate - each slot reads JSON or reconciles
+    const reconciles = 0; // getSlotStats logs when it reconciles
+    
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CountsLoad] ✅ Loaded: region=${region}, vin=${vin}, slots=${slots.length}, jsonReads~${jsonReads}`);
+    }
     
     return slots;
   } catch (error) {
-    console.error(`[DiskStorage] Error loading slot counts ${region}/${vin}:`, error);
+    console.error(`[CountsLoad] ❌ Error: ${region}/${vin}`, error);
     return null;
   }
 }

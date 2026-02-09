@@ -67,6 +67,11 @@ export const REGION_INDEX_TTL_MS = parseInt(process.env.REGION_INDEX_TTL_MS || "
  */
 export const DEBUG_REGION_INDEX = process.env.DEBUG_REGION_INDEX === '1' || process.env.DEBUG_REGION_INDEX === 'true';
 
+/**
+ * Enable debug logging for car/slot loading operations
+ */
+export const DEBUG_CAR_LOADING = process.env.DEBUG_CAR_LOADING === '1' || process.env.DEBUG_CAR_LOADING === 'true';
+
 // Debug configuration
 export const DEBUG_DISK_CALLS = process.env.DEBUG_DISK_CALLS === '1' || process.env.DEBUG_DISK_CALLS === 'true';
 
