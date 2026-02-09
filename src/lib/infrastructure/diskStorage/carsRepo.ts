@@ -389,8 +389,9 @@ async function writePublishedUrl(slotPath: string, publicUrl: string): Promise<b
 }
 
 /**
- * Update _SLOT.json with current stats
+ * Update _SLOT.json and _PHOTOS.json with current stats
  * Call this synchronously after every upload/delete operation
+ * Keeps both indexes consistent
  */
 export async function updateSlotStats(slotPath: string): Promise<boolean> {
   try {
@@ -408,6 +409,7 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
     const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
     const totalSizeMB = totalSizeBytes / (1024 * 1024);
     const cover = files.length > 0 ? files[0].name : null;
+    const now = new Date().toISOString();
     
     // Write _SLOT.json
     const slotJsonPath = `${slotPath}/_SLOT.json`;
@@ -415,11 +417,29 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
       count: fileCount,
       cover: cover,
       total_size_mb: totalSizeMB,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     };
     
-    const uploadResult = await uploadText(slotJsonPath, statsData);
-    return uploadResult.success;
+    const slotUploadResult = await uploadText(slotJsonPath, statsData);
+    
+    // Write _PHOTOS.json to keep consistent
+    const photosJsonPath = `${slotPath}/_PHOTOS.json`;
+    const photoItems: PhotoItem[] = files.map(file => ({
+      name: file.name,
+      size: file.size || 0,
+      modified: now,
+    }));
+    
+    const photosData: PhotoIndex = {
+      count: fileCount,
+      updatedAt: now,
+      cover: cover,
+      items: photoItems,
+    };
+    
+    const photosUploadResult = await uploadText(photosJsonPath, photosData);
+    
+    return slotUploadResult.success && photosUploadResult.success;
   } catch (error) {
     console.error(`Error updating slot stats at ${slotPath}:`, error);
     return false;
