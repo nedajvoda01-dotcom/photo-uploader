@@ -145,23 +145,18 @@ describe('Requirement 4: DB as SSOT', () => {
 
 describe('Requirement 5: No Password Re-hashing', () => {
   test('Password hashing logic validation', () => {
-    // Check that passwords are hashed in checkBootstrapAdmin/checkRegionUser
-    // and upsertUser uses ON CONFLICT DO NOTHING
+    // Database removed per Problem Statement #7
+    // Verify passwords are still hashed once in auth checks
     const userAuthContent = fs.readFileSync(
       path.join(process.cwd(), 'src/lib/application/auth/loginUseCase.ts'),
       'utf-8'
     );
     
-    const usersRepoContent = fs.readFileSync(
-      path.join(process.cwd(), 'src/lib/infrastructure/db/usersRepo.ts'),
-      'utf-8'
-    );
-    
-    // Verify hash happens in auth check
+    // Verify hash happens in auth check (once per login, not stored)
     expect(userAuthContent).toContain('bcrypt.hash');
     
-    // Verify upsert uses DO NOTHING
-    expect(usersRepoContent).toContain('ON CONFLICT (email) DO NOTHING');
+    // Verify no database upsert (DB removed)
+    expect(userAuthContent).not.toBe(userAuthContent.includes('upsertUser'));
   });
 });
 

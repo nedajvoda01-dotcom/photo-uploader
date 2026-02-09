@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess } from "@/lib/apiHelpers";
-import { getCarByRegionAndVin } from "@/lib/infrastructure/db/carsRepo";
-import { getCarSlot } from "@/lib/infrastructure/db/carSlotsRepo";
-import { validateSlot, type SlotType } from "@/lib/domain/disk/paths";
+import { getCarByRegionAndVin, getSlotStats } from "@/lib/infrastructure/diskStorage/carsRepo";
+import { validateSlot, slotPath, type SlotType } from "@/lib/domain/disk/paths";
 import { listFolder } from "@/lib/infrastructure/yandexDisk/client";
 import { validateZipLimits } from "@/lib/config/index";
 
@@ -80,25 +79,21 @@ export async function GET(
       return regionCheck.error;
     }
     
-    const slot = await getCarSlot(car.id, slotType, slotIndex);
+    // Build slot path using car's root path
+    const diskSlotPath = slotPath(car.disk_root_path, slotType as SlotType, slotIndex);
     
-    if (!slot) {
+    // Get slot stats
+    const stats = await getSlotStats(diskSlotPath);
+    
+    if (stats.fileCount === 0) {
       return NextResponse.json(
-        { error: "Slot not found" },
+        { error: "Slot has no files - nothing to download" },
         { status: 404 }
       );
     }
     
-    // Check if slot is locked
-    if (slot.status !== 'locked') {
-      return NextResponse.json(
-        { error: "Slot is not locked - no files to download" },
-        { status: 409 }
-      );
-    }
-    
     // List files from Yandex Disk
-    const result = await listFolder(slot.disk_slot_path);
+    const result = await listFolder(diskSlotPath);
     
     if (!result.success || !result.items) {
       return NextResponse.json(
@@ -107,14 +102,16 @@ export async function GET(
       );
     }
     
-    // Filter out non-file items and _LOCK.json
+    // Filter out non-file items and _LOCK.json and other metadata files
     const files = result.items.filter(
-      item => item.type === 'file' && item.name !== '_LOCK.json'
+      item => item.type === 'file' && 
+        !item.name.startsWith('_') && 
+        !item.name.endsWith('.json')
     );
     
     if (files.length === 0) {
       return NextResponse.json(
-        { error: "No files found in slot" },
+        { error: "No photo files found in slot" },
         { status: 404 }
       );
     }

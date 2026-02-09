@@ -115,29 +115,44 @@ ${YANDEX_DISK_BASE_DIR}/
 - **Purpose:** Indicates slot is filled and locked
 - **Content:** JSON metadata about uploaded files
 
-#### Photo Index File (_PHOTOS.json) **NEW**
+#### Photo Index File (_PHOTOS.json) **SSOT**
 - **Pattern:** `${SLOT_PATH}/_PHOTOS.json`
 - **Example:** `/Фото/MSK/Toyota Camry 1HGBH41JXMN109186/2. Выкуп фото/3. Toyota Camry 1HGBH41JXMN109186/_PHOTOS.json`
-- **Purpose:** Index of all photos in slot with hard limit enforcement
+- **Purpose:** Main index (Single Source of Truth) for slot photos
 - **Hard Limit:** **40 photos maximum per slot**
 - **Updated:** Synchronously after every upload/delete operation
-- **Content Format:**
+- **Content Format (Version 1):**
   ```json
   {
-    "count": 12,
-    "updatedAt": "2024-01-15T10:00:00Z",
-    "cover": "photo1.jpg",
+    "version": 1,
+    "updatedAt": "2026-02-09T10:05:00Z",
+    "count": 2,
+    "limit": 40,
+    "cover": "photo_002.jpg",
     "items": [
       {
-        "name": "photo1.jpg",
-        "size": 2048576,
-        "modified": "2024-01-15T10:00:00Z"
+        "name": "photo_001.jpg",
+        "size": 5123456,
+        "modified": "2026-02-09T10:04:00Z"
+      },
+      {
+        "name": "photo_002.jpg",
+        "size": 4987654,
+        "modified": "2026-02-09T10:05:00Z"
       }
     ]
   }
   ```
+- **Schema Fields:**
+  - `version` (number): Schema version for future compatibility (currently 1)
+  - `updatedAt` (string): ISO 8601 timestamp of last update
+  - `count` (number): Number of photos (must match items.length)
+  - `limit` (number): Hard limit per slot (always 40)
+  - `cover` (string | null): Filename of cover photo (first photo) or null if empty
+  - `items` (array): Array of PhotoItem objects
 - **Concurrency:** Uses read-merge-write pattern with retry logic
-- **Fallback:** Automatically rebuilt from `listFolder()` if missing or corrupted
+- **Validation:** JSON schema validated on read
+- **Auto-Rebuild:** Automatically rebuilt from `listFolder()` if missing or corrupted
 
 #### Slot Stats File (_SLOT.json)
 - **Pattern:** `${SLOT_PATH}/_SLOT.json`

@@ -24,11 +24,7 @@ export {
   generateStableEnvUserId,
 } from './auth';
 
-// Database configuration
-export {
-  POSTGRES_URL,
-  POSTGRES_URL_NON_POOLING,
-} from './db';
+// Database configuration removed - no longer using DB
 
 // Disk/Upload configuration
 export {
@@ -69,7 +65,6 @@ export function getConfigSummary() {
   // Import from specific modules to avoid circular dependencies
   const authModule = require('./auth') as typeof import('./auth');
   const diskModule = require('./disk') as typeof import('./disk');
-  const dbModule = require('./db') as typeof import('./db');
   const regionsModule = require('./regions') as typeof import('./regions');
   /* eslint-enable @typescript-eslint/no-require-imports */
   
@@ -79,8 +74,6 @@ export function getConfigSummary() {
     yandexDiskBaseDir: diskModule.YANDEX_DISK_BASE_DIR,
     regions: regionsModule.REGIONS,
     adminRegion: regionsModule.ADMIN_REGION,
-    hasPostgresUrl: !!dbModule.POSTGRES_URL,
-    hasPostgresUrlNonPooling: !!dbModule.POSTGRES_URL_NON_POOLING,
     bootstrapAdminCount: authModule.getBootstrapAdmins(regionsModule.ADMIN_REGION).length,
     regionUserCount: Object.keys(regionsModule.REGION_USERS).reduce((sum: number, region: string) => sum + regionsModule.REGION_USERS[region].length, 0),
     userPasswordMapCount: Object.keys(regionsModule.USER_PASSWORD_MAP).length,
@@ -114,7 +107,6 @@ export function logStartupConfig() {
     // Import from specific modules
     const authModule = require('./auth') as typeof import('./auth');
     const diskModule = require('./disk') as typeof import('./disk');
-    const dbModule = require('./db') as typeof import('./db');
     const regionsModule = require('./regions') as typeof import('./regions');
     /* eslint-enable @typescript-eslint/no-require-imports */
     
@@ -128,15 +120,8 @@ export function logStartupConfig() {
     console.log(`Auth Debug: ${authModule.AUTH_DEBUG ? 'ENABLED' : 'disabled'}`);
     console.log('');
     
-    // Database mode
-    const dbMode = dbModule.POSTGRES_URL || dbModule.POSTGRES_URL_NON_POOLING ? 'Database' : 'File/ENV';
-    console.log(`Auth Mode: ${dbMode}`);
-    if (dbModule.POSTGRES_URL) {
-      console.log('  - Using POSTGRES_URL (pooled)');
-    }
-    if (dbModule.POSTGRES_URL_NON_POOLING) {
-      console.log('  - Using POSTGRES_URL_NON_POOLING (direct)');
-    }
+    // Auth mode (File/ENV only, DB removed)
+    console.log('Auth Mode: File/ENV (Disk storage only)');
     console.log('');
     
     // Users and regions

@@ -3,13 +3,13 @@
  * Manages car data using only Yandex Disk (no database)
  * 
  * Storage Structure:
- * - Region index: {regionPath}/_REGION.json (list of cars)
+ * - Region index: {regionPath}/_REGION.json (list of cars with TTL)
  * - Car metadata: {carRoot}/_CAR.json
+ * - Photo index: {slotPath}/_PHOTOS.json (SSOT with version, limit)
  * - Slot stats: {slotPath}/_SLOT.json (count, cover, updated_at)
  * - Slot locks: {slotPath}/_LOCK.json
  * - Links: {carRoot}/_LINKS.json
  * - Published URLs: {slotPath}/_PUBLISHED.json
- * - Used markers: {slotPath}/_USED.json (legacy)
  */
 
 import { 
@@ -27,6 +27,7 @@ import {
   createFolder,
   deleteFile
 } from "@/lib/infrastructure/yandexDisk/client";
+import { MAX_PHOTOS_PER_SLOT, REGION_INDEX_TTL_MS, PHOTOS_INDEX_TTL_MS, SLOT_STATS_TTL_MS, DEBUG_REGION_INDEX, DEBUG_CAR_LOADING } from "@/lib/config/disk";
 
 /**
  * Expected total number of slot folders per car
@@ -84,6 +85,16 @@ export interface Link {
 }
 
 /**
+ * Region index structure (_REGION.json)
+ * Caches list of cars in a region with TTL
+ */
+export interface RegionIndex {
+  version: number; // Schema version
+  updated_at: string; // ISO timestamp
+  cars: Car[];
+}
+
+/**
  * Photo item in _PHOTOS.json index
  */
 export interface PhotoItem {
@@ -95,10 +106,13 @@ export interface PhotoItem {
 /**
  * Photo index for a slot (_PHOTOS.json)
  * Hard limit: MAX_PHOTOS_PER_SLOT (40) photos per slot
+ * This is the SSOT (Single Source of Truth) for slot photo metadata
  */
 export interface PhotoIndex {
-  count: number;
+  version: number; // Schema version for future compatibility
   updatedAt: string; // ISO timestamp
+  count: number;
+  limit: number; // Hard limit (40 photos per slot)
   cover: string | null; // First photo filename or null if empty
   items: PhotoItem[];
 }
@@ -243,17 +257,123 @@ async function isSlotLocked(slotPath: string): Promise<boolean> {
 }
 
 /**
+ * Reconcile slot - rebuild _PHOTOS.json and _SLOT.json from disk
+ * Called when JSON files are missing or corrupted
+ */
+async function reconcileSlot(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
+  if (DEBUG_CAR_LOADING) {
+    console.log(`[SlotReconcile] Reconciling slot: ${slotPath}`);
+  }
+  
+  // List folder to get actual files
+  const result = await listFolder(slotPath);
+  if (!result.success || !result.items) {
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[SlotReconcile] No files found in ${slotPath}`);
+    }
+    return { fileCount: 0, totalSizeMB: 0 };
+  }
+  
+  const files = result.items.filter(item => 
+    item.type === 'file' && !item.name.startsWith('_')
+  );
+  
+  const fileCount = files.length;
+  const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+  const totalSizeMB = totalSizeBytes / (1024 * 1024);
+  
+  if (DEBUG_CAR_LOADING) {
+    console.log(`[SlotReconcile] Found ${fileCount} files, ${Math.round(totalSizeMB * 100) / 100}MB in ${slotPath}`);
+  }
+  
+  // Write both _PHOTOS.json and _SLOT.json
+  try {
+    const now = new Date().toISOString();
+    const cover = files.length > 0 ? files[0].name : null;
+    
+    // Write _PHOTOS.json (detailed index)
+    const photoItems = files.map(file => ({
+      name: file.name,
+      size: file.size || 0,
+      modified: now,
+    }));
+    
+    const photosData = {
+      version: 1,
+      updatedAt: now,
+      count: fileCount,
+      limit: MAX_PHOTOS_PER_SLOT,
+      cover: cover,
+      items: photoItems,
+    };
+    
+    const photosPath = `${slotPath}/_PHOTOS.json`;
+    await uploadText(photosPath, photosData);
+    
+    // Write _SLOT.json (quick stats)
+    const statsData = {
+      count: fileCount,
+      cover: cover,
+      total_size_mb: totalSizeMB,
+      updated_at: now,
+    };
+    
+    const slotJsonPath = `${slotPath}/_SLOT.json`;
+    await uploadText(slotJsonPath, statsData);
+    
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[SlotReconcile] ✅ Reconciled ${slotPath}: wrote _PHOTOS.json and _SLOT.json`);
+    }
+  } catch (error) {
+    console.warn(`[SlotReconcile] Failed to write reconciled data for ${slotPath}:`, error);
+  }
+  
+  return { fileCount, totalSizeMB };
+}
+
+/**
  * Get slot statistics (file count and size)
  * Optimization: Tries to read cached stats from _PHOTOS.json first, then _SLOT.json
- * If not available, lists folder and writes stats to _SLOT.json for future use
+ * If not available or marked dirty, calls reconcileSlot() to rebuild the indexes
  */
-async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
+export async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
+    // Check for _DIRTY.json flag first
+    // Critical Fix: Auto-heal dirty slots
+    const dirtyPath = `${slotPath}/_DIRTY.json`;
+    const isDirty = await exists(dirtyPath);
+    
+    if (isDirty) {
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[SlotStats] ⚠️ _DIRTY.json found for ${slotPath}, triggering reconcile`);
+      }
+      
+      // Reconcile to fix the state
+      const stats = await reconcileSlot(slotPath);
+      
+      // Clear dirty flag after successful reconcile
+      try {
+        await deleteFile(dirtyPath);
+        if (DEBUG_CAR_LOADING) {
+          console.log(`[SlotStats] ✅ Cleared _DIRTY.json after reconcile`);
+        }
+      } catch (error) {
+        console.error(`[SlotStats] ⚠️ Failed to clear _DIRTY.json:`, error);
+      }
+      
+      return stats;
+    }
+    
     // Priority 1: Try to read from _PHOTOS.json (most detailed index)
     const photosIndex = await readPhotosIndex(slotPath);
     if (photosIndex && photosIndex.count !== undefined) {
       const totalSizeBytes = photosIndex.items.reduce((sum, item) => sum + item.size, 0);
       const totalSizeMB = totalSizeBytes / (1024 * 1024);
+      
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[SlotStats] ✅ Read from _PHOTOS.json: ${photosIndex.count} files in ${slotPath}`);
+      }
+      
       return {
         fileCount: photosIndex.count,
         totalSizeMB: totalSizeMB,
@@ -274,6 +394,11 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
           // Use stats from _SLOT.json if available
           if (slotData.count !== undefined) {
             const totalSizeMB = slotData.total_size_mb || 0;
+            
+            if (DEBUG_CAR_LOADING) {
+              console.log(`[SlotStats] ✅ Read from _SLOT.json: ${slotData.count} files in ${slotPath}`);
+            }
+            
             return {
               fileCount: slotData.count,
               totalSizeMB: totalSizeMB,
@@ -297,49 +422,29 @@ async function getSlotStats(slotPath: string): Promise<{ fileCount: number; tota
           const lockData = JSON.parse(lockContent);
           
           if (lockData.file_count !== undefined && lockData.total_size_mb !== undefined) {
+            if (DEBUG_CAR_LOADING) {
+              console.log(`[SlotStats] ✅ Read from _LOCK.json: ${lockData.file_count} files in ${slotPath}`);
+            }
+            
             return {
               fileCount: lockData.file_count,
               totalSizeMB: lockData.total_size_mb,
             };
           }
         } catch {
-          // Fall through to listing
+          // Fall through to reconcile
         }
       }
     }
     
-    // Fallback: list folder and calculate (expensive operation)
-    const result = await listFolder(slotPath);
-    if (!result.success || !result.items) {
-      return { fileCount: 0, totalSizeMB: 0 };
+    // No JSON available - reconcile the slot
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[SlotStats] ⚠️ No JSON found for ${slotPath}, calling reconcileSlot()`);
     }
     
-    const files = result.items.filter(item => 
-      item.type === 'file' && !item.name.startsWith('_')
-    );
-    
-    const fileCount = files.length;
-    const totalSizeBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
-    const totalSizeMB = totalSizeBytes / (1024 * 1024);
-    
-    // Write stats to _SLOT.json for future use (fire and forget)
-    try {
-      const cover = files.length > 0 ? files[0].name : null;
-      const statsData = {
-        count: fileCount,
-        cover: cover,
-        total_size_mb: totalSizeMB,
-        updated_at: new Date().toISOString(),
-      };
-      await uploadText(slotJsonPath, statsData);
-    } catch (error) {
-      // Don't fail if we can't write stats
-      console.warn(`Failed to write stats cache to ${slotJsonPath}:`, error);
-    }
-    
-    return { fileCount, totalSizeMB };
+    return await reconcileSlot(slotPath);
   } catch (error) {
-    console.error(`Error getting slot stats for ${slotPath}:`, error);
+    console.error(`[SlotStats] ❌ Error getting stats for ${slotPath}:`, error);
     return { fileCount: 0, totalSizeMB: 0 };
   }
 }
@@ -431,8 +536,10 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
     }));
     
     const photosData: PhotoIndex = {
-      count: fileCount,
+      version: 1,
       updatedAt: now,
+      count: fileCount,
+      limit: MAX_PHOTOS_PER_SLOT,
       cover: cover,
       items: photoItems,
     };
@@ -449,8 +556,15 @@ export async function updateSlotStats(slotPath: string): Promise<boolean> {
 /**
  * Read _PHOTOS.json index from slot
  * Returns null if file doesn't exist or is invalid
+ * Validates JSON schema and auto-rebuilds if broken
  */
-async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
+/**
+ * Read _PHOTOS.json for a slot with TTL checking
+ * @param slotPath Path to the slot folder
+ * @param skipTTL If true, bypass TTL check (used after writes). Problem Statement #6: После write TTL игнорируется
+ * @returns PhotoIndex or null if missing/invalid/expired
+ */
+export async function readPhotosIndex(slotPath: string, skipTTL: boolean = false): Promise<PhotoIndex | null> {
   try {
     const photosIndexPath = `${slotPath}/_PHOTOS.json`;
     const indexExists = await exists(photosIndexPath);
@@ -467,24 +581,105 @@ async function readPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
     const content = result.data.toString('utf-8');
     const indexData = JSON.parse(content) as PhotoIndex;
     
-    // Validate structure
-    if (typeof indexData.count !== 'number' || !Array.isArray(indexData.items)) {
-      console.warn(`Invalid _PHOTOS.json structure at ${slotPath}`);
-      return null;
+    // JSON schema validation
+    const isValid = validatePhotosIndexSchema(indexData);
+    if (!isValid) {
+      console.warn(`[PhotoIndex] Invalid _PHOTOS.json schema at ${slotPath}, rebuilding...`);
+      // Auto-rebuild broken JSON
+      return await rebuildPhotosIndex(slotPath);
+    }
+    
+    // TTL checking (unless skipTTL=true for post-write reads)
+    // Problem Statement #6: _PHOTOS.json: 1-2 мин
+    if (!skipTTL && indexData.updatedAt) {
+      const age = Date.now() - new Date(indexData.updatedAt).getTime();
+      if (age > PHOTOS_INDEX_TTL_MS) {
+        if (DEBUG_CAR_LOADING) {
+          console.log(`[PhotoIndex] TTL expired: age=${Math.round(age/1000)}s, TTL=${Math.round(PHOTOS_INDEX_TTL_MS/1000)}s`);
+        }
+        return null; // Expired → triggers reconcile
+      }
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[PhotoIndex] TTL valid: age=${Math.round(age/1000)}s, TTL=${Math.round(PHOTOS_INDEX_TTL_MS/1000)}s`);
+      }
+    } else if (skipTTL && DEBUG_CAR_LOADING) {
+      console.log(`[PhotoIndex] Skipping TTL check (skipTTL=true)`);
     }
     
     return indexData;
   } catch (error) {
-    console.error(`Error reading _PHOTOS.json from ${slotPath}:`, error);
-    return null;
+    console.error(`[PhotoIndex] Error reading _PHOTOS.json from ${slotPath}:`, error);
+    // Auto-rebuild on parse error
+    console.log(`[PhotoIndex] Attempting to rebuild due to error...`);
+    return await rebuildPhotosIndex(slotPath);
   }
+}
+
+/**
+ * Validate PhotoIndex JSON schema
+ * Returns true if valid, false otherwise
+ */
+function validatePhotosIndexSchema(data: unknown): data is PhotoIndex {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  const obj = data as Record<string, unknown>;
+  
+  // Required fields with correct types
+  if (typeof obj.version !== 'number' || obj.version < 1) {
+    return false;
+  }
+  
+  if (typeof obj.count !== 'number' || obj.count < 0) {
+    return false;
+  }
+  
+  if (typeof obj.limit !== 'number' || obj.limit !== MAX_PHOTOS_PER_SLOT) {
+    return false;
+  }
+  
+  if (typeof obj.updatedAt !== 'string' || !obj.updatedAt) {
+    return false;
+  }
+  
+  if (obj.cover !== null && typeof obj.cover !== 'string') {
+    return false;
+  }
+  
+  if (!Array.isArray(obj.items)) {
+    return false;
+  }
+  
+  // Validate each item
+  for (const item of obj.items) {
+    if (typeof item !== 'object' || item === null) {
+      return false;
+    }
+    const photoItem = item as Record<string, unknown>;
+    if (typeof photoItem.name !== 'string' || !photoItem.name) {
+      return false;
+    }
+    if (typeof photoItem.size !== 'number' || photoItem.size < 0) {
+      return false;
+    }
+    if (typeof photoItem.modified !== 'string' || !photoItem.modified) {
+      return false;
+    }
+  }
+  
+  // Consistency check: count should match items.length
+  if (obj.count !== obj.items.length) {
+    return false;
+  }
+  
+  return true;
 }
 
 /**
  * Rebuild _PHOTOS.json from disk by listing folder
  * Used when index is missing or corrupted
  */
-async function rebuildPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
+export async function rebuildPhotosIndex(slotPath: string): Promise<PhotoIndex | null> {
   try {
     console.log(`[PhotoIndex] Rebuilding _PHOTOS.json for ${slotPath}`);
     
@@ -506,8 +701,10 @@ async function rebuildPhotosIndex(slotPath: string): Promise<PhotoIndex | null> 
     }));
     
     const index: PhotoIndex = {
-      count: items.length,
+      version: 1,
       updatedAt: now,
+      count: items.length,
+      limit: MAX_PHOTOS_PER_SLOT,
       cover: items.length > 0 ? items[0].name : null,
       items: items,
     };
@@ -557,8 +754,10 @@ export async function writePhotosIndex(slotPath: string, newPhotos: PhotoItem[])
       
       // Create updated index
       const updatedIndex: PhotoIndex = {
-        count: allItems.length,
+        version: 1,
         updatedAt: new Date().toISOString(),
+        count: allItems.length,
+        limit: MAX_PHOTOS_PER_SLOT,
         cover: allItems.length > 0 ? allItems[0].name : null,
         items: allItems,
       };
@@ -633,47 +832,8 @@ export async function checkPhotoLimit(slotPath: string, additionalPhotos: number
 /**
  * Check if slot is marked as used
  */
-async function isSlotUsed(slotPath: string): Promise<boolean> {
-  try {
-    return await exists(`${slotPath}/_USED.json`);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark slot as used
- */
-export async function markSlotAsUsed(slotPath: string, usedBy: string): Promise<boolean> {
-  try {
-    const usedPath = `${slotPath}/_USED.json`;
-    const data = {
-      used: true,
-      used_by: usedBy,
-      used_at: new Date().toISOString(),
-    };
-    
-    const result = await uploadText(usedPath, data);
-    return result.success;
-  } catch (error) {
-    console.error(`Error marking slot as used at ${slotPath}:`, error);
-    return false;
-  }
-}
-
-/**
- * Unmark slot as used
- */
-export async function unmarkSlotAsUsed(slotPath: string): Promise<boolean> {
-  try {
-    const usedPath = `${slotPath}/_USED.json`;
-    const result = await deleteFile(usedPath);
-    return result.success;
-  } catch (error) {
-    console.error(`Error unmarking slot as used at ${slotPath}:`, error);
-    return false;
-  }
-}
+// Removed legacy _USED.json functions per Problem Statement #7
+// Business logic for "used" status should be handled at application level, not disk level
 
 /**
  * Get all slots for a car with their status
@@ -719,7 +879,6 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
         const locked = await isSlotLocked(slotFolder.path);
         const stats = await getSlotStats(slotFolder.path);
         const publicUrl = await readPublishedUrl(slotFolder.path);
-        const isUsed = await isSlotUsed(slotFolder.path);
         
         slots.push({
           slot_type: slotType,
@@ -729,7 +888,7 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
           file_count: stats.fileCount,
           total_size_mb: Math.round(stats.totalSizeMB * 100) / 100,
           public_url: publicUrl,
-          is_used: isUsed,
+          is_used: false, // Removed _USED.json per Problem Statement #7
           stats_loaded: true,
         });
       }
@@ -744,6 +903,7 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
 /**
  * Read region index from _REGION.json
  * Returns list of cars in the region without folder scanning
+ * Implements TTL check - returns null if expired
  */
 async function readRegionIndex(regionPath: string): Promise<Car[] | null> {
   try {
@@ -751,40 +911,100 @@ async function readRegionIndex(regionPath: string): Promise<Car[] | null> {
     const indexExists = await exists(regionIndexPath);
     
     if (!indexExists) {
+      if (DEBUG_REGION_INDEX) {
+        console.log(`[RegionIndex] Cache miss: ${regionIndexPath} does not exist`);
+      }
       return null;
     }
     
     const result = await downloadFile(regionIndexPath);
     if (!result.success || !result.data) {
+      if (DEBUG_REGION_INDEX) {
+        console.log(`[RegionIndex] Cache miss: Failed to download ${regionIndexPath}`);
+      }
       return null;
     }
     
     const content = result.data.toString('utf-8');
-    const indexData = JSON.parse(content);
+    const indexData = JSON.parse(content) as RegionIndex;
+    
+    // Validate schema
+    if (!validateRegionIndexSchema(indexData)) {
+      console.warn(`[RegionIndex] Invalid schema at ${regionIndexPath}, will rebuild`);
+      return null;
+    }
+    
+    // Check TTL
+    if (indexData.updated_at) {
+      const updatedTime = new Date(indexData.updated_at).getTime();
+      const now = Date.now();
+      const age = now - updatedTime;
+      
+      if (age > REGION_INDEX_TTL_MS) {
+        if (DEBUG_REGION_INDEX) {
+          console.log(`[RegionIndex] Cache expired: age=${Math.round(age / 1000)}s, TTL=${Math.round(REGION_INDEX_TTL_MS / 1000)}s`);
+        }
+        return null; // Expired
+      }
+      
+      if (DEBUG_REGION_INDEX) {
+        console.log(`[RegionIndex] Cache hit: age=${Math.round(age / 1000)}s, ${indexData.cars.length} cars`);
+      }
+    }
     
     return indexData.cars || null;
   } catch (error) {
-    console.error(`Error reading region index from ${regionPath}:`, error);
+    console.error(`[RegionIndex] Error reading from ${regionPath}:`, error);
     return null;
   }
 }
 
 /**
+ * Validate RegionIndex schema
+ */
+function validateRegionIndexSchema(data: unknown): data is RegionIndex {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  const obj = data as Record<string, unknown>;
+  
+  if (typeof obj.version !== 'number' || obj.version < 1) {
+    return false;
+  }
+  
+  if (typeof obj.updated_at !== 'string' || !obj.updated_at) {
+    return false;
+  }
+  
+  if (!Array.isArray(obj.cars)) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Write region index to _REGION.json
- * Updates the list of cars in the region
+ * Updates the list of cars in the region with versioning
  */
 async function writeRegionIndex(regionPath: string, cars: Car[]): Promise<boolean> {
   try {
     const regionIndexPath = `${regionPath}/_REGION.json`;
-    const indexData = {
-      cars: cars,
+    const indexData: RegionIndex = {
+      version: 1,
       updated_at: new Date().toISOString(),
+      cars: cars,
     };
     
     const result = await uploadText(regionIndexPath, indexData);
+    
+    if (result.success && DEBUG_REGION_INDEX) {
+      console.log(`[RegionIndex] Cache written: ${cars.length} cars at ${regionIndexPath}`);
+    }
+    
     return result.success;
   } catch (error) {
-    console.error(`Error writing region index to ${regionPath}:`, error);
+    console.error(`[RegionIndex] Error writing to ${regionPath}:`, error);
     return false;
   }
 }
@@ -823,16 +1043,18 @@ function buildDeterministicSlots(carRootPath: string, region: string, make: stri
  */
 export async function listCarsByRegion(region: string): Promise<CarWithProgress[]> {
   const cars: CarWithProgress[] = [];
+  let listFolderCalls = 0;
+  const nestedScans = 0;
   
   try {
     const regionPath = getRegionPath(region);
     
-    // Try to read from _REGION.json first
+    // Try to read from _REGION.json first (O(1) cache hit)
     const indexedCars = await readRegionIndex(regionPath);
     
     if (indexedCars && indexedCars.length > 0) {
       // Use indexed data - very fast, no folder scanning
-      console.log(`[DiskStorage] Using _REGION.json index for region ${region}, found ${indexedCars.length} cars`);
+      console.log(`[RegionLoad] ✅ Cache hit: region=${region}, cars=${indexedCars.length}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
       
       for (const car of indexedCars) {
         cars.push({
@@ -853,11 +1075,13 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       return cars;
     }
     
-    // Fallback: List car folders in the region (slower)
-    console.log(`[DiskStorage] _REGION.json not found or empty, falling back to folder listing for region ${region}`);
+    // Fallback: List car folders in the region (cache miss/expired)
+    console.log(`[RegionLoad] Cache miss/expired for region ${region}, performing listFolder`);
+    listFolderCalls = 1; // Count this API call
+    
     const carsResult = await listFolder(regionPath);
     if (!carsResult.success || !carsResult.items) {
-      console.log(`[DiskStorage] No cars found in region ${region}`);
+      console.log(`[RegionLoad] ⚠️ No cars found: region=${region}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
       return cars;
     }
     
@@ -871,7 +1095,7 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       // Parse car folder name
       const carInfo = parseCarFolderName(carFolder.name);
       if (!carInfo) {
-        console.warn(`[DiskStorage] Could not parse car folder name: ${carFolder.name}`);
+        console.warn(`[RegionLoad] Could not parse car folder name: ${carFolder.name}`);
         continue;
       }
       
@@ -904,14 +1128,16 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       });
     }
     
+    console.log(`[RegionLoad] ✅ Rebuilt index: region=${region}, cars=${scannedCars.length}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
+    
     // Write _REGION.json for future use (fire and forget)
     if (scannedCars.length > 0) {
       writeRegionIndex(regionPath, scannedCars).catch(err => 
-        console.warn(`Failed to write region index for ${region}:`, err)
+        console.warn(`[RegionLoad] Failed to write cache for ${region}:`, err)
       );
     }
   } catch (error) {
-    console.error(`[DiskStorage] Error listing cars in region ${region}:`, error);
+    console.error(`[RegionLoad] ❌ Error: region=${region}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`, error);
   }
   
   return cars;
@@ -1123,23 +1349,36 @@ export async function createCar(params: {
  * Get car with all slots
  * Phase 1 optimization: Builds slot structure deterministically without scanning
  * Slots returned with stats_loaded=false, must call loadCarSlotCounts separately
+ * 
+ * Performance: O(1) - no listFolder calls for slots
  */
 export async function getCarWithSlots(region: string, vin: string): Promise<{
   car: Car;
   slots: Slot[];
 } | null> {
   try {
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CarOpen] Opening car: region=${region}, vin=${vin}`);
+    }
+    
     const car = await getCarByRegionAndVin(region, vin);
     if (!car) {
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[CarOpen] ❌ Car not found: ${region}/${vin}`);
+      }
       return null;
     }
     
-    // Phase 1: Build slots deterministically (O(1) API calls)
+    // Phase 1: Build slots deterministically (O(1) - no API calls)
     const slots = buildDeterministicSlots(car.disk_root_path, region, car.make, car.model, car.vin);
+    
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CarOpen] ✅ Instant open: region=${region}, vin=${vin}, slots=${slots.length}, listFolder=0`);
+    }
     
     return { car, slots };
   } catch (error) {
-    console.error(`[DiskStorage] Error getting car with slots ${region}/${vin}:`, error);
+    console.error(`[CarOpen] ❌ Error: ${region}/${vin}`, error);
     return null;
   }
 }
@@ -1148,20 +1387,34 @@ export async function getCarWithSlots(region: string, vin: string): Promise<{
  * Phase 2: Load actual slot counts and status from disk
  * This is called separately after initial card render for lazy loading
  * Returns slots with stats_loaded=true
+ * 
+ * Performance: Reads from _PHOTOS.json/_SLOT.json when available
+ * Only does listFolder when JSON is missing (reconcile)
  */
 export async function loadCarSlotCounts(region: string, vin: string): Promise<Slot[] | null> {
   try {
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CountsLoad] Loading counts: region=${region}, vin=${vin}`);
+    }
+    
     const car = await getCarByRegionAndVin(region, vin);
     if (!car) {
       return null;
     }
     
-    // Load full slot data with counts (this makes the disk API calls)
+    // Load full slot data with counts (reads from JSON, reconciles if missing)
     const slots = await getCarSlots(car.disk_root_path);
+    
+    const jsonReads = slots.length; // Approximate - each slot reads JSON or reconciles
+    const reconciles = 0; // getSlotStats logs when it reconciles
+    
+    if (DEBUG_CAR_LOADING) {
+      console.log(`[CountsLoad] ✅ Loaded: region=${region}, vin=${vin}, slots=${slots.length}, jsonReads~${jsonReads}`);
+    }
     
     return slots;
   } catch (error) {
-    console.error(`[DiskStorage] Error loading slot counts ${region}/${vin}:`, error);
+    console.error(`[CountsLoad] ❌ Error: ${region}/${vin}`, error);
     return null;
   }
 }
