@@ -53,6 +53,12 @@ export const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB || "50", 1
 export const MAX_TOTAL_UPLOAD_SIZE_MB = parseInt(process.env.MAX_TOTAL_UPLOAD_SIZE_MB || "200", 10); // per request
 export const MAX_FILES_PER_UPLOAD = parseInt(process.env.MAX_FILES_PER_UPLOAD || "50", 10);
 
+// Photo index limits
+export const MAX_PHOTOS_PER_SLOT = parseInt(process.env.MAX_PHOTOS_PER_SLOT || "40", 10); // hard limit per slot
+
+// Debug configuration
+export const DEBUG_DISK_CALLS = process.env.DEBUG_DISK_CALLS === '1' || process.env.DEBUG_DISK_CALLS === 'true';
+
 // Archive retry configuration
 export const ARCHIVE_RETRY_DELAY_MS = parseInt(process.env.ARCHIVE_RETRY_DELAY_MS || "1000", 10);
 

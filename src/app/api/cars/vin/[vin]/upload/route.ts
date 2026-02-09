@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, errorResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
-import { getCarWithSlots, getSlot } from "@/lib/infrastructure/diskStorage/carsRepo";
+import { getCarWithSlots, getSlot, updateSlotStats, checkPhotoLimit, writePhotosIndex, PhotoItem } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { uploadToYandexDisk, uploadText, exists, deleteFile } from "@/lib/infrastructure/yandexDisk/client";
 import { getLockMarkerPath, validateSlot, sanitizeFilename, type SlotType } from "@/lib/domain/disk/paths";
 import { MAX_FILE_SIZE_MB, MAX_TOTAL_UPLOAD_SIZE_MB, MAX_FILES_PER_UPLOAD, REGIONS_LIST } from "@/lib/config/index";
@@ -174,6 +174,19 @@ export async function POST(
       }
     }
     
+    // Check photo limit BEFORE uploading (40 photos max per slot)
+    const limitCheck = await checkPhotoLimit(slot.disk_slot_path, files.length);
+    if (limitCheck.isAtLimit) {
+      return NextResponse.json(
+        { 
+          error: `Slot photo limit reached. Maximum ${limitCheck.maxPhotos} photos per slot. Current: ${limitCheck.currentCount}, attempting to add: ${files.length}`,
+          currentCount: limitCheck.currentCount,
+          maxPhotos: limitCheck.maxPhotos,
+        },
+        { status: 413 }
+      );
+    }
+    
     // Upload all files with rollback support
     const uploadedFiles: Array<{ name: string; size: number }> = [];
     const uploadedFilePaths: string[] = []; // Track paths for rollback
@@ -227,6 +240,17 @@ export async function POST(
       if (!lockUploadResult.success) {
         throw new Error(`Failed to create lock file: ${lockUploadResult.error}`);
       }
+      
+      // Update _SLOT.json with current stats (synchronous update)
+      await updateSlotStats(slot.disk_slot_path);
+      
+      // Update _PHOTOS.json with uploaded files (synchronous update)
+      const photoItems: PhotoItem[] = uploadedFiles.map(file => ({
+        name: file.name,
+        size: file.size,
+        modified: new Date().toISOString(),
+      }));
+      await writePhotosIndex(slot.disk_slot_path, photoItems);
       
       // Get updated slot info from disk
       const updatedSlot = await getSlot(car.disk_root_path, slotType as SlotType, slotIndex);
