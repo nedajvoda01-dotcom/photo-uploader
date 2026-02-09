@@ -76,6 +76,33 @@ export function normalizeDiskPath(path: string): string {
 }
 
 /**
+ * Assert and validate a Yandex Disk path at API boundary
+ * This function is called before every Disk API call to ensure path validity
+ * 
+ * @param path - Path to validate (should already be normalized)
+ * @param stage - Name of the operation stage (for error reporting and logging)
+ * @returns Normalized path
+ * @throws Error with stage information if validation fails
+ */
+export function assertDiskPath(path: string, stage: string): string {
+  try {
+    // Normalize the path first
+    const normalized = normalizeDiskPath(path);
+    
+    // Assert it starts with '/'
+    if (!normalized.startsWith('/')) {
+      throw new Error(`Path must start with '/', got: ${normalized}`);
+    }
+    
+    return normalized;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Include stage in the error for better debugging
+    throw new Error(`[${stage}] Path validation failed: ${message} (original: ${path})`);
+  }
+}
+
+/**
  * Get the base path for all photo storage
  * Pattern: ${YANDEX_DISK_BASE_DIR}
  * 

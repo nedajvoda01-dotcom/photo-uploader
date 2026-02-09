@@ -9,9 +9,10 @@
  * 5. Leading/trailing whitespace is trimmed
  * 6. Empty paths are rejected
  * 7. Valid paths pass through correctly
+ * 8. assertDiskPath validates and includes stage in errors
  */
 
-import { normalizeDiskPath } from '../domain/disk/paths';
+import { normalizeDiskPath, assertDiskPath } from '../domain/disk/paths';
 
 // Mock expect for standalone execution
 function expect(value: unknown) {
@@ -159,12 +160,56 @@ describe('Path Validation', () => {
     expect(normalizeDiskPath('/DISK:/Фото/MSK')).toBe('/Фото/MSK');
   });
   
+  // Test cases from requirements specification
+  test('REQUIREMENT: "/disk:/Фото/R1/..." → "/Фото/R1/..."', () => {
+    expect(normalizeDiskPath('/disk:/Фото/R1/...')).toBe('/Фото/R1/...');
+  });
+  
+  test('REQUIREMENT: " /Фото / R1 / ... " → "/Фото/R1/..."', () => {
+    expect(normalizeDiskPath(' /Фото / R1 / ... ')).toBe('/Фото/R1/...');
+  });
+  
   test('normalizeDiskPath throws on path segment with colon', () => {
     expect(() => normalizeDiskPath('/Фото/C:/MSK')).toThrow('path segment contains colon');
   });
   
   test('normalizeDiskPath throws on Windows drive letter in segment', () => {
     expect(() => normalizeDiskPath('/Фото/MSK/D:/car')).toThrow('path segment contains colon');
+  });
+  
+  test('REQUIREMENT: forbidden ":" in first segment → structured error', () => {
+    expect(() => normalizeDiskPath('/C:/Фото/MSK')).toThrow('path segment contains colon');
+  });
+});
+
+// Tests for assertDiskPath
+describe('assertDiskPath Function', () => {
+  test('assertDiskPath normalizes and validates path', () => {
+    expect(assertDiskPath('/Фото/R1', 'testStage')).toBe('/Фото/R1');
+  });
+  
+  test('assertDiskPath handles disk: prefix', () => {
+    expect(assertDiskPath('disk:/Фото/R1', 'testStage')).toBe('/Фото/R1');
+  });
+  
+  test('assertDiskPath handles spaces around slashes', () => {
+    expect(assertDiskPath(' /Фото / R1 / ... ', 'testStage')).toBe('/Фото/R1/...');
+  });
+  
+  test('assertDiskPath throws with stage info on invalid path', () => {
+    expect(() => assertDiskPath('/C:/Фото', 'uploadStage')).toThrow('[uploadStage]');
+  });
+  
+  test('assertDiskPath includes original path in error', () => {
+    expect(() => assertDiskPath('/C:/Фото', 'createFolder')).toThrow('original: /C:/Фото');
+  });
+  
+  test('assertDiskPath includes error details in message', () => {
+    expect(() => assertDiskPath('/C:/Фото', 'ensureDir')).toThrow('path segment contains colon');
+  });
+  
+  test('assertDiskPath throws on empty path', () => {
+    expect(() => assertDiskPath('', 'testStage')).toThrow('[testStage]');
   });
 });
 

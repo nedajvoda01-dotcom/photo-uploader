@@ -2,12 +2,32 @@
  * Infrastructure: Yandex Disk Client
  * Integration with Yandex.Disk API for uploading files and managing folders
  */
-import { YANDEX_DISK_TOKEN } from "@/lib/config/disk";
-import { normalizeDiskPath } from "@/lib/domain/disk/paths";
+import { YANDEX_DISK_TOKEN, DEBUG_DISK_CALLS } from "@/lib/config/disk";
+import { assertDiskPath } from "@/lib/domain/disk/paths";
 
 const YANDEX_DISK_API_BASE = "https://cloud-api.yandex.net/v1/disk";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
+
+// Counter for generating unique request IDs
+let requestIdCounter = 0;
+
+/**
+ * Generate a unique request ID for tracking API calls
+ */
+function generateRequestId(): string {
+  return `req_${Date.now()}_${++requestIdCounter}`;
+}
+
+/**
+ * Log Disk API call for debugging (when DEBUG_DISK_CALLS is enabled)
+ * Logs: {requestId, stage, normalizedPath}
+ */
+function logDiskApiCall(requestId: string, stage: string, normalizedPath: string): void {
+  if (DEBUG_DISK_CALLS) {
+    console.log(`[DiskAPI] ${JSON.stringify({ requestId, stage, normalizedPath })}`);
+  }
+}
 
 export interface UploadParams {
   path: string; // Remote path on Yandex.Disk (e.g., "/mvp_uploads/photo.jpg")
@@ -26,23 +46,20 @@ export interface UploadResult {
  * Validate and normalize a Yandex Disk path at API boundary
  * @param path - Path to validate and normalize
  * @param stage - Name of the operation stage (for error reporting)
- * @returns Normalized path
+ * @param requestId - Optional request ID for logging (generated if not provided)
+ * @returns Object with normalized path and request ID
  * @throws Error with stage and normalized path if validation fails
  */
-function validateAndNormalizePath(path: string, stage: string): string {
-  try {
-    const normalized = normalizeDiskPath(path);
-    
-    // Assert it starts with '/'
-    if (!normalized.startsWith('/')) {
-      throw new Error(`[${stage}] Path must start with '/', got: ${normalized}`);
-    }
-    
-    return normalized;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`[${stage}] Path validation failed: ${message} (original: ${path})`);
-  }
+function validateAndNormalizePath(path: string, stage: string, requestId?: string): { normalizedPath: string; requestId: string } {
+  const rid = requestId || generateRequestId();
+  
+  // Use assertDiskPath for validation and normalization
+  const normalizedPath = assertDiskPath(path, stage);
+  
+  // Log the API call
+  logDiskApiCall(rid, stage, normalizedPath);
+  
+  return { normalizedPath, requestId: rid };
 }
 
 /**
@@ -121,10 +138,7 @@ async function withRetry<T>(
  */
 async function ensureDir(path: string): Promise<void> {
   // Normalize and validate path at API boundary
-  const normalizedPath = validateAndNormalizePath(path, 'ensureDir');
-  
-  // Log the final normalized path before API call
-  console.log(`[YandexDisk] ensureDir: normalized path="${normalizedPath}"`);
+  const { normalizedPath, requestId } = validateAndNormalizePath(path, 'ensureDir');
   
   // Split the path into segments and recursively create each directory
   const segments = normalizedPath.split("/").filter((seg) => seg.length > 0);
@@ -179,8 +193,11 @@ export async function uploadToYandexDisk(
 
   // Normalize and validate path at API boundary
   let normalizedPath: string;
+  let requestId: string;
   try {
-    normalizedPath = validateAndNormalizePath(path, 'uploadToYandexDisk');
+    const result = validateAndNormalizePath(path, 'uploadToYandexDisk');
+    normalizedPath = result.normalizedPath;
+    requestId = result.requestId;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -197,8 +214,6 @@ export async function uploadToYandexDisk(
     if (lastSlashIndex > 0) {
       const dirPath = normalizedPath.substring(0, lastSlashIndex);
       
-      console.log(`[YandexDisk] Ensuring directory exists: ${dirPath}`);
-      
       try {
         await ensureDir(dirPath);
       } catch (error) {
@@ -211,9 +226,6 @@ export async function uploadToYandexDisk(
     // Step 2: Get upload URL from Yandex.Disk
     let uploadUrl: string;
     try {
-      // Log the final normalized path before API call
-      console.log(`[YandexDisk] getUploadUrl: normalized path="${normalizedPath}"`);
-      
       const uploadUrlResponse = await fetch(
         `${YANDEX_DISK_API_BASE}/resources/upload?path=${encodeURIComponent(normalizedPath)}&overwrite=true`,
         {
@@ -293,8 +305,11 @@ export async function uploadToYandexDisk(
 export async function createFolder(path: string): Promise<{ success: boolean; error?: string }> {
   // Normalize and validate path at API boundary
   let normalizedPath: string;
+  let requestId: string;
   try {
-    normalizedPath = validateAndNormalizePath(path, 'createFolder');
+    const result = validateAndNormalizePath(path, 'createFolder');
+    normalizedPath = result.normalizedPath;
+    requestId = result.requestId;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -303,11 +318,8 @@ export async function createFolder(path: string): Promise<{ success: boolean; er
     };
   }
   
-  console.log(`[YandexDisk] createFolder: ${normalizedPath}`);
-  
   return withRetry(async () => {
     const url = `${YANDEX_DISK_API_BASE}/resources?path=${encodeURIComponent(normalizedPath)}`;
-    console.log(`[YandexDisk] PUT ${url}`);
     
     const response = await fetch(
       url,
@@ -318,8 +330,7 @@ export async function createFolder(path: string): Promise<{ success: boolean; er
         },
       }
     );
-    
-    console.log(`[YandexDisk] Status: ${response.status}`);
+
     
     // 201 = created successfully, 409 = already exists (both acceptable - idempotent)
     if (response.status === 201 || response.status === 409) {
