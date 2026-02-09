@@ -170,6 +170,21 @@ export async function DELETE(
       lastError = moveResult.error;
       console.error(`[Archive] Move attempt ${attempt} failed:`, lastError);
       
+      // Check if error is "destination already exists" (409)
+      if (lastError && lastError.includes('409')) {
+        console.log(`[Archive] Detected 409 (already exists), retrying with overwrite=true`);
+        const overwriteResult = await moveFolder(car.disk_root_path, archivePath, true);
+        
+        if (overwriteResult.success) {
+          console.log(`[Archive] Overwrite succeeded`);
+          moveSuccess = true;
+          break;
+        }
+        
+        lastError = overwriteResult.error;
+        console.error(`[Archive] Overwrite attempt also failed:`, lastError);
+      }
+      
       if (attempt < 3) {
         await new Promise(resolve => setTimeout(resolve, ARCHIVE_RETRY_DELAY_MS));
       }
