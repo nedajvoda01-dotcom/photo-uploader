@@ -334,10 +334,36 @@ async function reconcileSlot(slotPath: string): Promise<{ fileCount: number; tot
 /**
  * Get slot statistics (file count and size)
  * Optimization: Tries to read cached stats from _PHOTOS.json first, then _SLOT.json
- * If not available, calls reconcileSlot() to rebuild the indexes
+ * If not available or marked dirty, calls reconcileSlot() to rebuild the indexes
  */
 async function getSlotStats(slotPath: string): Promise<{ fileCount: number; totalSizeMB: number }> {
   try {
+    // Check for _DIRTY.json flag first
+    // Critical Fix: Auto-heal dirty slots
+    const dirtyPath = `${slotPath}/_DIRTY.json`;
+    const isDirty = await exists(dirtyPath);
+    
+    if (isDirty) {
+      if (DEBUG_CAR_LOADING) {
+        console.log(`[SlotStats] ⚠️ _DIRTY.json found for ${slotPath}, triggering reconcile`);
+      }
+      
+      // Reconcile to fix the state
+      const stats = await reconcileSlot(slotPath);
+      
+      // Clear dirty flag after successful reconcile
+      try {
+        await deleteFile(dirtyPath);
+        if (DEBUG_CAR_LOADING) {
+          console.log(`[SlotStats] ✅ Cleared _DIRTY.json after reconcile`);
+        }
+      } catch (error) {
+        console.error(`[SlotStats] ⚠️ Failed to clear _DIRTY.json:`, error);
+      }
+      
+      return stats;
+    }
+    
     // Priority 1: Try to read from _PHOTOS.json (most detailed index)
     const photosIndex = await readPhotosIndex(slotPath);
     if (photosIndex && photosIndex.count !== undefined) {

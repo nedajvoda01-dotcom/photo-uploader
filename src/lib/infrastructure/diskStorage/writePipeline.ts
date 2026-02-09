@@ -356,15 +356,33 @@ export async function commitIndex(
   let lockAcquired = false;
   
   try {
-    // 1. Acquire lock
+    // 1. Acquire lock with retry
+    // Critical Fix: Retry on lock conflict to handle parallel uploads
     stageLog(`Acquiring lock...`);
-    lockAcquired = await acquireLock(slotPath, uploadedBy, 'upload');
+    const maxLockRetries = 5;
+    const lockRetryDelayMs = 1000; // 1 second between retries
+    
+    for (let attempt = 1; attempt <= maxLockRetries; attempt++) {
+      lockAcquired = await acquireLock(slotPath, uploadedBy, 'upload');
+      
+      if (lockAcquired) {
+        if (attempt > 1) {
+          stageLog(`✅ Lock acquired on attempt ${attempt}`);
+        }
+        break;
+      }
+      
+      if (attempt < maxLockRetries) {
+        stageLog(`⚠️ Lock held by another operation, retry ${attempt}/${maxLockRetries} in ${lockRetryDelayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, lockRetryDelayMs));
+      }
+    }
     
     if (!lockAcquired) {
       return {
         success: false,
-        error: 'Failed to acquire lock (slot may be locked by another operation)',
-        stage: 'commitIndex_lock_failed',
+        error: `Failed to acquire lock after ${maxLockRetries} attempts (slot locked by another operation)`,
+        stage: 'commitIndex_lock_timeout',
       };
     }
     
