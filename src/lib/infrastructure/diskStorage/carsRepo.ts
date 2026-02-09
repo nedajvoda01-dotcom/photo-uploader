@@ -10,7 +10,6 @@
  * - Slot locks: {slotPath}/_LOCK.json
  * - Links: {carRoot}/_LINKS.json
  * - Published URLs: {slotPath}/_PUBLISHED.json
- * - Used markers: {slotPath}/_USED.json (legacy)
  */
 
 import { 
@@ -805,47 +804,8 @@ export async function checkPhotoLimit(slotPath: string, additionalPhotos: number
 /**
  * Check if slot is marked as used
  */
-async function isSlotUsed(slotPath: string): Promise<boolean> {
-  try {
-    return await exists(`${slotPath}/_USED.json`);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Mark slot as used
- */
-export async function markSlotAsUsed(slotPath: string, usedBy: string): Promise<boolean> {
-  try {
-    const usedPath = `${slotPath}/_USED.json`;
-    const data = {
-      used: true,
-      used_by: usedBy,
-      used_at: new Date().toISOString(),
-    };
-    
-    const result = await uploadText(usedPath, data);
-    return result.success;
-  } catch (error) {
-    console.error(`Error marking slot as used at ${slotPath}:`, error);
-    return false;
-  }
-}
-
-/**
- * Unmark slot as used
- */
-export async function unmarkSlotAsUsed(slotPath: string): Promise<boolean> {
-  try {
-    const usedPath = `${slotPath}/_USED.json`;
-    const result = await deleteFile(usedPath);
-    return result.success;
-  } catch (error) {
-    console.error(`Error unmarking slot as used at ${slotPath}:`, error);
-    return false;
-  }
-}
+// Removed legacy _USED.json functions per Problem Statement #7
+// Business logic for "used" status should be handled at application level, not disk level
 
 /**
  * Get all slots for a car with their status
@@ -891,7 +851,6 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
         const locked = await isSlotLocked(slotFolder.path);
         const stats = await getSlotStats(slotFolder.path);
         const publicUrl = await readPublishedUrl(slotFolder.path);
-        const isUsed = await isSlotUsed(slotFolder.path);
         
         slots.push({
           slot_type: slotType,
@@ -901,7 +860,7 @@ async function getCarSlots(carRootPath: string): Promise<Slot[]> {
           file_count: stats.fileCount,
           total_size_mb: Math.round(stats.totalSizeMB * 100) / 100,
           public_url: publicUrl,
-          is_used: isUsed,
+          is_used: false, // Removed _USED.json per Problem Statement #7
           stats_loaded: true,
         });
       }

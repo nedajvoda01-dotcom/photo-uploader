@@ -5,12 +5,13 @@
 
 import bcrypt from "bcryptjs";
 import { timingSafeEqual } from "crypto";
-import { checkDatabaseConnection } from "@/lib/infrastructure/db/connection";
-import { getUserByEmail as getUserByEmailDB, upsertUser } from "@/lib/infrastructure/db/usersRepo";
 import { getUserByEmail as getUserByEmailFile } from "@/lib/infrastructure/dev/usersJson";
 import { getBootstrapAdmins, generateStableEnvUserId } from "@/lib/config/auth";
 import { ADMIN_REGION } from "@/lib/config/regions";
 import { getAllRegionUsers } from "@/lib/config/regions";
+
+// Database removed per Problem Statement #7
+// Auth now works purely from ENV and file-based config
 
 export interface User {
   id: number;
@@ -24,7 +25,7 @@ export interface LoginResult {
   success: boolean;
   user?: User;
   error?: string;
-  source?: 'bootstrap-admin' | 'region-user' | 'database' | 'file';
+  source?: 'bootstrap-admin' | 'region-user' | 'file';
 }
 
 /**
@@ -191,36 +192,17 @@ async function checkRegionUser(
 }
 
 /**
- * Get user by email from database or fallback to file-based auth (dev only)
+ * Get user by email from file-based auth (dev/bootstrap only)
+ * Database removed per Problem Statement #7
  */
 async function getUserByEmail(email: string): Promise<User | null> {
   // Normalize email for lookup
   const normalizedEmail = email.trim().toLowerCase();
   
-  // Try database first
-  const hasDB = await checkDatabaseConnection();
-  
-  if (hasDB) {
-    try {
-      const dbUser = await getUserByEmailDB(normalizedEmail);
-      if (dbUser) {
-        return {
-          id: dbUser.id,
-          email: dbUser.email,
-          passwordHash: dbUser.password_hash,
-          region: dbUser.region,
-          role: dbUser.role,
-        };
-      }
-    } catch (error) {
-      console.error("Database query failed, falling back to file/env auth:", error);
-    }
-  }
-  
-  // Fallback to file/env based auth (users.json is blocked in production)
+  // File/env based auth only (users.json is blocked in production)
   const fileUser = getUserByEmailFile(normalizedEmail);
   if (fileUser) {
-    // For file-based auth, we'll use default values for region and role
+    // For file-based auth, use default values for region and role
     // Generate a stable ID for file users
     return {
       id: generateStableEnvUserId(fileUser.email),
@@ -236,13 +218,12 @@ async function getUserByEmail(email: string): Promise<User | null> {
 
 /**
  * Login Use Case
- * Handles unified login flow:
+ * Handles unified login flow from ENV and file-based config only:
  * 1. Check bootstrap admins from ENV
  * 2. Check region users from ENV
- * 3. Check database users
- * 4. Fallback to file-based users (dev only)
+ * 3. Fallback to file-based users (dev only)
  * 
- * For ENV users, attempts to upsert to database (best effort)
+ * Database removed per Problem Statement #7 - all auth from ENV/files
  */
 export async function loginUseCase(
   email: string,
@@ -256,28 +237,9 @@ export async function loginUseCase(
   const bootstrapResult = await checkBootstrapAdmin(normalizedEmail, normalizedPassword);
   
   if (bootstrapResult.isMatch && bootstrapResult.user) {
-    // Bootstrap admin login successful - try to upsert to database
-    let dbUser = bootstrapResult.user;
-    try {
-      const upserted = await upsertUser({
-        email: bootstrapResult.user.email,
-        passwordHash: bootstrapResult.user.passwordHash,
-        region: bootstrapResult.user.region,
-        role: bootstrapResult.user.role,
-      });
-      // Use DB ID if upsert succeeded
-      dbUser = {
-        ...bootstrapResult.user,
-        id: upserted.id,
-      };
-    } catch (dbError) {
-      console.error('[loginUseCase] Failed to upsert bootstrap admin to database:', dbError);
-      // Continue with ENV user if DB fails (use stable ENV ID)
-    }
-    
     return {
       success: true,
-      user: dbUser,
+      user: bootstrapResult.user,
       source: 'bootstrap-admin',
     };
   }
@@ -286,33 +248,14 @@ export async function loginUseCase(
   const regionUserResult = await checkRegionUser(normalizedEmail, normalizedPassword);
   
   if (regionUserResult.isMatch && regionUserResult.user) {
-    // Region user login successful - try to upsert to database
-    let dbUser = regionUserResult.user;
-    try {
-      const upserted = await upsertUser({
-        email: regionUserResult.user.email,
-        passwordHash: regionUserResult.user.passwordHash,
-        region: regionUserResult.user.region,
-        role: regionUserResult.user.role,
-      });
-      // Use DB ID if upsert succeeded
-      dbUser = {
-        ...regionUserResult.user,
-        id: upserted.id,
-      };
-    } catch (dbError) {
-      console.error('[loginUseCase] Failed to upsert region user to database:', dbError);
-      // Continue with ENV user if DB fails (use stable ENV ID)
-    }
-    
     return {
       success: true,
-      user: dbUser,
+      user: regionUserResult.user,
       source: 'region-user',
     };
   }
 
-  // Step 3: Find user in database or file/env
+  // Step 3: Find user in file/env only
   const user = await getUserByEmail(normalizedEmail);
   if (!user) {
     return {
@@ -341,7 +284,7 @@ export async function loginUseCase(
 
   // Forbid userId = 0 in sessions (security requirement)
   if (!user.id || user.id === 0) {
-    console.error('[loginUseCase] Cannot create session: user has no valid database ID');
+    console.error('[loginUseCase] Cannot create session: user has no valid ID');
     return {
       success: false,
       error: "Authentication configuration error",
@@ -351,6 +294,6 @@ export async function loginUseCase(
   return {
     success: true,
     user,
-    source: user.id > 0 ? 'database' : 'file',
+    source: 'file',
   };
 }
