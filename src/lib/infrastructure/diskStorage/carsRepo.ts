@@ -195,6 +195,30 @@ export function parseArchivedCarFolderName(folderName: string): { region: string
 }
 
 /**
+ * Parse car folder name based on region type
+ * Uses parseArchivedCarFolderName for ALL region, parseCarFolderName for others
+ */
+function parseCarFolderNameByRegion(
+  folderName: string, 
+  region: string
+): { make: string; model: string; vin: string } | null {
+  if (region === 'ALL') {
+    const archivedCarInfo = parseArchivedCarFolderName(folderName);
+    if (!archivedCarInfo) {
+      return null;
+    }
+    // Extract only make, model, vin (drop region)
+    return { 
+      make: archivedCarInfo.make, 
+      model: archivedCarInfo.model, 
+      vin: archivedCarInfo.vin 
+    };
+  } else {
+    return parseCarFolderName(folderName);
+  }
+}
+
+/**
  * Read car metadata from _CAR.json file
  * Repairs paths on read if they contain spaces around slashes
  */
@@ -1234,18 +1258,9 @@ export async function getCarByRegionAndVin(region: string, vin: string): Promise
       }
       
       // Parse folder name based on region type
-      let carInfo: { make: string; model: string; vin: string } | null;
-      if (region === 'ALL') {
-        const archivedCarInfo = parseArchivedCarFolderName(carFolder.name);
-        if (!archivedCarInfo) {
-          continue;
-        }
-        carInfo = { make: archivedCarInfo.make, model: archivedCarInfo.model, vin: archivedCarInfo.vin };
-      } else {
-        carInfo = parseCarFolderName(carFolder.name);
-        if (!carInfo) {
-          continue;
-        }
+      const carInfo = parseCarFolderNameByRegion(carFolder.name, region);
+      if (!carInfo) {
+        continue;
       }
       
       if (carInfo.vin.toUpperCase() === vin.toUpperCase()) {
@@ -1719,17 +1734,7 @@ export async function findCarByLinkId(regions: string[], linkId: string): Promis
         const links = await readLinks(carFolder.path);
         if (links.some(link => link.id === linkId)) {
           // Parse folder name based on region type
-          let carInfo: { make: string; model: string; vin: string } | null;
-          if (region === 'ALL') {
-            const archivedCarInfo = parseArchivedCarFolderName(carFolder.name);
-            if (!archivedCarInfo) {
-              continue;
-            }
-            carInfo = { make: archivedCarInfo.make, model: archivedCarInfo.model, vin: archivedCarInfo.vin };
-          } else {
-            carInfo = parseCarFolderName(carFolder.name);
-          }
-          
+          const carInfo = parseCarFolderNameByRegion(carFolder.name, region);
           if (carInfo) {
             return {
               carRootPath: carFolder.path,
