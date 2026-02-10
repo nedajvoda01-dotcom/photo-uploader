@@ -147,6 +147,44 @@ function parseCarFolderName(folderName: string): { make: string; model: string; 
 }
 
 /**
+ * Parse archived car folder name to extract region, make, model, and VIN
+ * Format: "<REGION>_<Make>_<Model>_<VIN>" (underscores, used in ALL archive folder)
+ * Example: "MSK_Toyota_Camry_1HGBH41JXMN109186"
+ */
+function parseArchivedCarFolderName(folderName: string): { region: string; make: string; model: string; vin: string } | null {
+  const parts = folderName.trim();
+  
+  // VIN is always the last 17 characters (alphanumeric)
+  const vinMatch = parts.match(/([A-HJ-NPR-Z0-9]{17})$/i);
+  if (!vinMatch) {
+    return null;
+  }
+  
+  const vin = vinMatch[1];
+  
+  // Remove VIN and trailing underscore
+  const beforeVin = parts.substring(0, parts.length - 17);
+  if (!beforeVin.endsWith('_')) {
+    return null;
+  }
+  
+  const regionMakeModel = beforeVin.substring(0, beforeVin.length - 1); // Remove trailing underscore
+  
+  // Split by underscores: REGION_Make_Model...
+  const segments = regionMakeModel.split('_');
+  if (segments.length < 3) {
+    return null; // Need at least region, make, and model
+  }
+  
+  const region = segments[0];
+  const make = segments[1];
+  // Model can contain underscores, so join remaining segments
+  const model = segments.slice(2).join('_');
+  
+  return { region, make, model, vin };
+}
+
+/**
  * Read car metadata from _CAR.json file
  * Repairs paths on read if they contain spaces around slashes
  */
@@ -1092,21 +1130,45 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
         continue;
       }
       
-      // Parse car folder name
-      const carInfo = parseCarFolderName(carFolder.name);
-      if (!carInfo) {
-        console.warn(`[RegionLoad] Could not parse car folder name: ${carFolder.name}`);
-        continue;
+      // Parse car folder name based on region type
+      // ALL region uses format: REGION_Make_Model_VIN (underscores)
+      // Other regions use format: Make Model VIN (spaces)
+      let make: string;
+      let model: string;
+      let vin: string;
+      let originalRegion: string;
+      
+      if (region === 'ALL') {
+        // Parse archived car folder name with underscores
+        const archivedCarInfo = parseArchivedCarFolderName(carFolder.name);
+        if (!archivedCarInfo) {
+          console.warn(`[RegionLoad] Could not parse archived car folder name: ${carFolder.name}`);
+          continue;
+        }
+        make = archivedCarInfo.make;
+        model = archivedCarInfo.model;
+        vin = archivedCarInfo.vin;
+        originalRegion = archivedCarInfo.region;
+      } else {
+        // Parse normal car folder name with spaces
+        const carInfo = parseCarFolderName(carFolder.name);
+        if (!carInfo) {
+          console.warn(`[RegionLoad] Could not parse car folder name: ${carFolder.name}`);
+          continue;
+        }
+        make = carInfo.make;
+        model = carInfo.model;
+        vin = carInfo.vin;
+        originalRegion = region;
       }
       
-      const { make, model, vin } = carInfo;
       const carRootPath = carFolder.path;
       
       // Read metadata if available (use fallback if not present)
       const metadata = await readCarMetadata(carRootPath);
       
       const carData: Car = {
-        region,
+        region: originalRegion,
         make,
         model,
         vin,
