@@ -1,11 +1,15 @@
 /**
  * Tests for Region Index Read Pipeline (Problem Statement #3.1)
  * 
+ * NOTE: As of the SSOT architectural change, _REGION.json no longer uses TTL.
+ * It is now the Single Source of Truth and is always authoritative.
+ * These tests remain for backward compatibility and validate the schema.
+ * 
  * Verifies that:
- * 1. Region list displays instantly with valid cache
- * 2. Single listFolder on cache miss/expiry
+ * 1. Region list displays instantly with valid SSOT
+ * 2. Single listFolder on SSOT miss/corruption
  * 3. Zero nested scans
- * 4. TTL expiration works correctly
+ * 4. TTL expiration logic (DEPRECATED - no longer used in actual code)
  * 5. Schema validation triggers rebuild
  */
 
