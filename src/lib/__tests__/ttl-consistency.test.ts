@@ -2,11 +2,15 @@
 /**
  * TTL and Consistency Tests (Problem Statement #6)
  * 
+ * NOTE: As of the SSOT architectural change, _REGION.json no longer uses TTL.
+ * It is now the Single Source of Truth and is always authoritative.
+ * These tests remain for backward compatibility and to validate other TTLs.
+ * 
  * Requirements:
- * 1. _REGION.json: 10-30 min TTL
+ * 1. _REGION.json: NO TTL (deprecated - now SSOT)
  * 2. _PHOTOS.json / _SLOT.json: 1-2 min TTL
  * 3. After write, TTL ignored (skipTTL)
- * 4. TTL expiration triggers reconcile
+ * 4. TTL expiration triggers reconcile (for photos/slots only)
  */
 
 import { REGION_INDEX_TTL_MS, PHOTOS_INDEX_TTL_MS, SLOT_STATS_TTL_MS } from '../config/disk';
@@ -56,7 +60,10 @@ const expect = (value: unknown) => ({
 
 describe('TTL and Consistency Tests', () => {
   describe('TTL Constants Configuration', () => {
-    it('should have REGION_INDEX_TTL_MS defined (10-30 min range)', () => {
+    it('should have REGION_INDEX_TTL_MS defined (10-30 min range) - DEPRECATED', () => {
+      // NOTE: REGION_INDEX_TTL_MS is deprecated and no longer used
+      // _REGION.json is now SSOT with no TTL checking
+      // This test remains for backward compatibility only
       expect(REGION_INDEX_TTL_MS).toBeDefined();
       expect(typeof REGION_INDEX_TTL_MS).toBe('number');
       // Default 10 min = 600000ms, max 30 min = 1800000ms

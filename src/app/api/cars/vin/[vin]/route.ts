@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
-import { getCarWithSlots, listLinks } from "@/lib/infrastructure/diskStorage/carsRepo";
+import { getCarWithSlots, listLinks, removeCarFromRegionIndex, addCarToRegionIndex } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { moveFolder } from "@/lib/infrastructure/yandexDisk/client";
 import { getCarArchivePath } from "@/lib/domain/disk/paths";
 import { ARCHIVE_RETRY_DELAY_MS, REGIONS_LIST } from "@/lib/config/index";
@@ -204,6 +204,21 @@ export async function DELETE(
     }
     
     console.log(`[Archive] Car archived successfully on disk.`);
+    
+    // CRITICAL: Update region indices synchronously (SSOT mutations)
+    // Remove from source region
+    console.log(`[Archive] Removing car ${vin} from ${car.region} region index`);
+    await removeCarFromRegionIndex(car.region, vin);
+    
+    // Add to ALL (archive) region
+    console.log(`[Archive] Adding car ${vin} to ALL region index`);
+    await addCarToRegionIndex('ALL', {
+      ...car,
+      region: 'ALL',
+      disk_root_path: archivePath,
+    });
+    
+    console.log(`[Archive] Region indices updated successfully`);
     
     return NextResponse.json({
       success: true,
