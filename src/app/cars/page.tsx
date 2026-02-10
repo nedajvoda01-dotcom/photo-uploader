@@ -106,7 +106,13 @@ export default function CarsPage() {
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/cars?region=${activeRegion}`);
+      // Fix D: Add cache-busting to ensure fresh data after archive/restore
+      const response = await fetch(`/api/cars?region=${activeRegion}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -185,9 +191,14 @@ export default function CarsPage() {
         throw new Error(data.message || "Failed to restore car");
       }
 
-      // Success - refresh the cars list
+      // Fix D: Success - refresh the cars list with router.refresh() for cache invalidation
       setShowRestoreModal(false);
       setSelectedCarToRestore(null);
+      
+      // Use router.refresh() to trigger a full page refresh from the server
+      router.refresh();
+      
+      // Also refetch cars to update the UI immediately
       await fetchCars();
       
       // Optionally redirect to the restored car in the target region

@@ -1372,8 +1372,8 @@ export async function rebuildRegionIndex(region: string): Promise<void> {
         continue;
       }
       
-      // Parse car folder name
-      const carInfo = parseCarFolderName(carFolder.name);
+      // Parse car folder name (handles ALL region with parseCarFolderNameByRegion)
+      const carInfo = parseCarFolderNameByRegion(carFolder.name, region);
       if (!carInfo) {
         console.warn(`[RegionIndex] Could not parse car folder name: ${carFolder.name}`);
         continue;
