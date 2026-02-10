@@ -1300,16 +1300,9 @@ export async function createCar(params: {
   console.log(`[createCar] phase=finish vin=${vin} ms=${Date.now() - startTime}`);
   console.log(`[createCar] OPTIMIZATION: Slots will be created lazily on first access. Car is ready for use.`);
   
-  // OPTIMIZATION COMPLETE:
-  // - Removed intermediate folder creation (3 API calls)
-  // - Removed slot folder creation (14 API calls) 
-  // - Removed slot verification scan (1 expensive API call)
-  // Total saved: ~18 API calls
-  //
-  // Slots are created automatically:
-  // 1. buildDeterministicSlots() builds slot structure from paths (no API calls)
-  // 2. When user uploads to a slot, the slot folder is created on-demand
-  // 3. getCarSlots() will scan and create missing slots if needed
+  // Optimization: Slots created lazily (see CAR_CREATION_OPTIMIZATION.md)
+  // - Removed 18 blocking API calls for immediate response
+  // - Slots created on-demand during upload via ensureDir()
   
   return carData;
 }
