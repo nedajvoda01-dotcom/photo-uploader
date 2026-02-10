@@ -3,46 +3,9 @@
  * Tests the parseArchivedCarFolderName function that handles ALL region folders
  */
 
-console.log("\n=== Testing Archived Car Folder Name Parsing ===\n");
+import { parseArchivedCarFolderName } from '../infrastructure/diskStorage/carsRepo';
 
-// Mock the parsing function (copy of the actual implementation)
-function parseArchivedCarFolderName(folderName: string): { region: string; make: string; model: string; vin: string } | null {
-  const parts = folderName.trim();
-  
-  // VIN is always the last 17 characters (alphanumeric)
-  const vinMatch = parts.match(/([A-HJ-NPR-Z0-9]{17})$/i);
-  if (!vinMatch) {
-    return null;
-  }
-  
-  const vin = vinMatch[1];
-  
-  // Remove VIN and trailing underscore
-  const beforeVin = parts.substring(0, parts.length - 17);
-  if (!beforeVin.endsWith('_')) {
-    return null;
-  }
-  
-  const regionMakeModel = beforeVin.substring(0, beforeVin.length - 1); // Remove trailing underscore
-  
-  // Split by underscores: REGION_Make_Model...
-  const segments = regionMakeModel.split('_');
-  if (segments.length < 3) {
-    return null; // Need at least region, make, and model
-  }
-  
-  const region = segments[0];
-  const make = segments[1];
-  // Model can contain underscores, so join remaining segments
-  const model = segments.slice(2).join('_');
-  
-  // Validate that all components are non-empty
-  if (!region || !make || !model) {
-    return null;
-  }
-  
-  return { region, make, model, vin };
-}
+console.log("\n=== Testing Archived Car Folder Name Parsing ===\n");
 
 // Test cases
 const tests = [
@@ -114,6 +77,11 @@ const tests = [
   {
     name: "Invalid: empty model segment",
     input: "MSK_Toyota__1HGBH41JXMN109186",
+    expected: null
+  },
+  {
+    name: "Invalid: underscore-only model segment",
+    input: "MSK_Toyota_____1HGBH41JXMN109186",
     expected: null
   }
 ];

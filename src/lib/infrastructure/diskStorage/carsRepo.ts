@@ -152,8 +152,10 @@ function parseCarFolderName(folderName: string): { make: string; model: string; 
  * Example: "MSK_Toyota_Camry_1HGBH41JXMN109186"
  * 
  * Validates that region, make, and model are all non-empty after parsing.
+ * 
+ * @internal Exported for testing purposes
  */
-function parseArchivedCarFolderName(folderName: string): { region: string; make: string; model: string; vin: string } | null {
+export function parseArchivedCarFolderName(folderName: string): { region: string; make: string; model: string; vin: string } | null {
   const parts = folderName.trim();
   
   // VIN is always the last 17 characters (alphanumeric)
@@ -184,7 +186,8 @@ function parseArchivedCarFolderName(folderName: string): { region: string; make:
   const model = segments.slice(2).join('_');
   
   // Validate that all components are non-empty
-  if (!region || !make || !model) {
+  // Also ensure model contains at least one non-underscore character
+  if (!region || !make || !model || model.replace(/_/g, '').length === 0) {
     return null;
   }
   
