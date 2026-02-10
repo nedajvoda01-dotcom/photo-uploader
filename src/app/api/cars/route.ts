@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
     
     // Fix C (Law #2): Always rebuild region index from disk before listing
     // This ensures GET /api/cars?region=X always returns current data, even if _REGION.json is stale/missing
+    // NOTE: This is a deliberate trade-off for data consistency as per requirements.
+    // Performance optimization: The rebuild scans the region folder once (~1 API call per region)
+    // which is acceptable compared to stale data issues that were occurring before.
     console.log(`[API] Rebuilding region index for ${effectiveRegion} to ensure current data`);
     await rebuildRegionIndex(effectiveRegion);
     

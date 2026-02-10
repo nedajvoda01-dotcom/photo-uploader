@@ -5,6 +5,14 @@ import { carRoot, getRegionPath } from "@/lib/domain/disk/paths";
 import { moveFolder, uploadText, downloadFile, exists } from "@/lib/infrastructure/yandexDisk/client";
 
 /**
+ * Helper to get user identifier from session
+ * Used for tracking who performed operations (restore, etc.)
+ */
+function getUserIdentifier(session: { email?: string; userId?: number }): string {
+  return session.email || (session.userId ? session.userId.toString() : "unknown");
+}
+
+/**
  * POST /api/cars/vin/[vin]/restore
  * Restore a car from ALL (archive) region to a target region
  * 
@@ -119,7 +127,7 @@ export async function POST(
       created_at: carInArchive.created_at,
       created_by: carInArchive.created_by,
       restored_at: new Date().toISOString(),
-      restored_by: session.email || (session.userId ? session.userId.toString() : "unknown"),
+      restored_by: getUserIdentifier(session),
     };
     
     const metadataResult = await uploadText(metadataPath, updatedMetadata);

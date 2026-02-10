@@ -10,6 +10,14 @@ interface RouteContext {
 }
 
 /**
+ * Helper to get user identifier from session
+ * Used for tracking who performed operations (archive, restore, etc.)
+ */
+function getUserIdentifier(session: { email?: string; userId?: number }): string {
+  return session.email || (session.userId ? session.userId.toString() : "unknown");
+}
+
+/**
  * GET /api/cars/vin/:vin
  * Get car details by VIN with slots and links
  * VIN is the canonical identifier for cars within a region
@@ -216,7 +224,7 @@ export async function DELETE(
       created_at: car.created_at,
       created_by: car.created_by,
       archived_at: new Date().toISOString(),
-      archived_by: session.email || (session.userId ? session.userId.toString() : "unknown"),
+      archived_by: getUserIdentifier(session),
       original_region: car.region,
     };
     

@@ -106,12 +106,9 @@ export default function CarsPage() {
     
     setLoading(true);
     try {
-      // Fix D: Add cache-busting to ensure fresh data after archive/restore
+      // Fix D: Use no-store to ensure fresh data after archive/restore
       const response = await fetch(`/api/cars?region=${activeRegion}`, {
         cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
       });
       
       if (!response.ok) {
