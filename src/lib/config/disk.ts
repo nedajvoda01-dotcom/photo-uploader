@@ -63,9 +63,10 @@ export const MAX_PHOTOS_PER_SLOT = parseInt(process.env.MAX_PHOTOS_PER_SLOT || "
 export const MAX_SLOT_SIZE_MB = parseInt(process.env.MAX_SLOT_SIZE_MB || "20", 10);
 
 /**
- * TTL for _REGION.json cache in milliseconds (10 minutes default, configurable 10-30 min)
- * After this time, the cache is considered stale and will be rebuilt
- * Problem Statement #6: _REGION.json: 10-30 мин
+ * DEPRECATED: TTL for _REGION.json is no longer used
+ * _REGION.json is now the SSOT (Single Source of Truth) and is always authoritative
+ * This constant is kept for backward compatibility with existing tests but has no effect
+ * @deprecated Use direct JSON reads without TTL checking
  */
 export const REGION_INDEX_TTL_MS = parseInt(process.env.REGION_INDEX_TTL_MS || "600000", 10); // 10 minutes
 

@@ -3,7 +3,7 @@
  * Manages car data using only Yandex Disk (no database)
  * 
  * Storage Structure:
- * - Region index: {regionPath}/_REGION.json (list of cars with TTL)
+ * - Region index: {regionPath}/_REGION.json (SSOT - no TTL)
  * - Car metadata: {carRoot}/_CAR.json
  * - Photo index: {slotPath}/_PHOTOS.json (SSOT with version, limit)
  * - Slot stats: {slotPath}/_SLOT.json (count, cover, updated_at)
@@ -27,7 +27,7 @@ import {
   createFolder,
   deleteFile
 } from "@/lib/infrastructure/yandexDisk/client";
-import { MAX_PHOTOS_PER_SLOT, REGION_INDEX_TTL_MS, PHOTOS_INDEX_TTL_MS, SLOT_STATS_TTL_MS, DEBUG_REGION_INDEX, DEBUG_CAR_LOADING } from "@/lib/config/disk";
+import { MAX_PHOTOS_PER_SLOT, PHOTOS_INDEX_TTL_MS, SLOT_STATS_TTL_MS, DEBUG_REGION_INDEX, DEBUG_CAR_LOADING } from "@/lib/config/disk";
 
 /**
  * Expected total number of slot folders per car
@@ -1006,22 +1006,10 @@ async function readRegionIndex(regionPath: string): Promise<Car[] | null> {
       return null;
     }
     
-    // Check TTL
-    if (indexData.updated_at) {
-      const updatedTime = new Date(indexData.updated_at).getTime();
-      const now = Date.now();
-      const age = now - updatedTime;
-      
-      if (age > REGION_INDEX_TTL_MS) {
-        if (DEBUG_REGION_INDEX) {
-          console.log(`[RegionIndex] Cache expired: age=${Math.round(age / 1000)}s, TTL=${Math.round(REGION_INDEX_TTL_MS / 1000)}s`);
-        }
-        return null; // Expired
-      }
-      
-      if (DEBUG_REGION_INDEX) {
-        console.log(`[RegionIndex] Cache hit: age=${Math.round(age / 1000)}s, ${indexData.cars.length} cars`);
-      }
+    // _REGION.json is now SSOT (Single Source of Truth), not a cache
+    // No TTL check - JSON is always authoritative
+    if (DEBUG_REGION_INDEX) {
+      console.log(`[RegionIndex] SSOT read: ${indexData.cars.length} cars`);
     }
     
     return indexData.cars || null;
@@ -1058,6 +1046,8 @@ function validateRegionIndexSchema(data: unknown): data is RegionIndex {
 /**
  * Write region index to _REGION.json
  * Updates the list of cars in the region with versioning
+ * CRITICAL: _REGION.json is the SSOT (Single Source of Truth), not a cache
+ * Any mutation must synchronously update this file
  */
 async function writeRegionIndex(regionPath: string, cars: Car[]): Promise<boolean> {
   try {
@@ -1109,7 +1099,8 @@ function buildDeterministicSlots(carRootPath: string, region: string, make: stri
 
 /**
  * List all cars in a region
- * Phase 0 optimization: Tries to read from _REGION.json first, falls back to folder listing
+ * Phase 0 optimization: Tries to read from _REGION.json first (SSOT), falls back to folder listing
+ * Self-healing: If JSON is missing/corrupt, rebuilds from disk and returns data
  * Does NOT scan slots - returns with counts_loaded=false
  * This reduces API calls from ~14+ per car to ~1 per region
  */
@@ -1121,12 +1112,12 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
   try {
     const regionPath = getRegionPath(region);
     
-    // Try to read from _REGION.json first (O(1) cache hit)
+    // Try to read from _REGION.json first (O(1) - SSOT read)
     const indexedCars = await readRegionIndex(regionPath);
     
     if (indexedCars && indexedCars.length > 0) {
       // Use indexed data - very fast, no folder scanning
-      console.log(`[RegionLoad] ✅ Cache hit: region=${region}, cars=${indexedCars.length}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
+      console.log(`[RegionLoad] ✅ SSOT hit: region=${region}, cars=${indexedCars.length}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
       
       for (const car of indexedCars) {
         cars.push({
@@ -1147,8 +1138,8 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
       return cars;
     }
     
-    // Fallback: List car folders in the region (cache miss/expired)
-    console.log(`[RegionLoad] Cache miss/expired for region ${region}, performing listFolder`);
+    // Fallback: List car folders in the region (SSOT recovery - rebuild from disk)
+    console.log(`[RegionLoad] SSOT missing/invalid for region ${region}, performing self-healing from disk`);
     listFolderCalls = 1; // Count this API call
     
     const carsResult = await listFolder(regionPath);
@@ -1226,11 +1217,10 @@ export async function listCarsByRegion(region: string): Promise<CarWithProgress[
     
     console.log(`[RegionLoad] ✅ Rebuilt index: region=${region}, cars=${scannedCars.length}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`);
     
-    // Write _REGION.json for future use (fire and forget)
+    // Write _REGION.json synchronously (SSOT must be updated before returning)
     if (scannedCars.length > 0) {
-      writeRegionIndex(regionPath, scannedCars).catch(err => 
-        console.warn(`[RegionLoad] Failed to write cache for ${region}:`, err)
-      );
+      await writeRegionIndex(regionPath, scannedCars);
+      console.log(`[RegionLoad] SSOT updated: region=${region}, cars=${scannedCars.length}`);
     }
   } catch (error) {
     console.error(`[RegionLoad] ❌ Error: region=${region}, listFolder=${listFolderCalls}, nestedScans=${nestedScans}`, error);
@@ -1292,7 +1282,12 @@ export async function getCarByRegionAndVin(region: string, vin: string): Promise
  * Add car to region index
  * Updates _REGION.json to include the new car
  */
-async function addCarToRegionIndex(region: string, car: Car): Promise<void> {
+/**
+ * Add or update car in region index
+ * Updates _REGION.json to include the car
+ * CRITICAL: This is a SSOT mutation - must be called synchronously in all operations
+ */
+export async function addCarToRegionIndex(region: string, car: Car): Promise<void> {
   try {
     const regionPath = getRegionPath(region);
     
@@ -1314,15 +1309,18 @@ async function addCarToRegionIndex(region: string, car: Car): Promise<void> {
     
     // Write updated index
     await writeRegionIndex(regionPath, cars);
+    console.log(`[RegionIndex] SSOT updated: Added/updated car ${car.vin} in region ${region}`);
   } catch (error) {
-    console.error(`Error adding car to region index:`, error);
-    // Don't throw - this is best-effort caching
+    console.error(`[RegionIndex] CRITICAL: Failed to add car to region index:`, error);
+    // Re-throw because SSOT mutations must not silently fail
+    throw error;
   }
 }
 
 /**
  * Remove car from region index
  * Updates _REGION.json to remove the car
+ * CRITICAL: This is a SSOT mutation - must be called synchronously in all operations
  */
 export async function removeCarFromRegionIndex(region: string, vin: string): Promise<void> {
   try {
@@ -1339,9 +1337,11 @@ export async function removeCarFromRegionIndex(region: string, vin: string): Pro
     
     // Write updated index
     await writeRegionIndex(regionPath, cars);
+    console.log(`[RegionIndex] SSOT updated: Removed car ${vin} from region ${region}`);
   } catch (error) {
-    console.error(`Error removing car from region index:`, error);
-    // Don't throw - this is best-effort caching
+    console.error(`[RegionIndex] CRITICAL: Failed to remove car from region index:`, error);
+    // Re-throw because SSOT mutations must not silently fail
+    throw error;
   }
 }
 
