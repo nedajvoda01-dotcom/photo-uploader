@@ -156,10 +156,10 @@ function parseCarFolderName(folderName: string): { make: string; model: string; 
  * @internal Exported for testing purposes
  */
 export function parseArchivedCarFolderName(folderName: string): { region: string; make: string; model: string; vin: string } | null {
-  const parts = folderName.trim();
+  const trimmedFolderName = folderName.trim();
   
   // VIN is always the last 17 characters (alphanumeric)
-  const vinMatch = parts.match(/([A-HJ-NPR-Z0-9]{17})$/i);
+  const vinMatch = trimmedFolderName.match(/([A-HJ-NPR-Z0-9]{17})$/i);
   if (!vinMatch) {
     return null;
   }
@@ -167,7 +167,7 @@ export function parseArchivedCarFolderName(folderName: string): { region: string
   const vin = vinMatch[1];
   
   // Remove VIN and trailing underscore
-  const beforeVin = parts.substring(0, parts.length - 17);
+  const beforeVin = trimmedFolderName.substring(0, trimmedFolderName.length - 17);
   if (!beforeVin.endsWith('_')) {
     return null;
   }

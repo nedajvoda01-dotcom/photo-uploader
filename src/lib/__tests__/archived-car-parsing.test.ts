@@ -45,7 +45,7 @@ const tests = [
     expected: null
   },
   {
-    name: "Invalid: missing model (only region and make)",
+    name: "Invalid: only 2 segments before VIN (MSK_Toyota_VIN has no model segment)",
     input: "MSK_Toyota_1HGBH41JXMN109186",
     expected: null
   },
