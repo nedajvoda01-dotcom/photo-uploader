@@ -1257,6 +1257,9 @@ export async function createCar(params: {
 }): Promise<Car> {
   const { region, make, model, vin, created_by } = params;
   
+  const startTime = Date.now();
+  console.log(`[createCar] phase=start vin=${vin} ms=0`);
+  
   const rootPath = carRoot(region, make, model, vin);
   
   // Create car root folder
@@ -1264,6 +1267,7 @@ export async function createCar(params: {
   if (!rootFolderResult.success) {
     throw new Error(`Failed to create car folder: ${rootFolderResult.error}`);
   }
+  console.log(`[createCar] phase=create_root_folder vin=${vin} ms=${Date.now() - startTime}`);
   
   // Create car metadata file
   const metadata = {
@@ -1276,60 +1280,9 @@ export async function createCar(params: {
   };
   
   await uploadText(`${rootPath}/_CAR.json`, metadata);
+  console.log(`[createCar] phase=write_CAR_json vin=${vin} ms=${Date.now() - startTime}`);
   
-  // Create intermediate parent folders FIRST
-  // These are required for getCarSlots() to scan properly
-  const intermediateFolders = [
-    `${rootPath}/1. Дилер фото`,
-    `${rootPath}/2. Выкуп фото`,
-    `${rootPath}/3. Муляги фото`
-  ];
-  
-  console.log(`[DiskStorage] Creating ${intermediateFolders.length} intermediate folders for car ${rootPath}`);
-  
-  for (const folder of intermediateFolders) {
-    const result = await createFolder(folder);
-    if (!result.success) {
-      const errorMsg = `Failed to create intermediate folder: ${folder} - ${result.error}`;
-      console.error(`[DiskStorage] ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
-    console.log(`[DiskStorage] Created intermediate folder: ${folder}`);
-  }
-  
-  // Create all slot folders (1 dealer + 8 buyout + 5 dummies = 14 total)
-  const slotPaths = getAllSlotPaths(region, make, model, vin);
-  
-  console.log(`[DiskStorage] Creating ${slotPaths.length} slot folders for car ${rootPath}`);
-  
-  for (const slot of slotPaths) {
-    const slotResult = await createFolder(slot.path);
-    
-    if (!slotResult.success) {
-      // If slot creation failed, throw error with details
-      const errorMsg = `Failed to create slot ${slot.slotType}[${slot.slotIndex}] at ${slot.path}: ${slotResult.error}`;
-      console.error(`[DiskStorage] ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
-    
-    // Log successful slot creation
-    console.log(`[DiskStorage] Created slot: ${slot.slotType}[${slot.slotIndex}] at ${slot.path}`);
-  }
-  
-  // Verify all slots were created by scanning
-  console.log(`[DiskStorage] Verifying all slots were created for ${rootPath}`);
-  const createdSlots = await getCarSlots(rootPath);
-  
-  if (createdSlots.length !== EXPECTED_SLOT_COUNT) {
-    const errorMsg = `Expected ${EXPECTED_SLOT_COUNT} slots but found ${createdSlots.length} after creation. Car: ${rootPath}`;
-    console.error(`[DiskStorage] ${errorMsg}`);
-    console.error(`[DiskStorage] Created slots:`, createdSlots.map(s => `${s.slot_type}[${s.slot_index}]`).join(', '));
-    throw new Error(errorMsg);
-  }
-  
-  console.log(`[DiskStorage] Successfully created car with all ${createdSlots.length}/${EXPECTED_SLOT_COUNT} slots: ${rootPath}`);
-  
-  // Update region index
+  // Prepare car data for immediate return
   const carData: Car = {
     region,
     make,
@@ -1340,7 +1293,23 @@ export async function createCar(params: {
     created_at: metadata.created_at,
   };
   
+  // Update region index ASAP so car appears in list
   await addCarToRegionIndex(region, carData);
+  console.log(`[createCar] phase=update_region_index vin=${vin} ms=${Date.now() - startTime}`);
+  
+  console.log(`[createCar] phase=finish vin=${vin} ms=${Date.now() - startTime}`);
+  console.log(`[createCar] OPTIMIZATION: Slots will be created lazily on first access. Car is ready for use.`);
+  
+  // OPTIMIZATION COMPLETE:
+  // - Removed intermediate folder creation (3 API calls)
+  // - Removed slot folder creation (14 API calls) 
+  // - Removed slot verification scan (1 expensive API call)
+  // Total saved: ~18 API calls
+  //
+  // Slots are created automatically:
+  // 1. buildDeterministicSlots() builds slot structure from paths (no API calls)
+  // 2. When user uploads to a slot, the slot folder is created on-demand
+  // 3. getCarSlots() will scan and create missing slots if needed
   
   return carData;
 }
@@ -1428,8 +1397,50 @@ export async function getSlot(
   slotIndex: number
 ): Promise<Slot | null> {
   try {
-    const slots = await getCarSlots(carRootPath);
-    return slots.find(s => s.slot_type === slotType && s.slot_index === slotIndex) || null;
+    // OPTIMIZATION: Use deterministic slot building instead of scanning disk
+    // This allows slots to work even if folders don't exist yet (they'll be created on upload)
+    // Extract region, make, model, vin from carRootPath
+    // Path format: /mvp_uploads/{region}/{make}/{model}/{vin}
+    const pathParts = carRootPath.split('/').filter(p => p.length > 0);
+    if (pathParts.length < 5) {
+      console.error(`[DiskStorage] Invalid carRootPath format: ${carRootPath}`);
+      return null;
+    }
+    
+    const region = pathParts[1];
+    const make = pathParts[2];
+    const model = pathParts[3];
+    const vin = pathParts[4];
+    
+    // Build all slots deterministically
+    const slots = buildDeterministicSlots(carRootPath, region, make, model, vin);
+    
+    // Find the requested slot
+    const slot = slots.find(s => s.slot_type === slotType && s.slot_index === slotIndex);
+    
+    if (!slot) {
+      console.error(`[DiskStorage] Slot not found: ${slotType}[${slotIndex}] in ${carRootPath}`);
+      return null;
+    }
+    
+    // Load actual stats if available (but don't fail if they're not)
+    try {
+      const locked = await isSlotLocked(slot.disk_slot_path);
+      const stats = await getSlotStats(slot.disk_slot_path);
+      const publicUrl = await readPublishedUrl(slot.disk_slot_path);
+      
+      slot.locked = locked;
+      slot.file_count = stats.fileCount;
+      slot.total_size_mb = Math.round(stats.totalSizeMB * 100) / 100;
+      slot.public_url = publicUrl;
+      slot.stats_loaded = true;
+    } catch (error) {
+      // Stats loading failed (e.g., folder doesn't exist yet) - that's OK
+      // The slot will still work with default values
+      console.log(`[DiskStorage] Stats not available for slot ${slotType}[${slotIndex}], using defaults`);
+    }
+    
+    return slot;
   } catch (error) {
     console.error(`[DiskStorage] Error getting slot ${slotType}[${slotIndex}]:`, error);
     return null;
