@@ -1233,9 +1233,19 @@ export async function getCarByRegionAndVin(region: string, vin: string): Promise
         continue;
       }
       
-      const carInfo = parseCarFolderName(carFolder.name);
-      if (!carInfo) {
-        continue;
+      // Parse folder name based on region type
+      let carInfo: { make: string; model: string; vin: string } | null;
+      if (region === 'ALL') {
+        const archivedCarInfo = parseArchivedCarFolderName(carFolder.name);
+        if (!archivedCarInfo) {
+          continue;
+        }
+        carInfo = { make: archivedCarInfo.make, model: archivedCarInfo.model, vin: archivedCarInfo.vin };
+      } else {
+        carInfo = parseCarFolderName(carFolder.name);
+        if (!carInfo) {
+          continue;
+        }
       }
       
       if (carInfo.vin.toUpperCase() === vin.toUpperCase()) {
@@ -1708,7 +1718,18 @@ export async function findCarByLinkId(regions: string[], linkId: string): Promis
         
         const links = await readLinks(carFolder.path);
         if (links.some(link => link.id === linkId)) {
-          const carInfo = parseCarFolderName(carFolder.name);
+          // Parse folder name based on region type
+          let carInfo: { make: string; model: string; vin: string } | null;
+          if (region === 'ALL') {
+            const archivedCarInfo = parseArchivedCarFolderName(carFolder.name);
+            if (!archivedCarInfo) {
+              continue;
+            }
+            carInfo = { make: archivedCarInfo.make, model: archivedCarInfo.model, vin: archivedCarInfo.vin };
+          } else {
+            carInfo = parseCarFolderName(carFolder.name);
+          }
+          
           if (carInfo) {
             return {
               carRootPath: carFolder.path,
