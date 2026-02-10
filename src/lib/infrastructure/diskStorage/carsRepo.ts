@@ -150,6 +150,8 @@ function parseCarFolderName(folderName: string): { make: string; model: string; 
  * Parse archived car folder name to extract region, make, model, and VIN
  * Format: "<REGION>_<Make>_<Model>_<VIN>" (underscores, used in ALL archive folder)
  * Example: "MSK_Toyota_Camry_1HGBH41JXMN109186"
+ * 
+ * Validates that region, make, and model are all non-empty after parsing.
  */
 function parseArchivedCarFolderName(folderName: string): { region: string; make: string; model: string; vin: string } | null {
   const parts = folderName.trim();
@@ -180,6 +182,11 @@ function parseArchivedCarFolderName(folderName: string): { region: string; make:
   const make = segments[1];
   // Model can contain underscores, so join remaining segments
   const model = segments.slice(2).join('_');
+  
+  // Validate that all components are non-empty
+  if (!region || !make || !model) {
+    return null;
+  }
   
   return { region, make, model, vin };
 }

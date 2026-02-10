@@ -36,6 +36,11 @@ function parseArchivedCarFolderName(folderName: string): { region: string; make:
   // Model can contain underscores, so join remaining segments
   const model = segments.slice(2).join('_');
   
+  // Validate that all components are non-empty
+  if (!region || !make || !model) {
+    return null;
+  }
+  
   return { region, make, model, vin };
 }
 
@@ -77,12 +82,12 @@ const tests = [
     expected: null
   },
   {
-    name: "Invalid: missing make or model",
+    name: "Invalid: missing model (only region and make)",
     input: "MSK_Toyota_1HGBH41JXMN109186",
     expected: null
   },
   {
-    name: "Invalid: missing region",
+    name: "Invalid: only 2 segments (make and model, no region)",
     input: "Toyota_Camry_1HGBH41JXMN109186",
     expected: null
   },
@@ -94,6 +99,21 @@ const tests = [
   {
     name: "Invalid: no trailing underscore before VIN",
     input: "MSK_Toyota_Camry1HGBH41JXMN109186",
+    expected: null
+  },
+  {
+    name: "Invalid: empty region segment",
+    input: "__Toyota_Camry_1HGBH41JXMN109186",
+    expected: null
+  },
+  {
+    name: "Invalid: empty make segment",
+    input: "MSK__Camry_1HGBH41JXMN109186",
+    expected: null
+  },
+  {
+    name: "Invalid: empty model segment",
+    input: "MSK_Toyota__1HGBH41JXMN109186",
     expected: null
   }
 ];
