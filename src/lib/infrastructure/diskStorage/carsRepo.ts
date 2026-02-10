@@ -1248,6 +1248,68 @@ export async function removeCarFromRegionIndex(region: string, vin: string): Pro
   }
 }
 
+/**
+ * Rebuild region index from disk
+ * Scans the region folder and rebuilds _REGION.json
+ * Used for self-healing when index is outdated or corrupted
+ */
+export async function rebuildRegionIndex(region: string): Promise<void> {
+  try {
+    const regionPath = getRegionPath(region);
+    
+    console.log(`[RegionIndex] Rebuilding index for region=${region}`);
+    
+    // List car folders in the region
+    const carsResult = await listFolder(regionPath);
+    if (!carsResult.success || !carsResult.items) {
+      console.log(`[RegionIndex] No cars found in region=${region}`);
+      // Write empty index
+      await writeRegionIndex(regionPath, []);
+      return;
+    }
+    
+    const scannedCars: Car[] = [];
+    
+    for (const carFolder of carsResult.items) {
+      if (carFolder.type !== 'dir') {
+        continue;
+      }
+      
+      // Parse car folder name
+      const carInfo = parseCarFolderName(carFolder.name);
+      if (!carInfo) {
+        console.warn(`[RegionIndex] Could not parse car folder name: ${carFolder.name}`);
+        continue;
+      }
+      
+      const { make, model, vin } = carInfo;
+      const carRootPath = carFolder.path;
+      
+      // Read metadata if available
+      const metadata = await readCarMetadata(carRootPath);
+      
+      const carData: Car = {
+        region,
+        make,
+        model,
+        vin,
+        disk_root_path: carRootPath,
+        created_by: metadata?.created_by || null,
+        created_at: metadata?.created_at || undefined,
+      };
+      
+      scannedCars.push(carData);
+    }
+    
+    // Write the rebuilt index
+    await writeRegionIndex(regionPath, scannedCars);
+    console.log(`[RegionIndex] Rebuilt index: region=${region}, cars=${scannedCars.length}`);
+  } catch (error) {
+    console.error(`[RegionIndex] Error rebuilding index for region=${region}:`, error);
+    throw error;
+  }
+}
+
 export async function createCar(params: {
   region: string;
   make: string;
