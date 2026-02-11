@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getEffectiveRegion, errorResponse, successResponse, ErrorCodes, validateNotAllRegion } from "@/lib/apiHelpers";
-import { listCarsByRegion, createCar, getCarByRegionAndVin } from "@/lib/infrastructure/diskStorage/carsRepo";
+import { listCarsByRegion, createCar, getCarByRegionAndVin, rebuildRegionIndex } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { sanitizePathSegment } from "@/lib/domain/disk/paths";
 
 /**
@@ -36,14 +36,33 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // List cars directly from disk (no sync needed)
+    // Fix C (Law #2): Always rebuild region index from disk before listing
+    // This ensures GET /api/cars?region=X always returns current data, even if _REGION.json is stale/missing
+    // NOTE: This is a deliberate trade-off for data consistency as per requirements.
+    // Performance optimization: The rebuild scans the region folder once (~1 API call per region)
+    // which is acceptable compared to stale data issues that were occurring before.
+    console.log(`[API] Rebuilding region index for ${effectiveRegion} to ensure current data`);
+    await rebuildRegionIndex(effectiveRegion);
+    
+    // List cars directly from disk (after rebuild, listCarsByRegion will use fresh index)
     console.log(`[API] Listing cars from disk for region ${effectiveRegion}`);
     const cars = await listCarsByRegion(effectiveRegion);
     
-    return successResponse({
-      cars,
-      region: effectiveRegion,
-    });
+    // Set Cache-Control: no-store to prevent stale data in UI
+    return NextResponse.json(
+      {
+        ok: true,
+        cars,
+        region: effectiveRegion,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
   } catch (error) {
     console.error("Error listing cars:", error);
     return errorResponse(

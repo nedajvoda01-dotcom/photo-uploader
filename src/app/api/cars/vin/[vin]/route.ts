@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRegionAccess, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
 import { getCarWithSlots, listLinks, removeCarFromRegionIndex, addCarToRegionIndex } from "@/lib/infrastructure/diskStorage/carsRepo";
-import { moveFolder } from "@/lib/infrastructure/yandexDisk/client";
+import { moveFolder, uploadText } from "@/lib/infrastructure/yandexDisk/client";
 import { getCarArchivePath } from "@/lib/domain/disk/paths";
 import { ARCHIVE_RETRY_DELAY_MS, REGIONS_LIST } from "@/lib/config/index";
 
 interface RouteContext {
   params: Promise<{ vin: string }>;
+}
+
+/**
+ * Helper to get user identifier from session
+ * Used for tracking who performed operations (archive, restore, etc.)
+ */
+function getUserIdentifier(session: { email?: string; userId?: number }): string {
+  return session.email || (session.userId ? session.userId.toString() : "unknown");
 }
 
 /**
@@ -205,20 +213,72 @@ export async function DELETE(
     
     console.log(`[Archive] Car archived successfully on disk.`);
     
-    // CRITICAL: Update region indices synchronously (SSOT mutations)
+    // Fix B: Update _CAR.json in ALL folder with region and archived metadata
+    console.log(`[Archive] Updating _CAR.json in archived folder`);
+    const carMetadataPath = `${archivePath}/_CAR.json`;
+    const archivedMetadata = {
+      region: 'ALL',
+      make: car.make,
+      model: car.model,
+      vin: vin,
+      created_at: car.created_at,
+      created_by: car.created_by,
+      archived_at: new Date().toISOString(),
+      archived_by: getUserIdentifier(session),
+      original_region: car.region,
+    };
+    
+    const metadataUpdateResult = await uploadText(carMetadataPath, archivedMetadata);
+    if (!metadataUpdateResult.success) {
+      console.error(`[Archive] CRITICAL: Failed to update _CAR.json in archive:`, metadataUpdateResult.error);
+      // Law #1: mutations must update indexes or fail
+      return NextResponse.json(
+        { 
+          error: "Failed to update archived car metadata", 
+          details: metadataUpdateResult.error 
+        },
+        { status: 500 }
+      );
+    }
+    
+    // CRITICAL: Update region indices synchronously (SSOT mutations - Law #1)
     // Remove from source region
     console.log(`[Archive] Removing car ${vin} from ${car.region} region index`);
-    await removeCarFromRegionIndex(car.region, vin);
+    try {
+      await removeCarFromRegionIndex(car.region, vin);
+    } catch (error) {
+      console.error(`[Archive] CRITICAL: Failed to remove from source region index:`, error);
+      // Law #1: If index update fails, operation fails
+      return NextResponse.json(
+        { 
+          error: "Failed to update source region index", 
+          details: error instanceof Error ? error.message : String(error)
+        },
+        { status: 500 }
+      );
+    }
     
     // Add to ALL (archive) region
     console.log(`[Archive] Adding car ${vin} to ALL region index`);
-    await addCarToRegionIndex('ALL', {
-      ...car,
-      region: 'ALL',
-      disk_root_path: archivePath,
-    });
+    try {
+      await addCarToRegionIndex('ALL', {
+        ...car,
+        region: 'ALL',
+        disk_root_path: archivePath,
+      });
+    } catch (error) {
+      console.error(`[Archive] CRITICAL: Failed to add to ALL region index:`, error);
+      // Law #1: If index update fails, operation fails
+      return NextResponse.json(
+        { 
+          error: "Failed to update ALL region index", 
+          details: error instanceof Error ? error.message : String(error)
+        },
+        { status: 500 }
+      );
+    }
     
-    console.log(`[Archive] Region indices updated successfully`);
+    console.log(`[Archive] Region indices and metadata updated successfully`);
     
     return NextResponse.json({
       success: true,

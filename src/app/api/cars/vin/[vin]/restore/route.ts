@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, errorResponse, successResponse, ErrorCodes } from "@/lib/apiHelpers";
 import { getCarByRegionAndVin, removeCarFromRegionIndex, type Car } from "@/lib/infrastructure/diskStorage/carsRepo";
 import { carRoot, getRegionPath } from "@/lib/domain/disk/paths";
-import { moveFolder, uploadText, downloadFile } from "@/lib/infrastructure/yandexDisk/client";
+import { moveFolder, uploadText, downloadFile, exists } from "@/lib/infrastructure/yandexDisk/client";
+
+/**
+ * Helper to get user identifier from session
+ * Used for tracking who performed operations (restore, etc.)
+ */
+function getUserIdentifier(session: { email?: string; userId?: number }): string {
+  return session.email || (session.userId ? session.userId.toString() : "unknown");
+}
 
 /**
  * POST /api/cars/vin/[vin]/restore
@@ -77,9 +85,21 @@ export async function POST(
     
     console.log(`[Restore] Starting restore of car ${vin} from ALL to ${targetRegion}`);
     
-    // Build source and destination paths
-    const sourcePath = carRoot('ALL', carInArchive.make, carInArchive.model, vin);
+    // Fix A: Use disk_root_path as SSOT (Single Source of Truth) for sourcePath
+    // This fixes the 404 DiskNotFoundError because archived folders have region prefix (e.g., R1_Make_Model_VIN)
+    const sourcePath = carInArchive.disk_root_path;
     const destPath = carRoot(targetRegion, carInArchive.make, carInArchive.model, vin);
+    
+    // Verify that the source folder actually exists on disk
+    const sourceExists = await exists(sourcePath);
+    if (!sourceExists) {
+      console.error(`[Restore] Source folder does not exist: ${sourcePath}`);
+      return errorResponse(
+        ErrorCodes.DISK_ERROR,
+        `Папка машины не найдена в архиве: ${sourcePath}`,
+        404
+      );
+    }
     
     console.log(`[Restore] Moving folder from ${sourcePath} to ${destPath}`);
     
@@ -107,7 +127,7 @@ export async function POST(
       created_at: carInArchive.created_at,
       created_by: carInArchive.created_by,
       restored_at: new Date().toISOString(),
-      restored_by: session.email || (session.userId ? session.userId.toString() : "unknown"),
+      restored_by: getUserIdentifier(session),
     };
     
     const metadataResult = await uploadText(metadataPath, updatedMetadata);

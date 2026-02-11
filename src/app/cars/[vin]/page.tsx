@@ -456,6 +456,8 @@ export default function CarDetailPage() {
 
       if (response.ok) {
         alert("Car archived successfully");
+        // Fix D: Use router.refresh() and redirect to ensure UI updates
+        router.refresh();
         router.push("/cars");
       } else {
         const data = await response.json();
