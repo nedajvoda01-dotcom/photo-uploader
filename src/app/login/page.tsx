@@ -1,94 +1,99 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useRef } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./login.module.css";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const loginRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  const removeErrorState = () => {
+    setError("");
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError("");
+    removeErrorState();
     setLoading(true);
 
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: login, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Login failed");
+        setError(data.error || "Неверный логин или пароль.");
+        loginRef.current?.classList.add(styles.inputError);
+        passwordRef.current?.classList.add(styles.inputError);
         setLoading(false);
         return;
       }
 
-      // Success - redirect to home
-      router.push("/");
-    } catch (err) {
-      setError("An error occurred. Please try again.");
+      router.push("/cars");
+    } catch {
+      setError("Произошла ошибка. Попробуйте ещё раз.");
       setLoading(false);
-      console.error("Login error:", err);
+    }
+  };
+
+  const handleChange = () => {
+    if (error) {
+      removeErrorState();
+      loginRef.current?.classList.remove(styles.inputError);
+      passwordRef.current?.classList.remove(styles.inputError);
     }
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.loginBox}>
-        <h1 className={styles.title}>Photo Uploader</h1>
-        <h2 className={styles.subtitle}>Login</h2>
-        
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.field}>
-            <label htmlFor="email" className={styles.label}>
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className={styles.input}
-              placeholder="admin@example.com"
-              disabled={loading}
-            />
-          </div>
+    <div className={styles.body}>
+      <div className={styles.loginCard}>
+        <form onSubmit={handleSubmit}>
+          <input
+            ref={loginRef}
+            type="text"
+            className={`${styles.inputField} ${styles.loginField}`}
+            placeholder="Логин"
+            value={login}
+            onChange={(e) => { setLogin(e.target.value); handleChange(); }}
+            autoComplete="off"
+            inputMode="text"
+            disabled={loading}
+            required
+          />
+          <input
+            ref={passwordRef}
+            type="password"
+            className={`${styles.inputField} ${styles.passwordField}`}
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); handleChange(); }}
+            autoComplete="off"
+            disabled={loading}
+            required
+          />
 
-          <div className={styles.field}>
-            <label htmlFor="password" className={styles.label}>
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className={styles.input}
-              placeholder="••••••••"
-              disabled={loading}
-            />
-          </div>
-
-          {error && <div className={styles.error}>{error}</div>}
+          {error && (
+            <div className={styles.errorMessage}>
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
-            className={styles.button}
+            className={styles.loginButton}
             disabled={loading}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Входим..." : "Войти"}
           </button>
         </form>
       </div>

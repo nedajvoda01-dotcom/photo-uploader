@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import styles from "./cars.module.css";
@@ -32,429 +32,239 @@ export default function CarsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [activeRegion, setActiveRegion] = useState<string>("");
   const [availableRegions, setAvailableRegions] = useState<string[]>([]);
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [selectedCarToRestore, setSelectedCarToRestore] = useState<Car | null>(null);
-  const [restoreTargetRegion, setRestoreTargetRegion] = useState<string>("");
-  const [restoring, setRestoring] = useState(false);
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState<"actual" | "archive">("actual");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showLogout, setShowLogout] = useState(false);
 
-  useEffect(() => {
-    fetchAvailableRegions();
-    fetchUserInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchRegions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/config/regions");
+      if (res.ok) {
+        const data = await res.json();
+        const regions: string[] = (data.regions || []).filter((r: string) => r !== "ALL");
+        setAvailableRegions(regions);
+        return regions;
+      }
+    } catch {
+      const fallback = ["R1", "R2", "R3", "K1", "V", "S1", "S2"];
+      setAvailableRegions(fallback);
+      return fallback;
+    }
+    return [];
   }, []);
 
-  useEffect(() => {
-    if (activeRegion) {
-      fetchCars();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRegion]);
-
-  const fetchAvailableRegions = async () => {
+  const fetchUserInfo = useCallback(async (regions: string[]) => {
     try {
-      const response = await fetch("/api/config/regions");
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableRegions(data.regions || []);
+      const res = await fetch("/api/me");
+      if (!res.ok) {
+        if (res.status === 401) { router.push("/login"); return; }
+        return;
       }
-    } catch (err) {
-      console.error("Error fetching regions:", err);
-      // Fallback to hardcoded list if API fails
-      setAvailableRegions(["R1", "R2", "R3", "K1", "V", "S1", "S2"]);
-    }
-  };
-
-  const fetchUserInfo = async () => {
-    try {
-      const response = await fetch("/api/me");
-      if (response.ok) {
-        const data = await response.json();
-        setUserInfo(data);
-        // Set initial active region
-        if (data.role === "admin") {
-          // Admin: default to first region if region is ALL
-          // Wait for availableRegions to be loaded
-          if (data.region === "ALL" && availableRegions.length > 0) {
-            setActiveRegion(availableRegions[0]);
-          } else if (data.region !== "ALL") {
-            setActiveRegion(data.region);
-          }
-        } else {
-          // User: use their assigned region
-          setActiveRegion(data.region);
-        }
-      } else if (response.status === 401) {
-        router.push("/login");
+      const data: UserInfo = await res.json();
+      setUserInfo(data);
+      if (data.region !== "ALL") {
+        setActiveRegion(data.region);
+      } else if (regions.length > 0) {
+        setActiveRegion(regions[0]);
       }
-    } catch (err) {
-      console.error("Error fetching user info:", err);
+    } catch {
+      // ignore
     }
-  };
+  }, [router]);
 
-  // Set default region for admin once availableRegions is loaded
   useEffect(() => {
-    if (userInfo?.role === "admin" && userInfo.region === "ALL" && availableRegions.length > 0 && !activeRegion) {
-      setActiveRegion(availableRegions[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableRegions, userInfo]);
+    fetchRegions().then((regions) => fetchUserInfo(regions));
+  }, [fetchRegions, fetchUserInfo]);
 
-  const fetchCars = async () => {
-    if (!activeRegion) return;
-    
+  const fetchCars = useCallback(async (region: string, status: "actual" | "archive") => {
+    if (!region) return;
     setLoading(true);
+    setError("");
     try {
-      // Fix D: Use no-store to ensure fresh data after archive/restore
-      const response = await fetch(`/api/cars?region=${activeRegion}`, {
-        cache: 'no-store',
-      });
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push("/login");
-          return;
-        }
+      const regionParam = status === "archive" ? "ALL" : region;
+      const res = await fetch(`/api/cars?region=${regionParam}`, { cache: "no-store" });
+      if (!res.ok) {
+        if (res.status === 401) { router.push("/login"); return; }
         throw new Error("Failed to fetch cars");
       }
-
-      const data = await response.json();
+      const data = await res.json();
       setCars(data.cars || []);
-    } catch (err) {
-      console.error("Error fetching cars:", err);
-      setError("Failed to load cars. Please try again.");
+    } catch {
+      setError("Не удалось загрузить список автомобилей.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (activeRegion) {
+      fetchCars(activeRegion, activeStatus);
+    }
+  }, [activeRegion, activeStatus, fetchCars]);
 
   const handleLogout = async () => {
     try {
       await fetch("/api/logout", { method: "POST" });
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout error:", error);
+    } catch {
+      // ignore
     }
+    router.push("/login");
   };
 
-  const calculateProgress = (car: Car) => {
-    const total = 14;
-    const locked = car.locked_slots || 0;
-    return Math.round((locked / total) * 100);
-  };
-
-  const getBreakdown = (car: Car) => {
-    // For now, we'll calculate based on total locked slots
-    // In a real scenario, we'd need slot_type breakdown from the API
-    // This is a simplified version
-    return {
-      dealer: car.locked_slots > 0 ? 1 : 0,
-      buyout: Math.min(Math.max(car.locked_slots - 1, 0), 8),
-      dummies: Math.max(car.locked_slots - 9, 0),
-    };
-  };
-
-  const handleRestoreClick = (car: Car) => {
-    setSelectedCarToRestore(car);
-    // Filter out ALL from available regions for restore target
-    const validRegions = availableRegions.filter(r => r !== 'ALL');
-    setRestoreTargetRegion(validRegions[0] || "");
-    setShowRestoreModal(true);
-  };
-
-  const handleRestoreConfirm = async () => {
-    if (!selectedCarToRestore || !restoreTargetRegion) {
-      return;
-    }
-
-    setRestoring(true);
-    setError("");
-
-    try {
-      const response = await fetch(`/api/cars/vin/${selectedCarToRestore.vin}/restore`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          targetRegion: restoreTargetRegion,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to restore car");
-      }
-
-      // Fix D: Success - refresh the cars list with router.refresh() for cache invalidation
-      setShowRestoreModal(false);
-      setSelectedCarToRestore(null);
-      
-      // Use router.refresh() to trigger a full page refresh from the server
-      router.refresh();
-      
-      // Also refetch cars to update the UI immediately
-      await fetchCars();
-      
-      // Optionally redirect to the restored car in the target region
-      // router.push(`/cars/${selectedCarToRestore.vin}?region=${restoreTargetRegion}`);
-    } catch (err) {
-      console.error("Error restoring car:", err);
-      setError(err instanceof Error ? err.message : "Failed to restore car from archive");
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const handleRestoreCancel = () => {
-    setShowRestoreModal(false);
-    setSelectedCarToRestore(null);
-    setRestoreTargetRegion("");
-  };
-
-  if (loading) {
+  const filteredCars = cars.filter((car) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
     return (
-      <div className={styles.page}>
-        <div className={styles.container}>
-          <div className={styles.loading}>Loading cars...</div>
-        </div>
-      </div>
+      car.vin.toLowerCase().includes(q) ||
+      car.make.toLowerCase().includes(q) ||
+      car.model.toLowerCase().includes(q) ||
+      car.region.toLowerCase().includes(q)
     );
-  }
+  });
 
   const isAdmin = userInfo?.role === "admin";
 
   return (
     <div className={styles.page}>
-      <div className={styles.container}>
-        {/* Top Bar with User Info */}
-        <div className={styles.topBar}>
-          <div className={styles.userInfo}>
-            <span className={styles.userEmail}>{userInfo?.email || 'User'}</span>
-            <span className={`${styles.roleBadge} ${isAdmin ? styles.roleAdmin : styles.rolePhotographer}`}>
-              {isAdmin ? '👑 Admin' : '📷 Photographer'}
-            </span>
+      <div className={styles.mainContainer}>
+        {/* Header row */}
+        <div className={styles.headerRow}>
+          {/* Status capsule */}
+          <div className={styles.statusCapsule}>
+            <button
+              className={`${styles.statusBtn} ${activeStatus === "actual" ? styles.active : ""}`}
+              onClick={() => setActiveStatus("actual")}
+            >
+              Актуальные
+            </button>
+            <button
+              className={`${styles.statusBtn} ${activeStatus === "archive" ? styles.active : ""}`}
+              onClick={() => setActiveStatus("archive")}
+            >
+              Архив
+            </button>
           </div>
-          <button onClick={handleLogout} className={styles.logoutButton}>
-            Logout
-          </button>
+
+          {/* Region filter capsule */}
+          <div className={styles.filterCapsule}>
+            {availableRegions.map((region) => (
+              <button
+                key={region}
+                className={`${styles.filterBtn} ${activeRegion === region ? styles.active : ""}`}
+                onClick={() => setActiveRegion(region)}
+              >
+                {region}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className={styles.searchWrapper}>
+            <div className={styles.searchBox}>
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder="Поиск"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Admin / user info */}
+          <div className={styles.adminWrapper}>
+            {!showLogout && (
+              <span className={styles.adminText}>
+                {isAdmin ? "Админ" : userInfo?.email || ""}
+              </span>
+            )}
+            {showLogout && (
+              <button className={styles.logoutModule} onClick={handleLogout}>
+                Выйти
+              </button>
+            )}
+            <div
+              className={styles.avatar}
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); setShowLogout((v) => !v); }}
+              onKeyDown={(e) => { if (e.key === "Enter") setShowLogout((v) => !v); }}
+            >
+              👤
+            </div>
+          </div>
         </div>
 
-        <header className={styles.header}>
-          <div className={styles.titleSection}>
-            <h1 className={styles.title}>Cars Dashboard</h1>
-            {isAdmin && activeRegion && (
-              <div className={styles.regionSelectorWrapper}>
-                <label htmlFor="region-select" className={styles.regionLabel}>
-                  Active Region:
-                </label>
-                <select
-                  id="region-select"
-                  value={activeRegion}
-                  onChange={(e) => setActiveRegion(e.target.value)}
-                  className={styles.regionSelect}
-                >
-                  {availableRegions.map((region) => (
-                    <option key={region} value={region}>
-                      {region}
-                    </option>
-                  ))}
-                  <option value="ALL">ALL (Archive Only)</option>
-                </select>
-                <div className={styles.regionNote}>
-                  {activeRegion === 'ALL' ? (
-                    <span style={{color: '#f59e0b'}}>⚠️ ALL is archive only - no create/upload/edit actions allowed</span>
-                  ) : (
-                    <span>Active region for viewing and creating cars</span>
-                  )}
-                </div>
-              </div>
-            )}
-            {!isAdmin && userInfo && (
-              <div className={styles.regionInfo}>
-                <span className={styles.regionLabel}>Your Region:</span>
-                <span className={styles.regionBadge}>{userInfo.region}</span>
-              </div>
-            )}
-          </div>
-          <div className={styles.headerActions}>
-            {activeRegion && activeRegion !== 'ALL' ? (
-              <Link 
-                href={`/cars/new?region=${activeRegion}`} 
-                className={styles.newButton}
-              >
-                + New Car
-              </Link>
-            ) : activeRegion === 'ALL' ? (
-              <button className={styles.newButtonDisabled} disabled title="ALL is archive only - select a specific region to create cars">
-                + New Car (ALL is Archive Only)
-              </button>
-            ) : (
-              <button className={styles.newButtonDisabled} disabled title="Select a region first">
-                + New Car (Select Region)
-              </button>
-            )}
-          </div>
-        </header>
+        {/* Divider */}
+        <div className={styles.divider} />
 
-        {error && <div className={styles.error}>{error}</div>}
+        {/* Error */}
+        {error && <div className={styles.errorMsg}>{error}</div>}
 
-        {/* Stats Bar */}
-        {activeRegion && (
-          <div className={styles.statsBar}>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Region:</span>
-              <span className={styles.statValue}>{activeRegion}</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Total Cars:</span>
-              <span className={styles.statValue}>{cars.length}</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Completed:</span>
-              <span className={styles.statValue}>
-                {cars.filter(c => calculateProgress(c) === 100).length}
-              </span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>In Progress:</span>
-              <span className={styles.statValue}>
-                {cars.filter(c => calculateProgress(c) > 0 && calculateProgress(c) < 100).length}
-              </span>
-            </div>
-          </div>
+        {/* Loading */}
+        {loading && (
+          <div className={styles.emptyState}>Загрузка...</div>
         )}
 
-        {cars.length === 0 ? (
-          <div className={styles.empty}>
-            <div className={styles.emptyIcon}>🚗</div>
-            <p className={styles.emptyText}>No cars in {activeRegion || 'this region'}</p>
-            <p className={styles.emptySubtext}>
-              {isAdmin 
-                ? `Create a new car in ${activeRegion} to get started.` 
-                : 'Click "+ New Car" to add your first car.'
-              }
-            </p>
-          </div>
-        ) : (
-          <div className={styles.carsList}>
-            {cars.map((car) => {
-              const progress = calculateProgress(car);
-              const breakdown = getBreakdown(car);
+        {/* Cars grid */}
+        {!loading && filteredCars.length === 0 && (
+          <div className={styles.emptyState}>Нет автомобилей</div>
+        )}
+
+        {!loading && filteredCars.length > 0 && (
+          <div className={styles.carsGrid}>
+            {filteredCars.map((car) => {
+              const total = 14;
+              const locked = car.locked_slots || 0;
+              const pct = Math.round((locked / total) * 100);
 
               return (
-                <div key={car.id} className={styles.carCard}>
-                  <div className={styles.carHeader}>
-                    <div className={styles.carInfo}>
-                      <h2 className={styles.carTitle}>
-                        {car.make} {car.model}
-                      </h2>
-                      <p className={styles.carVin}>VIN: {car.vin}</p>
-                    </div>
-                    <div className={styles.carRegionBadge}>{car.region}</div>
+                <Link
+                  key={car.id}
+                  href={`/cars/${car.vin}`}
+                  className={styles.carCard}
+                >
+                  <div className={styles.carVin}>
+                    <span className={styles.carVinPrefix}>VIN:</span>
+                    {car.vin}
                   </div>
 
-                  <div className={styles.progressSection}>
+                  <div className={styles.carInfoText}>
+                    {car.make} {car.model}, {car.region}
+                  </div>
+
+                  <div className={styles.photoProgress}>
                     <div className={styles.progressHeader}>
-                      <span className={styles.progressLabel}>Upload Progress</span>
-                      <span className={styles.progressPercent}>{progress}%</span>
+                      <span>Загружено слотов</span>
+                      <span className={styles.photoCount}>{locked}/{total}</span>
                     </div>
-                    <div className={styles.progressBar}>
+                    <div className={styles.progressBarBg}>
                       <div
-                        className={`${styles.progressFill} ${progress === 100 ? styles.progressComplete : ''}`}
-                        style={{ width: `${progress}%` }}
+                        className={styles.progressBarFill}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
-
-                  <div className={styles.breakdown}>
-                    <div className={styles.breakdownItem}>
-                      <span className={styles.breakdownLabel}>Dealer</span>
-                      <span className={styles.breakdownValue}>{breakdown.dealer}/1</span>
-                    </div>
-                    <div className={styles.breakdownItem}>
-                      <span className={styles.breakdownLabel}>Buyout</span>
-                      <span className={styles.breakdownValue}>{breakdown.buyout}/8</span>
-                    </div>
-                    <div className={styles.breakdownItem}>
-                      <span className={styles.breakdownLabel}>Dummies</span>
-                      <span className={styles.breakdownValue}>{breakdown.dummies}/5</span>
-                    </div>
-                  </div>
-
-                  <div className={styles.carActions}>
-                    <Link
-                      href={`/cars/${car.vin}`}
-                      className={styles.openButton}
-                    >
-                      Open Car →
-                    </Link>
-                    
-                    {isAdmin && activeRegion === 'ALL' && (
-                      <button
-                        onClick={() => handleRestoreClick(car)}
-                        className={styles.restoreButton}
-                      >
-                        ↩️ Restore from Archive
-                      </button>
-                    )}
-                  </div>
-                </div>
+                </Link>
               );
             })}
           </div>
         )}
-      </div>
 
-      {/* Restore Modal */}
-      {showRestoreModal && selectedCarToRestore && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <h2 className={styles.modalTitle}>Restore Car from Archive</h2>
-            <p className={styles.modalDescription}>
-              Restore <strong>{selectedCarToRestore.make} {selectedCarToRestore.model}</strong> (VIN: {selectedCarToRestore.vin}) from archive to a target region.
-            </p>
-            
-            <div className={styles.modalField}>
-              <label htmlFor="restore-region" className={styles.modalLabel}>
-                Select Target Region:
-              </label>
-              <select
-                id="restore-region"
-                value={restoreTargetRegion}
-                onChange={(e) => setRestoreTargetRegion(e.target.value)}
-                className={styles.modalSelect}
-                disabled={restoring}
-              >
-                {availableRegions.filter(r => r !== 'ALL').map((region) => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button
-                onClick={handleRestoreCancel}
-                className={styles.modalCancelButton}
-                disabled={restoring}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRestoreConfirm}
-                className={styles.modalConfirmButton}
-                disabled={restoring || !restoreTargetRegion}
-              >
-                {restoring ? "Restoring..." : "Restore"}
-              </button>
-            </div>
+        {/* New car button for admins */}
+        {isAdmin && activeStatus === "actual" && activeRegion && (
+          <div className={styles.fabWrapper}>
+            <Link
+              href={`/cars/new?region=${activeRegion}`}
+              className={styles.fabButton}
+            >
+              + Новый автомобиль
+            </Link>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
