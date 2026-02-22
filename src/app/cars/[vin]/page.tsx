@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import styles from "./carDetail.module.css";
@@ -41,251 +41,348 @@ interface CarLink {
   created_at: string;
 }
 
-interface SlotCardProps {
-  slot: CarSlot;
-  vin: string;
-  onUploadComplete: () => void;
-  userRole?: string;
+interface Comment {
+  id: string;
+  text: string;
 }
 
-function SlotCard({ slot, vin, onUploadComplete, userRole }: SlotCardProps) {
+interface CollapseSection {
+  title: string;
+  contentId: string;
+  defaultOpen?: boolean;
+}
+
+function CollapseBlock({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={styles.collapseSection}>
+      <div className={styles.sectionHeader} onClick={() => setOpen((v) => !v)}>
+        <div className={styles.sectionHeaderLeft}>
+          <span className={`${styles.collapseIcon} ${open ? styles.expanded : ""}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+              <path d="M10.061 19.061L17.121 12l-7.06-7.061l-2.122 2.122L12.879 12l-4.94 4.939z" fill="currentColor" />
+            </svg>
+          </span>
+          <span className={styles.sectionHeaderTitle}>{title}</span>
+        </div>
+      </div>
+      {open && <div className={styles.sectionContent}>{children}</div>}
+    </div>
+  );
+}
+
+function SpecsGrid({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div className={styles.specsGrid}>
+      {items.map(({ label, value }) => (
+        <div key={label} className={styles.specItem}>
+          <span className={styles.specLabel}>{label}</span>
+          <span className={styles.specValue}>{value || "—"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ===== Photo Viewer ===== */
+function PhotoViewer({
+  photos,
+  initialIndex,
+  onClose,
+}: {
+  photos: string[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [current, setCurrent] = useState(initialIndex);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowUp" || e.key === "ArrowLeft")
+        setCurrent((i) => Math.max(0, i - 1));
+      if (e.key === "ArrowDown" || e.key === "ArrowRight")
+        setCurrent((i) => Math.min(photos.length - 1, i + 1));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [photos.length, onClose]);
+
+  const prev = current > 0 ? photos[current - 1] : null;
+  const next = current < photos.length - 1 ? photos[current + 1] : null;
+
+  return (
+    <div className={styles.viewerBackdrop} onClick={onClose}>
+      <div className={styles.viewer} onClick={(e) => e.stopPropagation()}>
+        {/* Left rail */}
+        <div className={styles.viewerRail}>
+          <button
+            className={styles.railBtn}
+            onClick={() => setCurrent((i) => Math.max(0, i - 1))}
+            disabled={current === 0}
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24">
+              <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" fill="currentColor" />
+            </svg>
+          </button>
+          <div className={styles.viewerThumbs}>
+            {photos.map((src, i) => (
+              <div
+                key={i}
+                className={`${styles.thumb} ${i === current ? styles.active : ""}`}
+                onClick={() => setCurrent(i)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={`Photo ${i + 1}`} />
+              </div>
+            ))}
+          </div>
+          <button
+            className={styles.railBtn}
+            onClick={() => setCurrent((i) => Math.min(photos.length - 1, i + 1))}
+            disabled={current === photos.length - 1}
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24">
+              <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Stage */}
+        <div className={styles.viewerStage}>
+          <div className={styles.viewerCounter}>{current + 1} / {photos.length}</div>
+          <button className={styles.viewerClose} onClick={onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor" />
+            </svg>
+          </button>
+          <div className={styles.stageStack}>
+            {prev && (
+              <div className={`${styles.stageItem} ${styles.preview}`} onClick={() => setCurrent((i) => i - 1)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className={styles.stageImg} src={prev} alt="prev" />
+              </div>
+            )}
+            <div className={`${styles.stageItem} ${styles.main}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className={styles.stageImg} src={photos[current]} alt={`Photo ${current + 1}`} />
+            </div>
+            {next && (
+              <div className={`${styles.stageItem} ${styles.preview}`} onClick={() => setCurrent((i) => i + 1)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className={styles.stageImg} src={next} alt="next" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Kit Card (photo group) ===== */
+function KitCard({
+  title,
+  slot,
+  vin,
+  onUploaded,
+  userRole,
+}: {
+  title: string;
+  slot: CarSlot;
+  vin: string;
+  onUploaded: () => void;
+  userRole: string;
+}) {
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
-  const [loadingShare, setLoadingShare] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [uploadErr, setUploadErr] = useState("");
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [togglingUsed, setTogglingUsed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLocked = slot.status === "locked";
+  const isUsed = slot.is_used;
   const isAdmin = userRole === "admin";
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFiles(e.target.files);
-    setError("");
-  };
+  const lockMeta = slot.lock_meta_json ? (() => { try { return JSON.parse(slot.lock_meta_json!); } catch { return null; } })() : null;
+  const fileCount: number = lockMeta?.fileCount ?? (isLocked ? 1 : 0);
 
-  const handleUpload = async () => {
-    if (!selectedFiles || selectedFiles.length === 0) {
-      setError("Please select at least one file");
-      return;
-    }
+  const photos: string[] = slot.public_url ? [slot.public_url] : [];
 
+  const handleUpload = async (files: FileList) => {
     setUploading(true);
-    setError("");
-
+    setUploadErr("");
     try {
-      const formData = new FormData();
-      formData.append("slotType", slot.slot_type);
-      formData.append("slotIndex", slot.slot_index.toString());
-
-      for (let i = 0; i < selectedFiles.length; i++) {
-        formData.append(`file${i + 1}`, selectedFiles[i]);
-      }
-
-      const response = await fetch(`/api/cars/vin/${vin}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          setError("Slot already filled");
-        } else if (response.status === 403) {
-          setError("No access (different region)");
-        } else {
-          setError(data.error || "Upload failed");
-        }
-        setUploading(false);
-        return;
-      }
-
-      // Success - refresh the page data
-      onUploadComplete();
-    } catch (err) {
-      console.error("Upload error:", err);
-      setError("Upload failed. Please try again.");
-      setUploading(false);
-    }
-  };
-
-  const handleGetShareLink = async () => {
-    if (slot.public_url) {
-      window.open(slot.public_url, "_blank");
-      return;
-    }
-
-    setLoadingShare(true);
-    try {
-      const response = await fetch(
-        `/api/cars/vin/${vin}/share?slotType=${slot.slot_type}&slotIndex=${slot.slot_index}`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        window.open(data.url, "_blank");
-      }
-    } catch (err) {
-      console.error("Error getting share link:", err);
-    } finally {
-      setLoadingShare(false);
-    }
-  };
-
-  const handleDownloadZip = async () => {
-    setDownloading(true);
-    try {
-      const response = await fetch(
-        `/api/cars/vin/${vin}/download?slotType=${slot.slot_type}&slotIndex=${slot.slot_index}`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        // For now, just open the share link as ZIP download needs server-side implementation
-        // In production, this would trigger a ZIP file download
-        if (data.files && data.files.length > 0) {
-          // Show info about files
-          alert(`Found ${data.files.length} file(s). Download functionality coming soon.`);
-        }
+      const fd = new FormData();
+      fd.append("slotType", slot.slot_type);
+      fd.append("slotIndex", slot.slot_index.toString());
+      for (let i = 0; i < files.length; i++) fd.append(`file${i + 1}`, files[i]);
+      const res = await fetch(`/api/cars/vin/${vin}/upload`, { method: "POST", body: fd });
+      if (!res.ok) {
+        const d = await res.json();
+        setUploadErr(d.error || "Ошибка загрузки");
       } else {
-        const errorData = await response.json();
-        alert(errorData.error || "Failed to prepare download");
+        onUploaded();
       }
-    } catch (err) {
-      console.error("Error downloading:", err);
-      alert("Failed to download files");
+    } catch {
+      setUploadErr("Ошибка загрузки");
     } finally {
-      setDownloading(false);
+      setUploading(false);
     }
   };
 
   const handleToggleUsed = async () => {
     if (!isAdmin) return;
-
-    const newUsedState = !slot.is_used;
-    const confirmMsg = newUsedState
-      ? "Mark this slot as USED? Other users will see it's already been used."
-      : "Mark this slot as UNUSED? It will be available for others to use.";
-
-    if (!confirm(confirmMsg)) return;
-
     setTogglingUsed(true);
     try {
-      const response = await fetch(
-        `/api/cars/vin/${vin}/slots/${slot.slot_type}/${slot.slot_index}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ isUsed: newUsedState }),
-        }
-      );
-
-      if (response.ok) {
-        onUploadComplete(); // Refresh data
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || "Failed to update slot");
-      }
-    } catch (err) {
-      console.error("Error toggling used status:", err);
-      alert("Failed to update slot");
+      const res = await fetch(`/api/cars/vin/${vin}/slots/${slot.slot_type}/${slot.slot_index}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isUsed: !isUsed }),
+      });
+      if (res.ok) onUploaded();
     } finally {
       setTogglingUsed(false);
     }
   };
 
-  const lockMeta = slot.lock_meta_json ? JSON.parse(slot.lock_meta_json) : null;
-
   return (
-    <div className={`${styles.slotCard} ${isLocked ? styles.slotLocked : styles.slotEmpty} ${slot.is_used ? styles.slotUsed : ''}`}>
-      <div className={styles.slotHeader}>
-        <span className={styles.slotIndex}>Slot {slot.slot_index}</span>
-        <div className={styles.statusBadges}>
-          <span className={`${styles.slotStatus} ${isLocked ? styles.statusLocked : styles.statusEmpty}`}>
-            {isLocked ? "Filled" : "Empty"}
-          </span>
-          {slot.is_used && (
-            <span className={`${styles.slotStatus} ${styles.statusUsed}`}>
-              Used
-            </span>
+    <div className={`${styles.kitCard} ${isUsed ? styles.kitUsed : ""}`}>
+      <div className={styles.kitDragHandle} />
+
+      <div className={styles.kitTop}>
+        <span className={styles.kitTitle}>
+          {title} · Слот {slot.slot_index}
+        </span>
+        <div className={styles.kitActions}>
+          {isLocked && photos.length > 0 && (
+            <button
+              className={`${styles.iconBtn} ${styles.iconBtnDark}`}
+              title="Просмотреть"
+              onClick={() => setViewerOpen(true)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor" />
+              </svg>
+            </button>
+          )}
+          {!isLocked && (
+            <button
+              className={`${styles.iconBtn} ${styles.iconBtnUpload}`}
+              title="Загрузить фото"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z" fill="currentColor" />
+              </svg>
+            </button>
+          )}
+          {isLocked && isAdmin && (
+            <button
+              className={`${styles.iconBtn} ${isUsed ? styles.iconBtnDark : styles.iconBtnDark}`}
+              title={isUsed ? "Снять отметку «использовано»" : "Отметить как использовано"}
+              onClick={handleToggleUsed}
+              disabled={togglingUsed}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                {isUsed
+                  ? <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor" />
+                  : <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" fill="currentColor" />
+                }
+              </svg>
+            </button>
           )}
         </div>
       </div>
 
-      {isLocked ? (
-        <div className={styles.lockedContent}>
-          {lockMeta && (
-            <div className={styles.lockInfo}>
-              <p className={styles.lockDetail}>
-                Files: {lockMeta.fileCount}
-              </p>
-              <p className={styles.lockDetail}>
-                Uploaded: {new Date(lockMeta.uploadedAt).toLocaleDateString()}
-              </p>
-            </div>
-          )}
-          <div className={styles.buttonGroup}>
-            <button
-              onClick={handleGetShareLink}
-              className={styles.shareButton}
-              disabled={loadingShare}
-            >
-              {loadingShare ? "Loading..." : "Get Link"}
-            </button>
-            <button
-              onClick={handleDownloadZip}
-              className={styles.downloadButton}
-              disabled={downloading}
-            >
-              {downloading ? "Preparing..." : "Download ZIP"}
-            </button>
-          </div>
-          {isAdmin && (
-            <button
-              onClick={handleToggleUsed}
-              className={`${styles.toggleUsedButton} ${slot.is_used ? styles.markUnused : styles.markUsed}`}
-              disabled={togglingUsed}
-            >
-              {togglingUsed
-                ? "Updating..."
-                : slot.is_used
-                ? "Mark as Unused"
-                : "Mark as Used"}
-            </button>
+      <div className={styles.kitDivider} />
+
+      {/* Used row */}
+      <div className={styles.kitUsedRow}>
+        <div className={styles.kitCheck}>
+          {isUsed && (
+            <svg width="14" height="14" viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor" />
+            </svg>
           )}
         </div>
-      ) : (
-        <div className={styles.emptyContent}>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleFileChange}
-            className={styles.fileInput}
-            disabled={uploading}
-          />
-          {selectedFiles && selectedFiles.length > 0 && (
-            <p className={styles.selectedInfo}>
-              {selectedFiles.length} file(s) selected
-            </p>
-          )}
-          {error && <p className={styles.slotError}>{error}</p>}
-          <button
-            onClick={handleUpload}
-            className={styles.uploadButton}
-            disabled={uploading || !selectedFiles || selectedFiles.length === 0}
-          >
-            {uploading ? "Uploading..." : "Upload"}
-          </button>
-        </div>
+        <span>Использовано</span>
+      </div>
+
+      {/* Photo grid: 6 tiles */}
+      <div className={styles.kitGrid}>
+        {Array.from({ length: 6 }).map((_, tileIdx) => {
+          if (!isLocked) {
+            if (tileIdx === 0) {
+              return (
+                <div
+                  key={tileIdx}
+                  className={`${styles.tile} ${styles.tileAdd}`}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <span className={styles.icon}>
+                    <svg width="30" height="30" viewBox="0 0 24 24">
+                      <path d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z" fill="currentColor" />
+                    </svg>
+                  </span>
+                </div>
+              );
+            }
+            return <div key={tileIdx} className={`${styles.tile} ${styles.tileEmpty}`} />;
+          }
+          const photoSrc = tileIdx < photos.length ? photos[tileIdx] : null;
+          if (photoSrc) {
+            return (
+              <div
+                key={tileIdx}
+                className={`${styles.tile} ${styles.tilePhoto}`}
+                onClick={() => setViewerOpen(true)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoSrc} alt={`Slot photo ${tileIdx + 1}`} />
+              </div>
+            );
+          }
+          return <div key={tileIdx} className={`${styles.tile} ${styles.tileEmpty}`} />;
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className={styles.kitFooter}>
+        <span>Всего фото: {fileCount}</span>
+        <span>{isLocked ? "Заполнено" : "Пусто"}</span>
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); e.target.value = ""; }}
+      />
+
+      {uploading && <div className={styles.uploadingMsg}>Загружаем...</div>}
+      {uploadErr && <div className={styles.uploadErr}>{uploadErr}</div>}
+
+      {viewerOpen && photos.length > 0 && (
+        <PhotoViewer photos={photos} initialIndex={0} onClose={() => setViewerOpen(false)} />
       )}
     </div>
   );
 }
 
+/* ===== Main Page ===== */
 export default function CarDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -294,190 +391,149 @@ export default function CarDetailPage() {
   const [car, setCar] = useState<Car | null>(null);
   const [slots, setSlots] = useState<CarSlot[]>([]);
   const [links, setLinks] = useState<CarLink[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [error, setError] = useState("");
+  const [userRole, setUserRole] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [archiving, setArchiving] = useState(false);
+
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
-  const [userRole, setUserRole] = useState<string>("");
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [archiving, setArchiving] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRetrying, setIsRetrying] = useState(false);
-  
-  // Ref to store timeout ID for cleanup
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const MAX_RETRIES = 10;
-  const RETRY_DELAYS = [500, 1000, 1500, 2000, 2500, 3000, 3000, 3000, 3000, 3000]; // Total ~20s
+  const [showNewComment, setShowNewComment] = useState(false);
+  const [newCommentText, setNewCommentText] = useState("");
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
+  const [showNewLink, setShowNewLink] = useState(false);
 
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load draft comments from localStorage
   useEffect(() => {
-    if (vin) {
-      fetchCarData();
-      fetchUserRole();
-    }
-    
-    // Cleanup function to cancel pending timeouts on unmount
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const key = `carDraft:${vin}:comments`;
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) setComments(JSON.parse(stored));
+    } catch { /* ignore */ }
   }, [vin]);
 
-  const fetchUserRole = async () => {
+  const saveComments = (updated: Comment[]) => {
+    setComments(updated);
     try {
-      const response = await fetch("/api/me");
-      if (response.ok) {
-        const data = await response.json();
-        setUserRole(data.role || "");
-        setUserEmail(data.email || "");
-      }
-    } catch (err) {
-      console.error("Error fetching user role:", err);
-    }
+      localStorage.setItem(`carDraft:${vin}:comments`, JSON.stringify(updated));
+    } catch { /* ignore */ }
   };
 
-  const fetchCarData = async (attemptNumber = 0) => {
+  const fetchCarData = useCallback(async (attempt = 0) => {
+    const MAX_RETRIES = 10;
+    const RETRY_DELAYS = [500, 1000, 1500, 2000, 2500, 3000, 3000, 3000, 3000, 3000];
     try {
-      const response = await fetch(`/api/cars/vin/${vin}`);
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push("/login");
-          return;
-        }
-        
-        if (response.status === 403) {
-          setError("Access denied - different region");
+      const res = await fetch(`/api/cars/vin/${vin}`);
+      if (!res.ok) {
+        if (res.status === 401) { router.push("/login"); return; }
+        if (res.status === 403) { setError("Нет доступа"); setLoading(false); setIsRetrying(false); return; }
+        if (res.status === 404 && attempt < MAX_RETRIES) {
+          setIsRetrying(true);
+          setRetryCount(attempt + 1);
           setLoading(false);
-          setIsRetrying(false);
+          const delay = RETRY_DELAYS[attempt] || 3000;
+          if (retryRef.current) clearTimeout(retryRef.current);
+          retryRef.current = setTimeout(() => { retryRef.current = null; fetchCarData(attempt + 1); }, delay);
           return;
         }
-        
-        // Handle 404 with retry logic
-        if (response.status === 404) {
-          if (attemptNumber < MAX_RETRIES) {
-            // Car might be still creating, retry with backoff
-            setIsRetrying(true);
-            setRetryCount(attemptNumber + 1);
-            setLoading(false); // Clear loading since we're in retry mode
-            const delay = RETRY_DELAYS[attemptNumber] || 3000;
-            
-            // Clear any existing timeout before setting a new one
-            if (retryTimeoutRef.current) {
-              clearTimeout(retryTimeoutRef.current);
-            }
-            
-            // Store timeout ID for cleanup
-            retryTimeoutRef.current = setTimeout(() => {
-              retryTimeoutRef.current = null;
-              fetchCarData(attemptNumber + 1);
-            }, delay);
-            return;
-          }
-          
-          // Max retries reached
-          setError("Car not found");
-          setLoading(false);
-          setIsRetrying(false);
-          return;
-        }
-        
-        throw new Error("Failed to fetch car data");
+        setError("Автомобиль не найден");
+        setLoading(false);
+        setIsRetrying(false);
+        return;
       }
-
-      const data = await response.json();
+      const data = await res.json();
       setCar(data.car);
       setSlots(data.slots || []);
       setLinks(data.links || []);
       setIsRetrying(false);
       setRetryCount(0);
       setLoading(false);
-    } catch (err) {
-      console.error("Error fetching car:", err);
-      setError("Failed to load car data");
+    } catch {
+      setError("Ошибка загрузки данных");
       setLoading(false);
       setIsRetrying(false);
-      setRetryCount(0);
     }
-  };
+  }, [vin, router]);
+
+  useEffect(() => {
+    fetchCarData(0);
+    fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => {
+      if (d) { setUserRole(d.role || ""); setUserEmail(d.email || ""); }
+    }).catch(() => {});
+    return () => { if (retryRef.current) clearTimeout(retryRef.current); };
+  }, [fetchCarData]);
 
   const handleAddLink = async () => {
     if (!newLinkLabel || !newLinkUrl) return;
-
     setAddingLink(true);
     try {
-      const response = await fetch(`/api/cars/vin/${vin}/links`, {
+      const res = await fetch(`/api/cars/vin/${vin}/links`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: newLinkLabel, url: newLinkUrl }),
       });
-
-      if (response.ok) {
+      if (res.ok) {
+        setShowNewLink(false);
         setNewLinkLabel("");
         setNewLinkUrl("");
-        fetchCarData();
+        fetchCarData(0);
       }
-    } catch (err) {
-      console.error("Error adding link:", err);
     } finally {
       setAddingLink(false);
     }
   };
 
   const handleDeleteLink = async (linkId: number) => {
-    if (!confirm("Delete this link?")) return;
-    
-    try {
-      await fetch(`/api/links/${linkId}`, { method: "DELETE" });
-      fetchCarData();
-    } catch (err) {
-      console.error("Error deleting link:", err);
-    }
+    if (!confirm("Удалить ссылку?")) return;
+    await fetch(`/api/links/${linkId}`, { method: "DELETE" });
+    fetchCarData(0);
   };
 
   const handleArchiveCar = async () => {
-    if (!confirm(
-      `Archive "${car?.make} ${car?.model}" (VIN: ${car?.vin})?\n\n` +
-      `This will move the car to the archive (/Фото/ALL/) and mark it as deleted. ` +
-      `This action is reversible by an admin.`
-    )) {
-      return;
-    }
-
+    if (!confirm(`Архивировать "${car?.make} ${car?.model}" (VIN: ${car?.vin})?`)) return;
     setArchiving(true);
     try {
-      const response = await fetch(`/api/cars/vin/${vin}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        alert("Car archived successfully");
-        // Fix D: Use router.refresh() and redirect to ensure UI updates
-        router.refresh();
-        router.push("/cars");
-      } else {
-        const data = await response.json();
-        alert(data.error || "Failed to archive car");
-      }
-    } catch (err) {
-      console.error("Error archiving car:", err);
-      alert("Failed to archive car");
+      const res = await fetch(`/api/cars/vin/${vin}`, { method: "DELETE" });
+      if (res.ok) { router.refresh(); router.push("/cars"); }
+      else { const d = await res.json(); alert(d.error || "Ошибка архивирования"); }
     } finally {
       setArchiving(false);
     }
   };
 
+  const handleAddComment = () => {
+    if (!newCommentText.trim()) return;
+    const updated = [...comments, { id: Date.now().toString(), text: newCommentText.trim() }];
+    saveComments(updated);
+    setNewCommentText("");
+    setShowNewComment(false);
+  };
+
+  const handleDeleteComment = (id: string) => {
+    if (!confirm("Удалить комментарий?")) return;
+    saveComments(comments.filter((c) => c.id !== id));
+  };
+
+  const handleSaveComment = (id: string) => {
+    if (!editCommentText.trim()) { handleDeleteComment(id); return; }
+    saveComments(comments.map((c) => c.id === id ? { ...c, text: editCommentText.trim() } : c));
+    setEditingComment(null);
+    setEditCommentText("");
+  };
+
   if (loading || isRetrying) {
     return (
       <div className={styles.page}>
-        <div className={styles.loading}>
-          {isRetrying 
-            ? `Creating car... (attempt ${retryCount + 1}/${MAX_RETRIES})`
-            : "Loading car data..."}
+        <div className={styles.loadingState}>
+          {isRetrying ? `Создание автомобиля... (попытка ${retryCount}/10)` : "Загрузка..."}
         </div>
       </div>
     );
@@ -486,22 +542,15 @@ export default function CarDetailPage() {
   if (error || !car) {
     return (
       <div className={styles.page}>
-        <div className={styles.container}>
-          <div className={styles.error}>{error || "Car not found"}</div>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-            <Link href="/cars" className={styles.backLink}>
-              ← Back to Cars
-            </Link>
-            <button 
-              onClick={() => {
-                setError("");
-                setLoading(true);
-                fetchCarData(0);
-              }}
-              className={styles.backLink}
-              style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+        <div className={styles.mainContainer}>
+          <div className={styles.errorState}>{error || "Автомобиль не найден"}</div>
+          <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+            <Link href="/cars" className={styles.backLink}>← Назад</Link>
+            <button
+              onClick={() => { setError(""); setLoading(true); fetchCarData(0); }}
+              className={styles.retryBtn}
             >
-              🔄 Retry
+              🔄 Повторить
             </button>
           </div>
         </div>
@@ -512,129 +561,291 @@ export default function CarDetailPage() {
   const dealerSlots = slots.filter((s) => s.slot_type === "dealer");
   const buyoutSlots = slots.filter((s) => s.slot_type === "buyout");
   const dummiesSlots = slots.filter((s) => s.slot_type === "dummies");
+  const lockedCount = slots.filter((s) => s.status === "locked").length;
+  const totalSlots = 14;
 
   const isAdmin = userRole === "admin";
-  const lockedCount = slots.filter(s => s.status === "locked").length;
-  const totalSlots = 14;
-  const progress = Math.round((lockedCount / totalSlots) * 100);
 
   return (
     <div className={styles.page}>
-      <div className={styles.container}>
-        {/* Top Bar */}
-        <div className={styles.topBar}>
-          <div className={styles.topBarLeft}>
-            <Link href="/cars" className={styles.backLink}>
-              ← Back to Cars
-            </Link>
-          </div>
-          <div className={styles.topBarRight}>
-            <span className={styles.userEmail}>{userEmail}</span>
-            <span className={`${styles.roleBadge} ${isAdmin ? styles.roleAdmin : styles.rolePhotographer}`}>
-              {isAdmin ? '👑 Admin' : '📷 Photographer'}
-            </span>
-          </div>
-        </div>
+      <div className={styles.mainContainer}>
+        {/* Car content */}
+        <div className={styles.carContent}>
 
-        <div className={styles.carHeader}>
-          <div className={styles.carHeaderMain}>
-            <div className={styles.carTitleSection}>
-              <h1 className={styles.carTitle}>
-                {car.make} {car.model}
-              </h1>
-              <p className={styles.carVin}>VIN: {car.vin}</p>
-            </div>
-            <div className={styles.carBadges}>
-              <span className={styles.regionBadge}>{car.region}</span>
-            </div>
-          </div>
-          
-          <div className={styles.carStats}>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Progress</span>
-              <span className={styles.statValue}>{progress}%</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Filled Slots</span>
-              <span className={styles.statValue}>{lockedCount}/{totalSlots}</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Links</span>
-              <span className={styles.statValue}>{links.length}</span>
-            </div>
-          </div>
-
-          <div className={styles.carActions}>
-            <button 
-              onClick={handleArchiveCar} 
-              className={styles.archiveButton}
-              disabled={archiving}
-            >
-              {archiving ? "Archiving..." : "📦 Archive Car"}
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.linksSection}>
-          <h2 className={styles.sectionTitle}>External Links</h2>
-          <div className={styles.linksList}>
-            {links.map((link) => (
-              <div key={link.id} className={styles.linkItem}>
-                <a href={link.url} target="_blank" rel="noopener noreferrer" className={styles.linkUrl}>
-                  {link.label}
-                </a>
-                <button onClick={() => handleDeleteLink(link.id)} className={styles.deleteLinkButton}>
-                  ×
+          {/* Top bar */}
+          <div className={styles.topBar}>
+            <Link href="/cars" className={styles.backLink}>← Назад</Link>
+            <div className={styles.topBarRight}>
+              <span className={styles.userEmail}>{userEmail}</span>
+              {isAdmin && (
+                <button className={styles.archiveBtn} onClick={handleArchiveCar} disabled={archiving}>
+                  {archiving ? "..." : "📦 Архив"}
                 </button>
+              )}
+            </div>
+          </div>
+
+          {/* Card title */}
+          <div className={styles.carCardTitle}>
+            {car.make} {car.model}
+            <span className={styles.vinBadge}>{car.vin}</span>
+          </div>
+
+          {/* BLOCK 1: Основные характеристики */}
+          <CollapseBlock title="Основные характеристики">
+            <SpecsGrid items={[
+              { label: "Марка", value: car.make },
+              { label: "Модель", value: car.model },
+              { label: "Регион", value: car.region },
+              { label: "VIN", value: car.vin },
+              { label: "Создан", value: new Date(car.created_at).toLocaleDateString("ru-RU") },
+            ]} />
+          </CollapseBlock>
+
+          {/* BLOCK 2: Документы и регистрация */}
+          <CollapseBlock title="Документы и регистрация">
+            <SpecsGrid items={[
+              { label: "VIN", value: car.vin },
+              { label: "Диск", value: car.disk_root_path },
+            ]} />
+          </CollapseBlock>
+
+          {/* BLOCK 3: Финансы и расходы */}
+          <CollapseBlock title="Финансы и расходы">
+            <SpecsGrid items={[
+              { label: "Информация", value: "Нет данных" },
+            ]} />
+          </CollapseBlock>
+
+          {/* BLOCK 4: Дополнительная информация (comments + links) */}
+          <CollapseBlock title="Дополнительная информация" defaultOpen>
+            <div className={styles.additionalBlock}>
+
+              {/* Comments */}
+              <div className={styles.additionalItem}>
+                <div className={styles.additionalHeader}>
+                  <span className={styles.additionalTitle}>Комментарий</span>
+                  <button
+                    className={`${styles.iconBtn} ${styles.iconBtnUpload}`}
+                    title="Добавить комментарий"
+                    onClick={() => { setShowNewComment(true); setNewCommentText(""); }}
+                  >
+                    <span className={styles.icon}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z" />
+                      </svg>
+                    </span>
+                  </button>
+                </div>
+
+                {showNewComment && (
+                  <div className={styles.commentEditRow}>
+                    <textarea
+                      className={styles.commentInput}
+                      placeholder="Введите комментарий"
+                      value={newCommentText}
+                      onChange={(e) => setNewCommentText(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); }
+                        if (e.key === "Escape") { setShowNewComment(false); setNewCommentText(""); }
+                      }}
+                    />
+                    <button className={styles.commentSaveBtn} onClick={handleAddComment}>Сохранить</button>
+                    <button className={styles.commentCancelBtn} onClick={() => { setShowNewComment(false); setNewCommentText(""); }}>Отмена</button>
+                  </div>
+                )}
+
+                <div className={styles.commentsList}>
+                  {comments.map((comment) => (
+                    <div key={comment.id} className={styles.commentBlock}>
+                      {editingComment === comment.id ? (
+                        <div className={styles.commentEditRow}>
+                          <textarea
+                            className={styles.commentInput}
+                            value={editCommentText}
+                            onChange={(e) => setEditCommentText(e.target.value)}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveComment(comment.id); }
+                              if (e.key === "Escape") { setEditingComment(null); }
+                            }}
+                          />
+                          <button className={styles.commentSaveBtn} onClick={() => handleSaveComment(comment.id)}>Сохранить</button>
+                          <button className={styles.commentCancelBtn} onClick={() => setEditingComment(null)}>Отмена</button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className={styles.commentText}>{comment.text}</div>
+                          <button
+                            className={`${styles.iconBtn} ${styles.iconBtnGhost}`}
+                            title="Редактировать"
+                            onClick={() => { setEditingComment(comment.id); setEditCommentText(comment.text); }}
+                          >
+                            <span className={styles.icon}>
+                              <svg width="24" height="24" viewBox="0 0 24 24">
+                                <path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor" />
+                              </svg>
+                            </span>
+                          </button>
+                          <button
+                            className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                            title="Удалить"
+                            onClick={() => handleDeleteComment(comment.id)}
+                          >
+                            <span className={styles.icon}>
+                              <svg width="24" height="24" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M5 20a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8h2V6h-4V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H3v2h2zM9 4h6v2H9zM8 8h9v12H7V8z" />
+                              </svg>
+                            </span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-          <div className={styles.addLinkForm}>
-            <input
-              type="text"
-              placeholder="Link label"
-              value={newLinkLabel}
-              onChange={(e) => setNewLinkLabel(e.target.value)}
-              className={styles.linkInput}
-            />
-            <input
-              type="url"
-              placeholder="URL"
-              value={newLinkUrl}
-              onChange={(e) => setNewLinkUrl(e.target.value)}
-              className={styles.linkInput}
-            />
-            <button onClick={handleAddLink} disabled={addingLink} className={styles.addLinkButton}>
-              {addingLink ? "Adding..." : "Add Link"}
-            </button>
-          </div>
-        </div>
 
-        <div className={styles.slotsSection}>
-          <h2 className={styles.sectionTitle}>Dealer Photos (1 slot)</h2>
-          <div className={styles.slotGrid}>
-            {dealerSlots.map((slot) => (
-              <SlotCard key={slot.id} slot={slot} vin={vin} onUploadComplete={fetchCarData} userRole={userRole} />
-            ))}
-          </div>
-        </div>
+              {/* Links */}
+              <div className={styles.additionalItem}>
+                <div className={styles.additionalHeader}>
+                  <span className={styles.additionalTitle}>Прикреплённые ссылки</span>
+                  <button
+                    className={`${styles.iconBtn} ${styles.iconBtnUpload}`}
+                    title="Добавить ссылку"
+                    onClick={() => { setShowNewLink(true); setNewLinkLabel(""); setNewLinkUrl(""); }}
+                  >
+                    <span className={styles.icon}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z" />
+                      </svg>
+                    </span>
+                  </button>
+                </div>
 
-        <div className={styles.slotsSection}>
-          <h2 className={styles.sectionTitle}>Buyout Photos (8 slots)</h2>
-          <div className={styles.slotGrid}>
-            {buyoutSlots.map((slot) => (
-              <SlotCard key={slot.id} slot={slot} vin={vin} onUploadComplete={fetchCarData} userRole={userRole} />
-            ))}
-          </div>
-        </div>
+                {showNewLink && (
+                  <div className={styles.linkEditRow}>
+                    <input
+                      className={styles.linkTypeInput}
+                      type="text"
+                      placeholder="Название"
+                      value={newLinkLabel}
+                      onChange={(e) => setNewLinkLabel(e.target.value)}
+                      autoFocus
+                    />
+                    <input
+                      className={styles.linkUrlInput}
+                      type="url"
+                      placeholder="https://..."
+                      value={newLinkUrl}
+                      onChange={(e) => setNewLinkUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { handleAddLink(); }
+                        if (e.key === "Escape") { setShowNewLink(false); setNewLinkLabel(""); setNewLinkUrl(""); }
+                      }}
+                    />
+                    <button className={styles.commentSaveBtn} onClick={handleAddLink} disabled={addingLink}>
+                      {addingLink ? "..." : "Добавить"}
+                    </button>
+                    <button className={styles.commentCancelBtn} onClick={() => { setShowNewLink(false); setNewLinkLabel(""); setNewLinkUrl(""); }}>
+                      Отмена
+                    </button>
+                  </div>
+                )}
 
-        <div className={styles.slotsSection}>
-          <h2 className={styles.sectionTitle}>Dummies Photos (5 slots)</h2>
-          <div className={styles.slotGrid}>
-            {dummiesSlots.map((slot) => (
-              <SlotCard key={slot.id} slot={slot} vin={vin} onUploadComplete={fetchCarData} userRole={userRole} />
-            ))}
-          </div>
+                <div className={styles.linksList}>
+                  {links.map((link) => (
+                    <div key={link.id} className={styles.linkItem}>
+                      <span className={styles.linkType}>{link.label}</span>
+                      <a
+                        className={styles.linkUrl}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {link.url}
+                      </a>
+                      <div className={styles.linkActions}>
+                        <button
+                          className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                          title="Удалить"
+                          onClick={() => handleDeleteLink(link.id)}
+                        >
+                          <span className={styles.icon}>
+                            <svg width="24" height="24" viewBox="0 0 24 24">
+                              <path fill="currentColor" d="M5 20a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8h2V6h-4V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H3v2h2zM9 4h6v2H9zM8 8h9v12H7V8z" />
+                            </svg>
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CollapseBlock>
+
+          {/* BLOCK 5: Photos section */}
+          <CollapseBlock title="Фотографии" defaultOpen>
+            <div className={styles.photosHeader}>
+              <span className={styles.photosStat}>{lockedCount} / {totalSlots} слотов заполнено</span>
+            </div>
+
+            {dealerSlots.length > 0 && (
+              <div className={styles.photoGroup}>
+                <div className={styles.photoGroupTitle}>Дилерские фото</div>
+                <div className={styles.kits}>
+                  {dealerSlots.map((slot) => (
+                    <KitCard
+                      key={slot.id}
+                      title="Дилер"
+                      slot={slot}
+                      vin={vin}
+                      onUploaded={() => fetchCarData(0)}
+                      userRole={userRole}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {buyoutSlots.length > 0 && (
+              <div className={styles.photoGroup}>
+                <div className={styles.photoGroupTitle}>Выкупные фото</div>
+                <div className={styles.kits}>
+                  {buyoutSlots.map((slot) => (
+                    <KitCard
+                      key={slot.id}
+                      title="Выкуп"
+                      slot={slot}
+                      vin={vin}
+                      onUploaded={() => fetchCarData(0)}
+                      userRole={userRole}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {dummiesSlots.length > 0 && (
+              <div className={styles.photoGroup}>
+                <div className={styles.photoGroupTitle}>Дополнительные фото</div>
+                <div className={styles.kits}>
+                  {dummiesSlots.map((slot) => (
+                    <KitCard
+                      key={slot.id}
+                      title="Доп"
+                      slot={slot}
+                      vin={vin}
+                      onUploaded={() => fetchCarData(0)}
+                      userRole={userRole}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </CollapseBlock>
+
         </div>
       </div>
     </div>

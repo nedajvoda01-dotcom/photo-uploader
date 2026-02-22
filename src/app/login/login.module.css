@@ -1,122 +1,121 @@
-.container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.body {
   min-height: 100vh;
-  background: #f5f7fa;
-}
-
-.loginBox {
-  background: white;
-  padding: 3rem;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
   width: 100%;
-  max-width: 420px;
-}
-
-.title {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 0.25rem 0;
-  text-align: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.subtitle {
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #666;
-  margin: 0 0 2.5rem 0;
-  text-align: center;
-}
-
-.form {
+  background: var(--page-bg);
   display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.loginCard {
+  max-width: 460px;
+  width: 100%;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-unit);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-light);
 }
 
-.label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.input {
-  padding: 0.875rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.2s;
-}
-
-.input:focus {
+.inputField {
+  width: 100%;
+  padding: 12px var(--space-unit);
+  background: var(--white);
+  border: 1.5px solid var(--border-regular);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-weight: var(--inter-regular);
+  font-size: 16px;
+  color: var(--text-primary);
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  transition: border 0.15s ease, background-color 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.input:disabled {
-  background-color: #f5f5f5;
-  cursor: not-allowed;
-  opacity: 0.6;
+.inputField:focus {
+  border-color: var(--gray-400);
+  background-color: #FAFAFA;
 }
 
-.button {
-  padding: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+.inputField::placeholder {
+  color: var(--text-tertiary);
+}
+
+.inputError {
+  border-color: var(--border-error) !important;
+}
+
+.loginField {
+  margin-bottom: var(--space-unit);
+}
+
+.passwordField {
+  margin-bottom: var(--space-unit);
+}
+
+.errorMessage {
+  color: var(--text-error);
+  font-size: 14px;
+  font-weight: var(--inter-medium);
+  margin-bottom: var(--space-unit);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.errorMessage::before {
+  content: "⚠";
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.loginButton {
+  width: 100%;
+  background: var(--black-custom);
+  color: var(--white);
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  padding: 12px var(--space-unit);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-weight: var(--inter-semibold);
+  font-size: 18px;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-  margin-top: 0.5rem;
+  transition: background 0.15s ease;
+  box-shadow: var(--shadow-sm);
+  line-height: 1.2;
 }
 
-.button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+.loginButton:hover:not(:disabled) {
+  background: var(--black-custom-hover);
 }
 
-.button:disabled {
+.loginButton:active {
+  transform: scale(0.98);
+}
+
+.loginButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
-}
-
-.error {
-  padding: 0.875rem;
-  background-color: #fee;
-  color: #c33;
-  border: 2px solid #fbb;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  text-align: center;
-  font-weight: 600;
 }
 
 @media (max-width: 480px) {
-  .loginBox {
-    padding: 2rem;
-    margin: 1rem;
+  .loginCard {
+    padding: 20px;
+    border-radius: 28px;
   }
 
-  .title {
-    font-size: 1.75rem;
+  .inputField {
+    font-size: 16px;
+    padding: 18px 20px;
+    border-radius: 16px;
+  }
+
+  .loginButton {
+    padding: 18px 20px;
+    font-size: 18px;
+    border-radius: 16px;
+    margin-top: 4px;
   }
 }
