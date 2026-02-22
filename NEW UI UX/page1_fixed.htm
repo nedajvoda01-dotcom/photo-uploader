@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Автомобиль CHEVROLET NIVA · AUTOCONTENT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <style>
+* {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+
+
+        :root {
+            --inter-regular: 400;
+            --inter-medium: 500;
+            --inter-semibold: 600;
+            --inter-bold: 700;
+
+            --gray-100: #F1F4F9;
+            --gray-200: #E9EEF3;
+            --gray-300: #DEE5ED;
+            --gray-400: #CBD5E1;
+            --gray-500: #94A3B8;
+            --gray-600: #64748B;
+
+            --white: #FFFFFF;
+            --red-error: #FF4053;
+            
+            --black-custom: #1B1C1E;
+            --black-custom-hover: #2A2B2E;
+
+            --text-primary: #0F172A;
+            --text-secondary: #334155;
+            --text-tertiary: var(--gray-500);
+
+            --border-light: var(--gray-200);
+            --border-regular: var(--gray-300);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 24px;
+            --radius-full: 100px;
+
+            --btn-size: clamp(36px, 4vw, 42px);
+
+            --space-unit: 20px;
+
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            
+            --module-height: 42px;
+            --button-size: 32px; /* Единый размер для всех кнопок */
+
+            --price-positive: #27AE60;
+            --price-negative: #E74C3C;
+  --border: #E8E8E8;
+  --divider: #E8E8E8;
+}
+
+        html, body {
+            height: auto;
+            min-height: 0;
+            width: 100%;
+            overflow-x: hidden;
+            overflow-y: visible;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            font-weight: var(--inter-regular);
+            background: var(--gray-100);
+            padding: var(--space-unit);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            color: var(--text-primary);
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-unit);
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* ===== ОСНОВНОЙ КОНТЕНТ ===== */
+        .car-content {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Сворачиваемые блоки */
+        .collapse-section {
+            background: var(--white);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: none;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s ease;
+        }
+
+        .section-header:hover {
+            background: #EDEDED;
+        }
+
+        .section-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .car-card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1A1A1A;
+            font-family: "Inter", sans-serif;
+            margin: 0 0 4px 0;
+            }
+
+        .section-header-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1A1A1A;
+            font-family: "Inter", sans-serif;
+        }
+
+        .collapse-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            color: #DADADA;
+            transition: transform 0.2s ease;
+        }
+
+        .collapse-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .collapse-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .section-content {
+            border-top: 1px solid var(--border-light);
+            padding: 20px;
+            background: var(--white);
+        }
+
+        .section-content > :first-child { margin-top: 0; }
+        .section-content > :last-child { margin-bottom: 0; }
+
+
+        /* Additional content padding override */
+        #additionalContent.section-content{
+            padding: 20px;
+        }
+
+
+        .section-content.collapsed {
+            display: none;
+        }
+
+        /* Единый стиль для всех сеток характеристик */
+        .specs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px 24px;
+        }
+
+        .spec-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .spec-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-tertiary);
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        /* Если карточка помечена как использованная */
+        .is-used .spec-label{
+            color: var(--text-secondary);
+        }
+
+        .spec-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-word;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Дополнительная информация */
+        .additional-block {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 0;
+        }
+
+        .additional-item {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* --- spacing when comments/links lists are empty ---
+           Требование: между кнопками (+) "Комментарий" и "Прикреплённые ссылки" должно быть 20px,
+           без удвоения 20+20. Поэтому убираем внутренний gap у секции, когда список пустой. */
+        .additional-item.is-empty { gap: 0; }
+        .additional-item.is-empty .comments-list,
+        .additional-item.is-empty .links-list { display: none; }
+
+
+        .additional-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .additional-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1A1A1A;
+            font-family: "Inter", sans-serif;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        /* Единый стиль для всех кнопок */
+        .action-button {
+            width: var(--button-size);
+            height: var(--button-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--white);
+            border: 1px solid var(--border-regular);
+            border-radius: var(--radius-sm);
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 18px;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .action-button:hover {
+            background: var(--gray-100);
+            border-color: var(--gray-400);
+            color: var(--text-primary);
+        }
+
+        /* Icon buttons (new spec) */
+        .icon-btn{
+            width: var(--btn-size);
+            height: var(--btn-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border-radius: var(--radius-sm);
+            background: var(--white);
+            border: 1px solid var(--border-regular);
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .icon-btn:hover{
+            background: var(--gray-100);
+            border-color: var(--gray-400);
+            color: var(--text-primary);
+        }
+
+        .icon-btn .icon{
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* Default SVG size for edit icon */
+        .icon-btn .icon svg{
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+
+        /* Edit (pencil) button */
+        .icon-btn.edit-button{
+            background: #1A1A1A;
+            border: none;
+            color: #FFFFFF;
+        }
+
+        .icon-btn.edit-button:hover{
+            background: #2A2A2A;
+            border: none;
+            color: #FFFFFF;
+        }
+
+        /* Upload (+) button */
+        .icon-btn.icon-btn--upload{
+            background: #DADADA;
+            border: none;
+            color: #1A1A1A;
+        }
+
+        .icon-btn.icon-btn--upload:hover{
+            background: #D2D2D2;
+            border: none;
+            color: #1A1A1A;
+        }
+
+        /* Plus SVG size (same as edit) */
+        .icon-btn.icon-btn--upload .icon svg{
+            width: 18px;
+            height: 18px;
+        }
+
+
+        .action-button.delete-btn {
+            color: var(--red-error);
+        }
+
+        .action-button.delete-btn:hover {
+            background: var(--red-error);
+            border-color: var(--red-error);
+            color: white;
+        }
+
+        .delete-button::before { content: none; }
+        .delete-button svg{width:18px;height:18px;display:block;}
+
+        .download-button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Комментарий */
+        .comments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px; /* Отступ между блоками */
+        }
+
+        .comment-block {
+            background: #F1F1F1;
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-sizing: border-box;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            min-height: calc(var(--btn-size) + 40px); /* Минимальная высота как у ссылок */
+        
+            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        .comment-text {
+            font: inherit;
+            color: #1A1A1A;
+            white-space: pre-wrap;
+            flex: 1;
+            word-break: break-word;
+
+            /* оставляем “воздух” до кнопки редактирования */
+            padding-right: 20px;
+        }
+
+        .comment-input {
+            width: 100%;
+            font: inherit;
+            line-height: inherit;
+            color: var(--text-primary);
+
+            /* ввод прямо “в сером кубике” */
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            -webkit-appearance: none;
+            appearance: none;
+            padding: 0;
+            margin: 0;
+            resize: none;
+            overflow: hidden; /* убираем скролл */
+            min-height: 1.6em;
+            height: auto;
+            flex: 1;
+            padding-right: 20px;
+
+            /* Чтобы Яндекс/Chrome не “подтаскивал” размеры текста */
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+
+        .comment-input:focus {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .comment-input:focus {
+            outline: none;
+            border-color: var(--gray-500);
+        }
+
+        /* Ссылки */
+        .links-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px; /* Отступ между блоками */
+        }
+
+        .link-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            background: #F1F1F1;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            gap: 12px;
+            height: calc(var(--btn-size) + 40px);
+        }
+
+        .link-item.editing{
+            /* фиксируем высоту и выравнивание инпутов по центру */
+        }
+
+        
+        .link-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0; /* Важно для обрезки текста */
+        }
+
+        .link-type {
+            font-size: 14px;
+            font-weight: var(--inter-medium);
+            color: #1A1A1A;
+            white-space: nowrap;
+            flex: 0 0 auto; /* показываем текст типа полностью */
+        }
+
+/* Двоеточие после названия (только в "спокойном" режиме) */
+.link-item:not(.editing) .link-type::after{
+            content: ":";
+            margin-right: 6px;
+            color: #1A1A1A;
+        }
+
+        .link-url {
+            font-size: 14px;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--gray-400);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1 1 auto;   /* ссылка занимает остаток */
+            min-width: 0;      /* позволяет реально сжиматься */
+            max-width: none;   /* не ограничиваем 300px */
+        }
+
+        .link-url:hover {
+            border-bottom: 1px solid var(--gray-600);
+        }
+
+        .link-edit {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: normal;
+        }
+
+        .link-type-input {
+            width: 120px; /* исходное пустое состояние */
+            min-width: 120px;
+            padding: 6px 10px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: normal;
+            font-weight: var(--inter-medium);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--white);
+            color: #1A1A1A;
+            height: var(--btn-size);
+
+            /* чтобы не растягивало карточку бесконечно */
+        
+            flex: 0 0 auto;
+            overflow: visible;
+            white-space: nowrap;}
+
+        .link-url-input {
+            flex: 1;
+            min-width: 140px;
+            padding: 6px 10px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: normal;
+            font-weight: 400;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--white);
+            color: #1A1A1A;
+            height: var(--btn-size);
+
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        .link-type-input:focus, .link-url-input:focus {
+            outline: none;
+            border-color: var(--gray-500);
+        }
+
+        .link-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 900px) {
+            .specs-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 700px) {
+            .specs-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .link-url {
+                max-width: 200px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .link-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .link-info {
+                width: 100%;
+            }
+            
+            .link-url {
+                max-width: none;
+                flex: 1;
+            }
+            
+            .link-edit {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+            
+            .link-type-input {
+                width: 100%;
+            }
+            
+            .link-url-input {
+                width: 100%;
+            }
+            
+            .link-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .specs-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-content {
+                padding: 16px;
+            }
+            
+            .link-url {
+                max-width: 150px;
+            }
+        }
+    
+/* ===== AUTOCONTENT: applied styles from "Карточки контент" ===== */
+:root{
+  --inter-regular: 400;
+  --inter-medium: 500;
+  --inter-semibold: 600;
+  --inter-bold: 700;
+
+  --page-bg: #F1F1F1;
+
+  --white: #FFFFFF;
+  --text-primary: #1A1A1A;
+  --text-secondary: #4B5563;
+  --text-tertiary: #808080;
+
+  --border: #E8E8E8;
+  --divider: #E8E8E8;
+
+  --btn-dark: #1A1A1A;
+  --btn-dark-hover: #2A2B2E;
+
+  --btn-danger: #FF4D57;
+  --btn-danger-hover: #E63B45;
+
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+  --shadow-float: 0 4px 12px rgba(0,0,0,0.12);
+
+  --radius-card: 20px;
+  --radius-btn: 10px;
+  --radius-md: 12px;
+
+  --btn-size: clamp(36px, 4vw, 42px);
+  --card-pad: 20px;
+
+  /* aliases to keep existing rules working */
+  --gray-100: var(--page-bg);
+  --gray-200: var(--border);
+  --gray-300: var(--border);
+  --gray-400: #D1D5DB;
+  --gray-500: var(--text-tertiary);
+  --gray-600: #4B5563;
+
+  --border-light: var(--border);
+  --border-regular: var(--border);
+
+  --radius-sm: var(--radius-btn);
+  --radius-lg: var(--radius-card);
+  --space-unit: 20px;
+  --button-size: var(--btn-size);
+  --red-error: var(--btn-danger);
+}
+
+body{
+  background: var(--page-bg);
+  color: var(--text-primary);
+  padding: 20px;
+}
+
+.collapse-section{
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+.section-header:hover{ background: #EDEDED; }
+
+.section-header-title{
+  font-weight: var(--inter-semibold);
+  color: var(--text-primary);
+}
+
+.section-content{
+  border-top: 1px solid var(--divider);
+  padding: var(--card-pad);
+  background: var(--white);
+}
+
+/* Buttons (unify with icon-btn look) */
+.action-button{
+  width: var(--btn-size);
+  height: var(--btn-size);
+  border-radius: var(--radius-btn);
+  border: none;
+  background: var(--btn-dark);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  padding: 0;
+  line-height: 0;
+}
+.action-button:hover{ background: var(--btn-dark-hover); color:#fff; }
+.action-button:active{ transform: scale(0.98); }
+
+/* Icons inside action buttons */
+.action-button svg{
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Plus buttons in "Дополнительная информация" */
+.additional-header .icon-btn.icon-btn--upload{
+  background: #DADADA;
+  color: #1A1A1A;
+}
+.additional-header .icon-btn.icon-btn--upload:hover{
+  background: #D2D2D2;
+  color: #1A1A1A;
+}
+
+
+.action-button.delete-btn,
+.action-button.delete-button{
+  background: var(--btn-danger);
+  color: #fff;
+}
+.action-button.delete-btn:hover,
+.action-button.delete-button:hover{
+  background: var(--btn-danger-hover);
+  color: #fff;
+}
+
+/* Inner blocks */
+.comment-block,
+.link-item{
+  background: #F1F1F1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* Inputs in edit mode */
+.comment-input,
+.link-type-input,
+.link-url-input{
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+}
+.comment-input:focus,
+.link-type-input:focus,
+.link-url-input:focus{
+  outline: none;
+  border-color: var(--text-tertiary);
+}
+
+/* Link underline style closer to ref */
+.link-url{
+  border-bottom: 1px dashed var(--text-tertiary);
+}
+.link-url:hover{
+  border-bottom: 1px solid var(--text-secondary);
+}
+
+.kit-card{
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+
+.kit-divider{
+  height: 1px;
+  background: var(--divider);
+}
+
+
+        /* унификация текста комментариев и ссылок под стиль лейблов (Inter 14/400) */
+        .comment-text,
+        .link-type {
+            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            color: #1A1A1A;
+            text-transform: none;
+        }
+
+        .link-url,
+        .link-url:visited,
+        .link-url:hover,
+        .link-url:active,
+        .link-url:focus {
+            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            color: #1A1A1A;
+            text-decoration: underline;
+            border-bottom: none;
+        }
+
+
+/* === Link edit mode: same typography/colors as view mode, no underline === */
+.link-info{min-width:0;}
+.link-type{
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #1A1A1A;
+  white-space: nowrap;     /* показываем в одну строку */
+  overflow: visible;       /* НЕ обрезаем */
+  text-overflow: clip;     /* без троеточия */
+  max-width: none;         /* без лимита ширины */
+  min-width: 0;
+  flex: 0 0 auto;          /* ширина = содержимое */
+}
+
+.link-url{
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Editing layout stays aligned with buttons */
+.link-item.editing .link-edit{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Inputs in edit mode: white blocks like in inactive mode, keep button-height */
+.link-item.editing .link-type-input,
+.link-item.editing .link-url-input{
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #1A1A1A;
+
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  padding: 0 12px;
+
+  height: var(--btn-size);
+  line-height: calc(var(--btn-size) - 2px); /* compensate border */
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-item.editing .link-type-input{
+  /* ширину задаёт JS, поле растёт по мере ввода */
+  flex: 0 0 auto;
+  width: 120px;
+  max-width: 60%;
+}
+
+.link-item.editing .link-url-input{
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.link-item.editing .link-type-input:focus,
+.link-item.editing .link-url-input:focus{
+  outline: none;
+  box-shadow: none;
+  border-color: var(--text-tertiary);
+}
+
+
+/* --- FIX: remove rounded "capsule" around comment textarea ONLY in edit mode --- */
+.comment-block.editing .comment-input{
+  border-radius: 0 !important;
+}
+
+</style>
+</head>
+<body>
+    <div class="main-container">
+<!-- ОСНОВНОЙ КОНТЕНТ -->
+        <div class="car-content">
+            <div class="car-card-title">Карточка автомобиля</div>
+
+            <!-- БЛОК 1: Основные характеристики (свернут) -->
+            <div class="collapse-section" id="mainSpecsSection">
+                <div class="section-header" id="mainSpecsHeader">
+                    <div class="section-header-left">
+                        <span class="collapse-icon" id="mainSpecsIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                                <path d="M10.061 19.061L17.121 12l-7.06-7.061l-2.122 2.122L12.879 12l-4.94 4.939z" fill="currentColor"/>
+                            </svg>
+                        </span>
+                        <span class="section-header-title">Основные характеристики</span>
+                    </div>
+                </div>
+                <div class="section-content collapsed" id="mainSpecsContent">
+                    <div class="specs-grid">
+                        <div class="spec-item">
+                            <span class="spec-label">Марка</span>
+                            <span class="spec-value">CHEVROLET</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Модель</span>
+                            <span class="spec-value">NIVA</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Год выпуска</span>
+                            <span class="spec-value">2011</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Цвет</span>
+                            <span class="spec-value">ТЕМНО-КОРИЧНЕВЫЙ МЕТАЛЛИК</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Двигатель</span>
+                            <span class="spec-value">Бензин</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Объем</span>
+                            <span class="spec-value">1.7 л</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Л.С.</span>
+                            <span class="spec-value">80 л.с.</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">КПП</span>
+                            <span class="spec-value">MT</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Привод</span>
+                            <span class="spec-value">4WD</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Пробег</span>
+                            <span class="spec-value">217 013 км</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Кузов</span>
+                            <span class="spec-value">Седан</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Тип салона</span>
+                            <span class="spec-value">—</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Собственник</span>
+                            <span class="spec-value">2</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Шоурум</span>
+                            <span class="spec-value">P1</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Менеджер</span>
+                            <span class="spec-value">Евгений</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- БЛОК 2: Документы и регистрация (свернут) -->
+            <div class="collapse-section" id="docsSection">
+                <div class="section-header" id="docsHeader">
+                    <div class="section-header-left">
+                        <span class="collapse-icon" id="docsIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                                <path d="M10.061 19.061L17.121 12l-7.06-7.061l-2.122 2.122L12.879 12l-4.94 4.939z" fill="currentColor"/>
+                            </svg>
+                        </span>
+                        <span class="section-header-title">Документы и регистрация</span>
+                    </div>
+                </div>
+                <div class="section-content collapsed" id="docsContent">
+                    <div class="specs-grid">
+                        <div class="spec-item">
+                            <span class="spec-label">VIN</span>
+                            <span class="spec-value">X9L212300B0372905</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Гос. номер</span>
+                            <span class="spec-value">H255HT161</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">СТС</span>
+                            <span class="spec-value">9923346361</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">ПТС</span>
+                            <span class="spec-value">ПТС</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Юр. лицо</span>
+                            <span class="spec-value">мегаполис</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">На учете</span>
+                            <span class="spec-value">Да</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Приход</span>
+                            <span class="spec-value">12.02.2026</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">В продаже</span>
+                            <span class="spec-value">Сервисная книжка</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- БЛОК 3: Финансы и расходы (свернут) -->
+            <div class="collapse-section" id="financeSection">
+                <div class="section-header" id="financeHeader">
+                    <div class="section-header-left">
+                        <span class="collapse-icon" id="financeIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                                <path d="M10.061 19.061L17.121 12l-7.06-7.061l-2.122 2.122L12.879 12l-4.94 4.939z" fill="currentColor"/>
+                            </svg>
+                        </span>
+                        <span class="section-header-title">Финансы и расходы</span>
+                    </div>
+                </div>
+                <div class="section-content collapsed" id="financeContent">
+                    <div class="specs-grid">
+                        <div class="spec-item">
+                            <span class="spec-label">Заход</span>
+                            <span class="spec-value">350 000 ₽</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Заход с расходами</span>
+                            <span class="spec-value">450 000 ₽</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Ремонт</span>
+                            <span class="spec-value">100 000 ₽</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Продажа</span>
+                            <span class="spec-value">850 000 ₽</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Автовоз</span>
+                            <span class="spec-value">—</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Снятие с учета</span>
+                            <span class="spec-value">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- БЛОК 4: Дополнительная информация (развернут) -->
+            <div class="collapse-section" id="additionalSection">
+                <div class="section-header" id="additionalHeader">
+                    <div class="section-header-left">
+                        <span class="collapse-icon" id="additionalIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                                <path d="M10.061 19.061L17.121 12l-7.06-7.061l-2.122 2.122L12.879 12l-4.94 4.939z" fill="currentColor"/>
+                            </svg>
+                        </span>
+                        <span class="section-header-title">Дополнительная информация</span>
+                    </div>
+                </div>
+                <div class="section-content" collapsed id="additionalContent">
+                    <div class="additional-block">
+                        <!-- Комментарии -->
+                        <div class="additional-item" id="commentsSection">
+                            <div class="additional-header">
+                                <span class="additional-title">Комментарий</span>
+                                <button class="icon-btn icon-btn--upload add-button" id="addCommentBtn" title="Добавить комментарий" aria-label="Добавить комментарий"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z"/></svg></span></button>
+                            </div>
+                            <div class="comments-list" id="commentsList">
+                                
+                            </div>
+                        </div>
+
+                        <!-- Прикреплённые ссылки -->
+                        <div class="additional-item" id="linksSection">
+                            <div class="additional-header">
+                                <span class="additional-title">Прикреплённые ссылки</span>
+                                <button class="icon-btn icon-btn--upload add-button" id="addLinkBtn" title="Добавить ссылку" aria-label="Добавить ссылку"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z"/></svg></span></button>
+                            </div>
+                            <div class="links-list" id="linksList">
+                                
+                            </div>
+                        </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+        // Авто-ширина для поля "Тип ссылки" (растягивается по введённому тексту,
+        // но исходное пустое состояние остаётся фиксированным)
+        const __measureCanvas = document.createElement('canvas');
+        const __measureCtx = __measureCanvas.getContext('2d');
+
+        function updateLinkTypeWidth(typeInput) {
+            if (!typeInput) return;
+
+            const val = (typeInput.value || '').trim();
+
+            // исходное пустое состояние — как сейчас
+            if (!val) {
+                typeInput.style.width = '120px';
+                return;
+            }
+
+            // Измеряем текст с тем же шрифтом
+            const cs = window.getComputedStyle(typeInput);
+            __measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+
+            const textW = __measureCtx.measureText(val).width;
+            const paddingLeft = parseFloat(cs.paddingLeft) || 0;
+            const paddingRight = parseFloat(cs.paddingRight) || 0;
+            const borderLeft = parseFloat(cs.borderLeftWidth) || 0;
+            const borderRight = parseFloat(cs.borderRightWidth) || 0;
+
+            // + небольшая страховка
+            let desired = Math.ceil(textW + paddingLeft + paddingRight + borderLeft + borderRight + 12);
+
+            // Ограничиваем по доступному месту: тип тянется, сдвигая URL вправо,
+            // но оставляем минимальное место под URL и кнопки
+            const item = typeInput.closest('.link-item');
+            const editRow = typeInput.closest('.link-edit');
+            const actions = item ? item.querySelector('.link-actions') : null;
+
+            const urlMin = 140; // минимально под URL
+            let available = null;
+
+            if (item && editRow && actions) {
+                const itemW = item.getBoundingClientRect().width;
+                const actionsW = actions.getBoundingClientRect().width;
+
+                // gap между .link-edit и .link-actions — он задан у .link-item
+                const itemCS = getComputedStyle(item);
+                const padL = parseFloat(itemCS.paddingLeft) || 0;
+                const padR = parseFloat(itemCS.paddingRight) || 0;
+                const outerGap = parseFloat(itemCS.gap) || 0;
+
+                available = itemW - padL - padR - actionsW - outerGap;
+            }
+
+            if (available) {
+                // gap внутри editRow между полями
+                const gap = parseFloat(getComputedStyle(editRow).gap) || 0;
+                const maxType = Math.max(120, available - urlMin - gap);
+                desired = Math.min(desired, maxType);
+            }
+
+            desired = Math.max(desired, 120);
+            typeInput.style.width = desired + 'px';
+        }
+
+        // авто-рост textarea по высоте
+        function autosizeTextarea(el) {
+            if (!el) return;
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight) + 'px';
+        }
+
+        // Подстраиваем ширину при изменении размера окна
+        window.addEventListener('resize', () => {
+            document.querySelectorAll('.link-item.editing .link-type-input').forEach(inp => updateLinkTypeWidth(inp));
+        });
+
+
+        function updateEmptyStates() {
+            const commentsList = document.getElementById('commentsList');
+            const linksList = document.getElementById('linksList');
+            const commentsSection = document.getElementById('commentsSection');
+            const linksSection = document.getElementById('linksSection');
+
+            if (commentsSection && commentsList) {
+                const hasComments = commentsList.querySelector('.comment-block') !== null;
+                commentsSection.classList.toggle('is-empty', !hasComments);
+            }
+            if (linksSection && linksList) {
+                const hasLinks = linksList.querySelector('.link-item') !== null;
+                linksSection.classList.toggle('is-empty', !hasLinks);
+            }
+        }
+
+// Функция для сворачивания/разворачивания блоков
+        function setupCollapse(headerId, contentId, iconId, defaultExpanded = false) {
+            const header = document.getElementById(headerId);
+            const content = document.getElementById(contentId);
+            const icon = document.getElementById(iconId);
+            
+            if (!header || !content || !icon) return;
+            
+            if (defaultExpanded) {
+                content.classList.remove('collapsed');
+                icon.classList.add('expanded');
+            } else {
+                content.classList.add('collapsed');
+                icon.classList.remove('expanded');
+            }
+            
+            header.addEventListener('click', function() {
+                content.classList.toggle('collapsed');
+                icon.classList.toggle('expanded');
+            });
+        }
+
+        // Управление комментариями и ссылками
+        document.addEventListener('DOMContentLoaded', function() {
+            // Инициализация сворачивания
+            setupCollapse('mainSpecsHeader', 'mainSpecsContent', 'mainSpecsIcon', false);
+            setupCollapse('docsHeader', 'docsContent', 'docsIcon', false);
+            setupCollapse('financeHeader', 'financeContent', 'financeIcon', false);
+            setupCollapse('additionalHeader', 'additionalContent', 'additionalIcon', false);
+
+            // Кнопка назад
+            const backBtn = document.getElementById('backButton');
+            if (backBtn) {
+                backBtn.addEventListener('click', function() {
+                    alert('Возврат к списку автомобилей');
+                });
+            }
+
+// Глобальный обработчик кликов для выхода из режима редактирования
+            document.addEventListener('click', function(e) {
+                // Если клик не по редактируемому блоку и не по его кнопкам
+                if (!e.target.closest('.comment-block.editing') && 
+                    !e.target.closest('.link-item.editing') &&
+                    !e.target.closest('.edit-button') &&
+                    !e.target.closest('.delete-button')) {
+                    
+                    // Выходим из режима редактирования всех блоков
+                    exitAllEditModes();
+                }
+            });
+
+            // Инициализация обработчиков для существующих элементов
+            initExistingItems();
+            // Состояния пустых списков (скрываем пустые контейнеры и не удваиваем отступы)
+            updateEmptyStates();
+
+            // Обработчик для добавления комментария
+            document.getElementById('addCommentBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                addNewComment();
+            });
+
+            // Обработчик для добавления ссылки
+            document.getElementById('addLinkBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                addNewLink();
+            });
+        });
+
+        // Инициализация обработчиков для существующих элементов
+        function initExistingItems() {
+            // Комментарии
+            document.querySelectorAll('.comment-block:not(.editing)').forEach(block => {
+                const editBtn = block.querySelector('.edit-button');
+                if (editBtn) {
+                    editBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        enterCommentEditMode(block);
+                    });
+                }
+            });
+
+            // Ссылки
+            document.querySelectorAll('.link-item:not(.editing)').forEach(block => {
+                const editBtn = block.querySelector('.edit-button');
+                if (editBtn) {
+                    editBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        enterLinkEditMode(block);
+                    });
+                }
+            });
+        }
+
+        // Выход из всех режимов редактирования
+        function exitAllEditModes() {
+            // Комментарии
+            document.querySelectorAll('.comment-block.editing').forEach(block => {
+                exitCommentEditMode(block, true);
+            });
+
+            // Ссылки
+            document.querySelectorAll('.link-item.editing').forEach(block => {
+                exitLinkEditMode(block, true);
+            });
+        }
+
+        // Режим редактирования комментария
+        function enterCommentEditMode(block) {
+            // Выходим из других режимов
+            exitAllEditModes();
+
+            const textElement = block.querySelector('.comment-text');
+            const currentText = textElement ? (textElement.textContent || '') : '';
+            const isNew = block.dataset.isNewComment === '1';
+
+            // Сохраняем текущий контент
+            block.dataset.originalText = currentText;
+
+            block.classList.add('editing');
+            block.innerHTML = `
+                <textarea class="comment-input" placeholder="Введите комментарий" rows="1"></textarea>
+                <button class="action-button delete-button" title="Удалить">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 20a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8h2V6h-4V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H3v2h2zM9 4h6v2H9zM8 8h9v12H7V8z"/><path fill="currentColor" d="M9 10h2v8H9zm4 0h2v8h-2z"/></svg></button>
+            `;
+
+            const textarea = block.querySelector('.comment-input');
+
+            // заполняем и растягиваем по тексту
+            textarea.value = currentText;
+            autosizeTextarea(textarea);
+            textarea.addEventListener('input', () => autosizeTextarea(textarea));
+
+            // курсор в конец и без скролл-смещения
+            try { textarea.focus({ preventScroll: true }); } catch (e) { textarea.focus(); }
+            const end = textarea.value.length;
+            textarea.setSelectionRange(end, end);
+            textarea.value = currentText;
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+            // Enter/Escape управляют завершением редактирования
+            // - Enter: сохранить и выйти
+            // - Shift+Enter: перенос строки
+            // - Escape: отмена и выход
+            textarea.addEventListener('keydown', function(ev) {
+                if (ev.key === 'Escape') {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    exitCommentEditMode(block, false);
+                    return;
+                }
+                if (ev.key === 'Enter' && !ev.shiftKey) {
+                    ev.preventDefault(); // не добавляем перевод строки
+                    ev.stopPropagation();
+                    exitCommentEditMode(block, true);
+                    return;
+                }
+            });
+
+            // Обработчик для удаления
+            const deleteBtn = block.querySelector('.delete-button');
+            deleteBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (!window.confirm('Удалить комментарий?')) return;
+                block.remove();
+                updateEmptyStates();
+            });}
+
+        // Выход из режима редактирования комментария
+        function exitCommentEditMode(block, save = true) {
+            const textarea = block.querySelector('textarea');
+            const isNew = block.dataset.isNewComment === '1';
+
+            const originalText = block.dataset.originalText || '';
+
+            if (save && textarea) {
+                const newText = textarea.value.trim();
+
+                if (newText) {
+                    // Сохраняем изменения
+                    block.innerHTML = `
+                        <div class="comment-text">${newText}</div>
+                        <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+                    `;
+                } else {
+                    // Пустой текст запрещён:
+                    // - для нового комментария: удаляем блок
+                    // - для существующего: откатываем как было
+                    if (isNew) {
+                        block.remove();
+                        updateEmptyStates();
+                        return;
+                    }
+                    block.innerHTML = `
+                        <div class="comment-text">${originalText}</div>
+                        <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+                    `;
+                }
+            } else {
+                // Отмена редактирования:
+                // - новый пустой блок не сохраняем
+                // - существующий откатываем
+                if (isNew && !originalText.trim()) {
+                    block.remove();
+                    updateEmptyStates();
+                    return;
+                }
+                block.innerHTML = `
+                    <div class="comment-text">${originalText}</div>
+                    <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+                `;
+            }
+
+            block.classList.remove('editing');
+            delete block.dataset.originalText;
+            delete block.dataset.isNewComment;
+
+            const newEditBtn = block.querySelector('.edit-button');
+            if (newEditBtn) {
+                newEditBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    enterCommentEditMode(block);
+                });
+            }
+        }
+
+        // Режим редактирования ссылки
+        function enterLinkEditMode(block) {
+            // Выходим из других режимов
+            exitAllEditModes();
+
+            const typeElement = block.querySelector('.link-type');
+            const urlElement = block.querySelector('.link-url');
+            const isNew = block.dataset.isNewLink === '1';
+
+            const rawType = typeElement ? (typeElement.textContent || '').trim() : '';
+            const rawUrl = urlElement ? ((urlElement.getAttribute('href') || urlElement.textContent || '').trim()) : '';
+
+            // Сохраняем оригинальные значения (для отката)
+            block.dataset.originalType = rawType;
+            block.dataset.originalUrl  = rawUrl;
+
+            block.classList.add('editing');
+            block.innerHTML = `
+                <div class="link-edit">
+                    <input type="text" class="link-type-input" placeholder="Тип ссылки">
+                    <input type="url" class="link-url-input" placeholder="https://...">
+                </div>
+                <div class="link-actions">
+                    <button class="action-button delete-button" title="Удалить" aria-label="Удалить">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 20a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8h2V6h-4V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H3v2h2zM9 4h6v2H9zM8 8h9v12H7V8z"/><path fill="currentColor" d="M9 10h2v8H9zm4 0h2v8h-2z"/></svg></button>
+                </div>
+            `;
+
+            const typeInput = block.querySelector('.link-type-input');
+            const urlInput  = block.querySelector('.link-url-input');
+
+            // Для существующей ссылки можно подсказать дефолт, но для новой — только placeholder
+            if (!isNew) {
+                typeInput.value = rawType || 'Тип ссылки';
+            } else {
+                typeInput.value = rawType;
+                typeInput.placeholder = 'Тип ссылки';
+            }
+            urlInput.value  = rawUrl;
+
+            // авто-ширина типа
+            updateLinkTypeWidth(typeInput);
+
+            // Enter/Escape завершают редактирование
+            const onKey = (ev) => {
+                if (ev.key === 'Escape') {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    exitLinkEditMode(block, false);
+                    return;
+                }
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    exitLinkEditMode(block, true);
+                    return;
+                }
+            };
+            typeInput.addEventListener('keydown', onKey);
+            urlInput.addEventListener('keydown', onKey);
+
+            // Перерасчёт ширины при вводе
+            typeInput.addEventListener('input', () => updateLinkTypeWidth(typeInput));
+            window.addEventListener('resize', () => updateLinkTypeWidth(typeInput));
+
+            // Удаление
+            const deleteBtn = block.querySelector('.delete-button');
+            deleteBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (!window.confirm('Удалить ссылку?')) return;
+                block.remove();
+                updateEmptyStates();
+            });// Фокус в URL, если тип уже заполнен, иначе в тип
+            (typeInput.value ? urlInput : typeInput).focus();
+        }
+
+        // Выход из режима редактирования ссылки
+        function exitLinkEditMode(block, save = true) {
+            const typeInput = block.querySelector('.link-type-input');
+            const urlInput = block.querySelector('.link-url-input');
+            
+            if (save && typeInput && urlInput) {
+                const newType = typeInput.value.trim();
+                const newUrl = urlInput.value.trim();
+                
+                                if (newType && newUrl) {
+                    // Сохраняем изменения
+                    block.innerHTML = `
+                        <div class="link-info">
+                            <span class="link-type">${newType}</span>
+                            ${newUrl ? `<a href="${newUrl}" class="link-url" target="_blank" rel="noopener noreferrer" title="${newUrl}">${newUrl}</a>` : `<span class="link-url link-url--empty" style="display:none"></span>`}
+                        </div>
+                        <div class="link-actions">
+                            <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+                        </div>
+                    `;
+                } else {
+                    // Если что-то удалили и не ввели замену:
+                    // - для новой ссылки удаляем пустой блок
+                    // - для существующей возвращаем как было
+                    const isNew = block.dataset.isNewLink === '1';
+                    if (isNew) {
+                        block.remove();
+                        updateEmptyStates();
+                        return;
+                    }
+
+                    const originalType = block.dataset.originalType || 'Тип ссылки';
+                    const originalUrl = block.dataset.originalUrl || '';
+                    block.innerHTML = `
+                        <div class="link-info">
+                            <span class="link-type">${originalType}</span>
+                            ${originalUrl ? `<a href="${originalUrl}" class="link-url" target="_blank" rel="noopener noreferrer" title="${originalUrl}">${originalUrl}</a>` : `<span class="link-url link-url--empty" style="display:none"></span>`}
+                        </div>
+                        <div class="link-actions">
+                            <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+                        </div>
+                    `;
+                }
+            } else {
+                // Отмена редактирования:
+                // - для нового блока без заполнения: удаляем
+                // - для существующего: откатываем как было
+                const isNew = block.dataset.isNewLink === '1';
+                if (isNew) {
+                    // Новый блок нельзя "отменить" и оставить на странице — удаляем.
+                    block.remove();
+                    updateEmptyStates();
+                    return;
+                }
+
+// Восстанавливаем оригинальные значения
+                const originalType = block.dataset.originalType || 'Тип ссылки';
+                const originalUrl = block.dataset.originalUrl || '';
+                block.innerHTML = `
+                    <div class="link-info">
+                        <span class="link-type">${originalType}</span>
+                        ${originalUrl ? `<a href="${originalUrl}" class="link-url" target="_blank" rel="noopener noreferrer" title="${originalUrl}">${originalUrl}</a>` : `<span class="link-url link-url--empty" style="display:none"></span>`}
+                    </div>
+                    <div class="link-actions">
+                        <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+                    </div>
+                `;
+            }
+            
+            block.classList.remove('editing');
+            delete block.dataset.originalType;
+            delete block.dataset.originalUrl;
+            delete block.dataset.isNewLink;
+            
+            // Возвращаем обработчик на кнопку редактирования
+            const newEditBtn = block.querySelector('.edit-button');
+            if (newEditBtn) {
+                newEditBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    enterLinkEditMode(block);
+                });
+            }
+        }
+
+        // Добавление нового комментария
+        function addNewComment() {
+            const commentsList = document.getElementById('commentsList');
+            const newId = Date.now();
+            
+            const newComment = document.createElement('div');
+            newComment.className = 'comment-block';
+            newComment.dataset.commentId = newId;
+            
+            newComment.dataset.isNewComment = '1';newComment.innerHTML = `
+                <div class="comment-text"></div>
+                <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+            `;
+            
+            commentsList.appendChild(newComment);
+            updateEmptyStates();
+            
+            // Сразу входим в режим редактирования
+            enterCommentEditMode(newComment);
+        }
+
+        // Добавление новой ссылки
+        function addNewLink() {
+            const linksList = document.getElementById('linksList');
+            const newId = Date.now();
+            
+            const newLink = document.createElement('div');
+            newLink.className = 'link-item';
+            newLink.dataset.linkId = newId;
+            newLink.dataset.isNewLink = '1';
+            newLink.innerHTML = `
+                <div class="link-info">
+                    <span class="link-type"></span>
+                    <span class="link-url link-url--empty" style="display:none"></span>
+                </div>
+                <div class="link-actions">
+                    <button class="icon-btn edit-button" title="Редактировать" aria-label="Редактировать"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg></span></button>
+                </div>
+            `;
+            
+            linksList.appendChild(newLink);
+            updateEmptyStates();
+            
+            // Сразу входим в режим редактирования
+            enterLinkEditMode(newLink);
+        }
+    </script>
+</body>
+</html>

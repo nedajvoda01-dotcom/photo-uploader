@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Вход · AUTOCONTENT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --inter-regular: 400;
+            --inter-medium: 500;
+            --inter-semibold: 600;
+
+            --gray-100: #F1F1F1;
+            --gray-200: #E8E8E8;
+            --gray-300: #D1D5DB;
+            --gray-400: #D1D5DB;
+            --gray-500: #808080;
+            --gray-600: #4B5563;
+
+            --white: #FFFFFF;
+            --red-error: #FF4D57;
+            
+            --black-custom: #1A1A1A;
+            --black-custom-hover: #2A2B2E;
+
+            --text-primary: #1A1A1A;
+            --text-tertiary: var(--gray-500);
+            --text-error: var(--red-error);
+
+            --border-light: var(--gray-200);
+            --border-regular: var(--gray-300);
+            --border-error: var(--red-error);
+
+            --radius-sm: 8px;
+            --radius-lg: 24px;
+
+            --space-unit: 20px;
+
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            font-weight: var(--inter-regular);
+            background: var(--gray-100);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            color: var(--text-primary);
+            position: relative;
+            transition: padding 0.2s ease;
+        }
+
+        .login-card {
+            max-width: 460px;
+            width: 100%;
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-unit);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-light);
+            transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s ease;
+            will-change: transform;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: calc(var(--space-unit) - 8px) var(--space-unit);
+            background: var(--white);
+            border: 1.5px solid var(--border-regular);
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-weight: var(--inter-regular);
+            font-size: 16px;
+            color: var(--text-primary);
+            outline: none;
+            transition: border 0.15s ease, background-color 0.15s ease;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .input-field:focus {
+            border-color: var(--gray-400);
+            background-color: #FAFAFA;
+        }
+
+        .input-field.error {
+            border-color: var(--border-error);
+        }
+
+        .input-field::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .login-field {
+            margin-bottom: var(--space-unit);
+        }
+
+        .password-field {
+            margin-bottom: var(--space-unit);
+        }
+
+        .error-message {
+            color: var(--text-error);
+            font-size: 14px;
+            font-weight: var(--inter-medium);
+            margin-bottom: var(--space-unit);
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .error-message.visible {
+            display: flex;
+        }
+
+        .error-message::before {
+            content: "⚠";
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .login-button {
+            width: 100%;
+            background: var(--black-custom);
+            color: var(--white);
+            border: none;
+            padding: calc(var(--space-unit) - 8px) var(--space-unit);
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-weight: var(--inter-semibold);
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            box-shadow: var(--shadow-sm);
+            line-height: 1.2;
+        }
+
+        .login-button:hover {
+            background: var(--black-custom-hover);
+        }
+
+        .login-button:active {
+            transform: scale(0.98);
+        }
+
+        /* ===== МОБИЛЬНАЯ АДАПТАЦИЯ ===== */
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+                align-items: center;
+                background: var(--gray-100);
+            }
+
+            .login-card {
+                padding: 20px;
+                border-radius: 28px;
+                box-shadow: var(--shadow-md);
+                animation: fadeIn 0.3s ease;
+            }
+
+            .input-field {
+                font-size: 16px;
+                padding: 18px 20px;
+                border-width: 1.5px;
+                border-radius: 16px;
+            }
+
+            .login-button {
+                padding: 18px 20px;
+                font-size: 18px;
+                border-radius: 16px;
+                margin-top: 4px;
+                font-weight: 600;
+                letter-spacing: 0.3px;
+            }
+
+            .error-message {
+                font-size: 15px;
+                margin-bottom: 20px;
+                padding: 0 4px;
+            }
+
+            .login-field, .password-field {
+                margin-bottom: 20px;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        }
+
+        @media (max-width: 360px) {
+            .login-card {
+                padding: 16px;
+            }
+            .input-field {
+                padding: 16px 18px;
+                border-radius: 14px;
+            }
+            .login-button {
+                padding: 16px 18px;
+                border-radius: 14px;
+            }
+        }
+
+        /* Класс для положения над клавиатурой */
+        .keyboard-active {
+            align-items: flex-start !important;
+        }
+        
+        .keyboard-active .login-card {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <input type="text" class="input-field login-field" id="loginInput" placeholder="Логин" inputmode="text" autocomplete="off">
+        <input type="password" class="input-field password-field" id="passwordInput" placeholder="Пароль" inputmode="text" autocomplete="off">
+
+        <div class="error-message" id="errorMessage">Неверный логин или пароль.</div>
+
+        <button class="login-button" id="loginButton">Войти</button>
+    </div>
+
+    <script>
+        const loginInput = document.getElementById('loginInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const errorMessage = document.getElementById('errorMessage');
+        const loginButton = document.getElementById('loginButton');
+        const body = document.body;
+        const loginCard = document.querySelector('.login-card');
+
+        let keyboardHeight = 0;
+        let isKeyboardOpen = false;
+        let originalViewportHeight = window.innerHeight;
+        let resizeTimeout;
+
+        function removeErrorState() {
+            loginInput.classList.remove('error');
+            passwordInput.classList.remove('error');
+            errorMessage.classList.remove('visible');
+        }
+
+        // Функция для вычисления высоты клавиатуры
+        function getKeyboardHeight() {
+            const viewportHeight = window.innerHeight;
+            const documentHeight = document.documentElement.clientHeight;
+            
+            // На мобильных устройствах разница между documentHeight и viewportHeight - это примерная высота клавиатуры
+            const possibleKeyboardHeight = Math.max(0, documentHeight - viewportHeight);
+            
+            // Дополнительная логика для разных браузеров
+            if (possibleKeyboardHeight > 100) { // Минимальный порог для определения клавиатуры
+                return possibleKeyboardHeight;
+            }
+            
+            // Альтернативный метод через визуальный viewport
+            if (window.visualViewport) {
+                const visualViewport = window.visualViewport;
+                const layoutViewport = document.documentElement.clientWidth;
+                
+                // Если визуальный вьюпорт меньше по высоте, чем макетный, значит клавиатура открыта
+                if (visualViewport.height < layoutViewport) {
+                    return layoutViewport - visualViewport.height;
+                }
+            }
+            
+            return 0;
+        }
+
+        // Функция для обновления позиции формы над клавиатурой
+        function updatePositionForKeyboard() {
+            const viewportHeight = window.innerHeight;
+            const cardRect = loginCard.getBoundingClientRect();
+            const activeElement = document.activeElement;
+            
+            // Проверяем, активен ли какой-то из наших полей ввода
+            const isInputActive = activeElement === loginInput || activeElement === passwordInput;
+            
+            if (isInputActive && isKeyboardOpen) {
+                // Получаем высоту клавиатуры
+                const keyboardH = getKeyboardHeight();
+                
+                if (keyboardH > 0) {
+                    // Рассчитываем позицию: форма должна быть на 16px выше клавиатуры
+                    const bottomOfCard = cardRect.bottom;
+                    const windowHeight = window.innerHeight;
+                    const spaceBelowCard = windowHeight - bottomOfCard;
+                    
+                    // Если форма слишком низко и может быть перекрыта клавиатурой
+                    if (bottomOfCard > windowHeight - keyboardH - 16) {
+                        // Сколько нужно поднять форму, чтобы она была на 16px выше клавиатуры
+                        const neededOffset = bottomOfCard - (windowHeight - keyboardH - 16);
+                        
+                        if (neededOffset > 0) {
+                            body.style.alignItems = 'flex-start';
+                            
+                            // Вычисляем новую позицию, чтобы форма была ровно над клавиатурой
+                            const cardHeight = cardRect.height;
+                            const maxTop = Math.max(16, windowHeight - keyboardH - cardHeight - 16);
+                            
+                            loginCard.style.transform = `translateY(${Math.min(0, maxTop - cardRect.top)}px)`;
+                        }
+                    }
+                    
+                    // Прокручиваем активное поле в видимую область, если нужно
+                    if (activeElement) {
+                        activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            } else {
+                // Возвращаем в центр
+                body.style.alignItems = 'center';
+                loginCard.style.transform = '';
+            }
+        }
+
+        // Определяем открытие/закрытие клавиатуры
+        function detectKeyboard() {
+            const viewportHeight = window.innerHeight;
+            const documentHeight = document.documentElement.clientHeight;
+            const activeElement = document.activeElement;
+            
+            const isInputActive = activeElement === loginInput || activeElement === passwordInput;
+            
+            // Если активен инпут и высота изменилась значительно - скорее всего клавиатура
+            if (isInputActive) {
+                if (viewportHeight < originalViewportHeight * 0.7) {
+                    isKeyboardOpen = true;
+                    body.classList.add('keyboard-active');
+                    updatePositionForKeyboard();
+                } else {
+                    isKeyboardOpen = false;
+                    body.classList.remove('keyboard-active');
+                    body.style.alignItems = 'center';
+                    loginCard.style.transform = '';
+                }
+            } else {
+                isKeyboardOpen = false;
+                body.classList.remove('keyboard-active');
+                body.style.alignItems = 'center';
+                loginCard.style.transform = '';
+            }
+        }
+
+        // Обработчик изменения размера окна (клавиатура)
+        function handleResize() {
+            clearTimeout(resizeTimeout);
+            
+            resizeTimeout = setTimeout(() => {
+                const viewportHeight = window.innerHeight;
+                const activeElement = document.activeElement;
+                const isInputActive = activeElement === loginInput || activeElement === passwordInput;
+                
+                // Если разница значительная и активен инпут - клавиатура открыта
+                if (isInputActive && viewportHeight < originalViewportHeight * 0.7) {
+                    isKeyboardOpen = true;
+                    body.style.alignItems = 'flex-start';
+                    
+                    // Получаем высоту клавиатуры
+                    const keyboardH = originalViewportHeight - viewportHeight;
+                    
+                    // Рассчитываем позицию: форма на 16px выше клавиатуры
+                    setTimeout(() => {
+                        const cardHeight = loginCard.offsetHeight;
+                        const topPosition = viewportHeight - cardHeight - keyboardH - 16;
+                        
+                        if (topPosition > 0) {
+                            // Если есть место сверху, центрируем с учетом клавиатуры
+                            loginCard.style.transform = `translateY(${topPosition - loginCard.offsetTop}px)`;
+                        } else {
+                            // Если нет места, прижимаем к верху с отступом
+                            body.style.paddingTop = '8px';
+                        }
+                        
+                        // Прокручиваем к активному полю
+                        if (activeElement) {
+                            setTimeout(() => {
+                                activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 100);
+                        }
+                    }, 50);
+                    
+                } else {
+                    // Клавиатура закрыта или неактивен инпут
+                    isKeyboardOpen = false;
+                    body.style.alignItems = 'center';
+                    body.style.paddingTop = '';
+                    loginCard.style.transform = '';
+                }
+            }, 100);
+        }
+
+        // Обработчики фокуса
+        function onInputFocus() {
+            originalViewportHeight = window.innerHeight;
+            
+            // Даем время клавиатуре появиться
+            setTimeout(() => {
+                const viewportHeight = window.innerHeight;
+                
+                if (viewportHeight < originalViewportHeight * 0.7) {
+                    isKeyboardOpen = true;
+                    body.style.alignItems = 'flex-start';
+                    
+                    const keyboardH = originalViewportHeight - viewportHeight;
+                    const cardHeight = loginCard.offsetHeight;
+                    const topPosition = Math.max(8, viewportHeight - cardHeight - keyboardH - 16);
+                    
+                    loginCard.style.transform = `translateY(${topPosition - loginCard.offsetTop}px)`;
+                    
+                    // Плавный скролл к полю
+                    setTimeout(() => {
+                        document.activeElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 200);
+                }
+            }, 300);
+        }
+
+        function onInputBlur() {
+            // Проверяем, не переключились ли на другой инпут
+            setTimeout(() => {
+                const activeElement = document.activeElement;
+                const isInputActive = activeElement === loginInput || activeElement === passwordInput;
+                
+                if (!isInputActive) {
+                    isKeyboardOpen = false;
+                    body.style.alignItems = 'center';
+                    body.style.paddingTop = '';
+                    loginCard.style.transform = '';
+                }
+            }, 200);
+        }
+
+        // Современный API visualViewport для точного определения клавиатуры
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                const visualHeight = window.visualViewport.height;
+                const layoutHeight = document.documentElement.clientHeight;
+                const activeElement = document.activeElement;
+                const isInputActive = activeElement === loginInput || activeElement === passwordElement;
+                
+                if (isInputActive && visualHeight < layoutHeight - 50) {
+                    isKeyboardOpen = true;
+                    body.style.alignItems = 'flex-start';
+                    
+                    // Высота клавиатуры = разница высот
+                    const keyboardH = layoutHeight - visualHeight;
+                    const cardHeight = loginCard.offsetHeight;
+                    
+                    // Позиция: visualViewport.height - высота карточки - отступ 16px
+                    const topPosition = Math.max(8, visualHeight - cardHeight - 16);
+                    
+                    loginCard.style.transform = `translateY(${topPosition - loginCard.offsetTop}px)`;
+                } else {
+                    isKeyboardOpen = false;
+                    body.style.alignItems = 'center';
+                    loginCard.style.transform = '';
+                }
+            });
+        }
+
+        // Навешиваем обработчики
+        loginInput.addEventListener('focus', onInputFocus);
+        passwordInput.addEventListener('focus', onInputFocus);
+        loginInput.addEventListener('blur', onInputBlur);
+        passwordInput.addEventListener('blur', onInputBlur);
+        
+        window.addEventListener('resize', handleResize);
+        
+        // Для Android дополнительно слушаем изменение видимости
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                originalViewportHeight = window.innerHeight;
+            }, 100);
+        });
+
+        // Обработка клика по кнопке
+        loginButton.addEventListener('click', function() {
+            const login = loginInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            removeErrorState();
+
+            if (login === 'admin' && password === '123') {
+                loginInput.classList.remove('error');
+                passwordInput.classList.remove('error');
+                
+                loginButton.style.backgroundColor = '#2A2B2E';
+                setTimeout(() => {
+                    loginButton.style.backgroundColor = '';
+                }, 200);
+            } else {
+                loginInput.classList.add('error');
+                passwordInput.classList.add('error');
+                errorMessage.classList.add('visible');
+                
+                // Прокручиваем к ошибке
+                errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        // Инициализация
+        removeErrorState();
+        originalViewportHeight = window.innerHeight;
+    </script>
+</body>
+</html>

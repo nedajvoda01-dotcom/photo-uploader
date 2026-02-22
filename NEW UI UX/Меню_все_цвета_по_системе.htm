@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Автосалон · AUTOCONTENT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --inter-regular: 400;
+            --inter-medium: 500;
+            --inter-semibold: 600;
+
+            --gray-100: #F1F1F1;
+            --gray-200: #E8E8E8;
+            --gray-300: #D1D5DB;
+            --gray-400: #D1D5DB;
+            --gray-500: #808080;
+            --gray-600: #4B5563;
+
+            --white: #FFFFFF;
+            --red-error: #FF4D57;
+            
+            --black-custom: #1A1A1A;
+            --black-custom-hover: #2A2B2E;
+
+            --text-primary: #1A1A1A;
+            --text-secondary: #4B5563;
+            --text-tertiary: var(--gray-500);
+
+            --border-light: var(--gray-200);
+            --border-regular: var(--gray-300);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 24px;
+            --radius-full: 100px;
+
+            --space-unit: 24px;
+
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            
+            --progress-bg: #EDEDED;
+            --progress-fill: #1A1A1A;
+            --progress-fill-hover: #2A2B2E;
+
+            --module-height: 42px;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            font-weight: var(--inter-regular);
+            background: var(--gray-100);
+            padding: var(--space-unit);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            color: var(--text-primary);
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-unit);
+        }
+
+        /* === НОВАЯ ШАПКА (полностью из online_viewer_net (22).htm) === */
+        .header-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap; /* Всё может переноситься */
+            width: 100%;
+        }
+
+        /* Статус */
+        .status-capsule {
+            display: flex;
+            background: var(--white);
+            border: 1.5px solid var(--border-regular);
+            border-radius: 14px;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            height: var(--module-height);
+            flex: 1 1 0;
+            min-width: 140px;
+            flex-wrap: nowrap;
+        }
+
+        .status-capsule-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 0 8px;
+            border: none;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: var(--inter-medium);
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            border-right: 1.5px solid var(--border-regular);
+            height: 100%;
+            line-height: var(--module-height);
+            text-align: center;
+        }
+
+        .status-capsule-btn:last-child {
+            border-right: none;
+        }
+
+        .status-capsule-btn:hover {
+            color: var(--text-secondary);
+            background: var(--gray-100);
+        }
+
+        .status-capsule-btn.active {
+            background: var(--black-custom);
+            color: var(--white);
+            border-right-color: transparent;
+        }
+
+        /* Регионы */
+        .filter-capsule {
+            display: flex;
+            background: var(--white);
+            border: 1.5px solid var(--border-regular);
+            border-radius: 14px;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            height: var(--module-height);
+            flex: 2 1 0;
+            min-width: 250px;
+            flex-wrap: nowrap;
+        }
+
+        .filter-capsule-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 0 8px;
+            border: none;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: var(--inter-medium);
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            border-right: 1.5px solid var(--border-regular);
+            height: 100%;
+            line-height: var(--module-height);
+            text-align: center;
+        }
+
+        .filter-capsule-btn:last-child {
+            border-right: none;
+        }
+
+        .filter-capsule-btn:hover {
+            color: var(--text-secondary);
+            background: var(--gray-100);
+        }
+
+        .filter-capsule-btn.active {
+            background: var(--black-custom);
+            color: var(--white);
+            border-right-color: transparent;
+        }
+
+        /* Поиск */
+        .search-wrapper {
+            flex: 1 1 0;
+            min-width: 150px;
+            height: var(--module-height);
+        }
+
+        .search-box {
+            height: 100%;
+            background: var(--white);
+            border: 1.5px solid var(--border-regular);
+            border-radius: 14px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            box-shadow: var(--shadow-sm);
+            width: 100%;
+        }
+
+        .search-input {
+            border: none;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            color: var(--text-primary);
+            width: 100%;
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-tertiary);
+            font-weight: var(--inter-medium);
+        }
+
+        /* Админ - теперь с запретом переноса внутри */
+        .admin-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            height: var(--module-height);
+            flex-wrap: nowrap; /* ДОБАВЛЕНО: запрещаем перенос внутри админ-блока */
+        }
+
+        .admin-text {
+            font-size: 16px;
+            font-weight: var(--inter-regular);
+            color: var(--text-tertiary);
+            transition: all 0.15s ease;
+            line-height: var(--module-height);
+        }
+
+        .logout-module {
+            height: var(--module-height);
+            background: var(--black-custom);
+            border: 1.5px solid var(--black-custom);
+            border-radius: 14px;
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: var(--inter-medium);
+            color: var(--white);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: var(--shadow-sm);
+            white-space: nowrap;
+            line-height: var(--module-height);
+            flex-shrink: 0;
+        }
+
+        .logout-module:hover {
+            background: var(--black-custom-hover);
+            border-color: var(--black-custom-hover);
+        }
+
+        .logout-module:active {
+            transform: scale(0.97);
+        }
+
+        .avatar {
+            width: var(--module-height);
+            height: var(--module-height);
+            border-radius: 50%;
+            background: var(--white);
+            border: 1.5px solid var(--border-regular);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: var(--shadow-sm);
+            flex-shrink: 0;
+        }
+
+        .avatar:hover {
+            border-color: var(--gray-400);
+            color: var(--text-primary);
+        }
+
+        .divider {
+            width: 100%;
+            height: 1px;
+            background: var(--border-light);
+            margin: 0;
+        }
+
+        /* === АДАПТАЦИЯ — ТРИ ЭТАЖА (оригинальная из нового файла) === */
+        /* Широкий экран: 1 этаж — все в строке */
+        @media (min-width: 901px) {
+            .header-row {
+                flex-direction: row;
+            }
+            .status-capsule,
+            .filter-capsule,
+            .search-wrapper {
+                flex: 1 1 0;
+            }
+        }
+
+        /* Средний экран: 2 этажа */
+        @media (max-width: 900px) and (min-width: 601px) {
+            .header-row {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            
+            /* 1 этаж: поиск + админ */
+            .search-wrapper {
+                order: 1;
+                flex: 1 1 calc(100% - 140px);
+            }
+            
+            .admin-wrapper {
+                order: 1;
+                flex: 0 0 auto;
+            }
+            
+            /* 2 этаж: статус + регионы (равны друг другу) */
+            .status-capsule {
+                order: 2;
+                flex: 1 1 calc(50% - 8px);
+                min-width: 140px;
+            }
+            
+            .filter-capsule {
+                order: 2;
+                flex: 1 1 calc(50% - 8px);
+                min-width: 200px;
+            }
+        }
+
+        /* Узкий экран: 3 этажа */
+        @media (max-width: 600px) {
+            .header-row {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            
+            /* 1 этаж: поиск + админ */
+            .search-wrapper {
+                order: 1;
+                flex: 1 1 calc(100% - 140px);
+            }
+            
+            .admin-wrapper {
+                order: 1;
+                flex: 0 0 auto;
+            }
+            
+            /* 2 этаж: статус на всю ширину */
+            .status-capsule {
+                order: 2;
+                flex: 1 1 100%;
+            }
+            
+            /* 3 этаж: регионы на всю ширину */
+            .filter-capsule {
+                order: 3;
+                flex: 1 1 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 16px;
+            }
+
+            :root {
+                --space-unit: 16px;
+                --module-height: 40px;
+            }
+
+            .admin-text, .logout-module {
+                font-size: 14px;
+            }
+
+            .filter-capsule-btn, .status-capsule-btn {
+                font-size: 13px;
+            }
+
+            /* дополнительные адаптивные правила для карточек (из оригинального файла) */
+            .cars-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .car-card {
+                padding: 16px;
+            }
+        }
+
+        /* Стили для карточек (полностью из первого файла) */
+        .cars-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--space-unit);
+            margin-top: var(--space-unit);
+        }
+
+        .car-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: border-color 0.15s ease;
+        }
+
+        .car-card:hover {
+            border-color: var(--gray-400);
+        }
+
+        .car-vin {
+            font-size: 16px;
+            font-weight: var(--inter-semibold);
+            color: var(--text-primary);
+            letter-spacing: 0.3px;
+            word-break: break-all;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .car-vin-prefix {
+            color: var(--text-tertiary);
+            font-weight: var(--inter-regular);
+            margin-right: 6px;
+        }
+
+        .car-info-text {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .links-row {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            flex-wrap: wrap;
+            min-height: 24px;
+        }
+
+        .links-label {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            font-weight: var(--inter-medium);
+            white-space: nowrap;
+        }
+
+        .links-items {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .link-item {
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: var(--inter-medium);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            cursor: pointer;
+            transition: opacity 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .link-item:hover {
+            opacity: 0.7;
+        }
+
+        .photo-placeholders {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            width: 100%;
+        }
+
+        .photo-placeholder {
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            background: var(--gray-200);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        @media (max-width: 360px) {
+            .photo-placeholders {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .photo-progress {
+            margin-top: 4px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: var(--text-tertiary);
+            font-weight: var(--inter-medium);
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: var(--progress-bg);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--progress-fill);
+            border-radius: 100px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .car-card:hover .progress-bar-fill {
+            background: var(--progress-fill-hover);
+        }
+
+        .photo-count {
+            font-size: 14px;
+            font-weight: var(--inter-semibold);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- НОВАЯ ШАПКА (полностью из online_viewer_net (22).htm) -->
+        <div class="header-row">
+            <!-- Статус -->
+            <div class="status-capsule" id="statusCapsule">
+                <button class="status-capsule-btn active" data-status="actual">Актуальные</button>
+                <button class="status-capsule-btn" data-status="archive">Архив</button>
+            </div>
+
+            <!-- Регионы -->
+            <div class="filter-capsule" id="filterCapsule">
+                <button class="filter-capsule-btn" data-filter="p1">Р1</button>
+                <button class="filter-capsule-btn" data-filter="p2">Р2</button>
+                <button class="filter-capsule-btn" data-filter="p3">Р3</button>
+                <button class="filter-capsule-btn" data-filter="k1">К1</button>
+                <button class="filter-capsule-btn" data-filter="v">В</button>
+                <button class="filter-capsule-btn" data-filter="s1">С1</button>
+                <button class="filter-capsule-btn" data-filter="s2">С2</button>
+            </div>
+
+            <!-- Поиск -->
+            <div class="search-wrapper" id="searchWrapper">
+                <div class="search-box">
+                    <input type="text" class="search-input" placeholder="Поиск" id="searchInput">
+                </div>
+            </div>
+
+            <!-- Админ -->
+            <div class="admin-wrapper" id="adminWrapper">
+                <span class="admin-text" id="adminText">Админ</span>
+                <div class="avatar" id="avatar" role="button" tabindex="0">👤</div>
+            </div>
+        </div>
+
+        <!-- Разделитель -->
+        <div class="divider"></div>
+
+        <!-- Сетка автомобилей (полностью из первого файла) -->
+        <div class="cars-grid" id="carsGrid"></div>
+    </div>
+
+    <!-- ОБЪЕДИНЁННЫЙ СКРИПТ: логика шапки + фильтрация карточек + расширенный поиск -->
+    <script>
+        (function() {
+            // Элементы шапки
+            const avatar = document.getElementById('avatar');
+            const adminWrapper = document.getElementById('adminWrapper');
+            const adminText = document.getElementById('adminText');
+            const filterCapsule = document.getElementById('filterCapsule');
+            const statusCapsule = document.getElementById('statusCapsule');
+            const searchInput = document.getElementById('searchInput');
+            const carsGrid = document.getElementById('carsGrid');
+
+            // Состояния
+            let activeFilter = null;
+            let activeStatus = 'actual';  // соответствует активной кнопке "Актуальные"
+            let searchQuery = '';
+            let logoutModule = null;
+
+            // Данные автомобилей (генерация из первого файла)
+            const getRandomLinks = () => {
+                const links = [];
+                if (Math.random() < 0.33) links.push('Видео');
+                if (Math.random() < 0.33) links.push('Автотека');
+                return links;
+            };
+
+            const generateCars = (count = 24) => {
+                const brands = ['BMW', 'Mercedes-Benz', 'Audi', 'Toyota', 'Honda', 'Ford', 'Chevrolet', 'Nissan', 'Hyundai', 'Kia', 'Volkswagen', 'Mazda'];
+                const models = ['X5', 'C-Class', 'A4', 'Camry', 'Civic', 'Focus', 'Malibu', 'Qashqai', 'Solaris', 'Rio', 'Golf', 'CX-5'];
+                const colors = ['белый', 'черный', 'серебристый', 'синий', 'красный', 'серый', 'коричневый', 'зеленый', 'бежевый', 'золотой'];
+                const years = ['2020', '2021', '2022', '2023', '2024', '2019', '2018', '2017'];
+                const filters = ['p1', 'p2', 'p3', 'k1', 'v', 's1', 's2'];
+                const statuses = ['actual', 'archive'];
+                
+                const cars = [];
+                
+                for (let i = 0; i < count; i++) {
+                    const brand = brands[Math.floor(Math.random() * brands.length)];
+                    const model = models[Math.floor(Math.random() * models.length)];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    const year = years[Math.floor(Math.random() * years.length)];
+                    const filter = filters[Math.floor(Math.random() * filters.length)];
+                    const status = statuses[Math.floor(Math.random() * statuses.length)];
+                    
+                    const vinChars = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
+                    let vin = '';
+                    for (let j = 0; j < 17; j++) {
+                        vin += vinChars[Math.floor(Math.random() * vinChars.length)];
+                    }
+                    
+                    const photosCount = Math.floor(Math.random() * 6);
+                    
+                    cars.push({
+                        vin,
+                        brand,
+                        model,
+                        color,
+                        year,
+                        filter,
+                        status,
+                        photosCount,
+                        totalPhotos: 5,
+                        links: getRandomLinks()
+                    });
+                }
+                
+                return cars;
+            };
+
+            let carsData = generateCars(24);
+
+            // Функции фильтрации и рендера (из первого файла) + расширенный поиск
+            const filterCars = () => {
+                return carsData.filter(car => {
+                    // Фильтр по региону
+                    if (activeFilter && car.filter !== activeFilter) return false;
+                    // Фильтр по статусу
+                    if (activeStatus && car.status !== activeStatus) return false;
+                    
+                    // Поиск по строке (VIN, марка, модель, год, цвет)
+                    if (searchQuery) {
+                        const query = searchQuery.toLowerCase();
+                        // Объединяем все текстовые поля в одну строку для поиска
+                        const searchableText = `
+                            ${car.vin} 
+                            ${car.brand} 
+                            ${car.model} 
+                            ${car.year} 
+                            ${car.color}
+                        `.toLowerCase();
+                        
+                        // Проверяем, содержит ли объединенный текст поисковый запрос
+                        if (!searchableText.includes(query)) {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                });
+            };
+
+            const renderCars = () => {
+                const filteredCars = filterCars();
+                
+                if (filteredCars.length === 0) {
+                    carsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--gray-500);">Нет автомобилей</div>';
+                    return;
+                }
+                
+                carsGrid.innerHTML = filteredCars.map(car => {
+                    const progressPercent = (car.photosCount / car.totalPhotos) * 100;
+                    
+                    const linksHtml = car.links.length > 0 
+                        ? `<div class="links-items">
+                            ${car.links.map(link => `<span class="link-item">${link}</span>`).join('')}
+                           </div>`
+                        : '';
+                    
+                    return `
+                        <div class="car-card" data-vin="${car.vin}">
+                            <div class="car-vin">
+                                <span class="car-vin-prefix">VIN:</span> ${car.vin}
+                            </div>
+                            <div class="car-info-text">
+                                ${car.brand} ${car.model}, ${car.color}, ${car.year}
+                            </div>
+                            
+                            <div class="links-row">
+                                <span class="links-label">Ссылки:</span>
+                                ${linksHtml}
+                            </div>
+                            
+                            <div class="photo-placeholders">
+                                <div class="photo-placeholder"></div>
+                                <div class="photo-placeholder"></div>
+                                <div class="photo-placeholder"></div>
+                            </div>
+                            
+                            <div class="photo-progress">
+                                <div class="progress-header">
+                                    <span>Загружено комплектов фото</span>
+                                    <span class="photo-count">${car.photosCount}/${car.totalPhotos}</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            // Логика для logout-модуля (из нового файла, но адаптирована)
+            function createLogoutModule() {
+                const module = document.createElement('div');
+                module.className = 'logout-module';
+                module.textContent = 'Выйти';  // как в новом файле
+                module.id = 'logoutModule';
+                
+                module.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    alert('Выход из аккаунта...');
+                    // window.location.href = 'Вход.htm'; // закомментировано, как в новом файле
+                });
+                
+                return module;
+            }
+
+            function showLogoutModule() {
+                if (logoutModule) return;
+                
+                adminText.style.display = 'none';
+                logoutModule = createLogoutModule();
+                adminWrapper.insertBefore(logoutModule, avatar);
+            }
+
+            function hideLogoutModule() {
+                if (!logoutModule) return;
+                
+                logoutModule.remove();
+                logoutModule = null;
+                adminText.style.display = 'inline';
+            }
+
+            function toggleLogoutModule() {
+                if (logoutModule) {
+                    hideLogoutModule();
+                } else {
+                    showLogoutModule();
+                }
+            }
+
+            // Обработчики для шапки
+            document.addEventListener('click', (e) => {
+                if (logoutModule && !adminWrapper.contains(e.target)) {
+                    hideLogoutModule();
+                }
+            });
+
+            avatar.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleLogoutModule();
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && logoutModule) {
+                    hideLogoutModule();
+                }
+            });
+
+            // Фильтры (регионы)
+            const handleFilterClick = (e) => {
+                const btn = e.target.closest('.filter-capsule-btn');
+                if (!btn) return;
+                
+                const filter = btn.dataset.filter;
+                
+                document.querySelectorAll('.filter-capsule-btn').forEach(b => {
+                    b.classList.remove('active');
+                });
+                
+                if (activeFilter === filter) {
+                    activeFilter = null;
+                } else {
+                    activeFilter = filter;
+                    btn.classList.add('active');
+                }
+                
+                renderCars(); // добавлен вызов рендера
+            };
+
+            // Статус (актуальные/архив)
+            const handleStatusClick = (e) => {
+                const btn = e.target.closest('.status-capsule-btn');
+                if (!btn) return;
+                
+                const status = btn.dataset.status;
+                
+                document.querySelectorAll('.status-capsule-btn').forEach(b => {
+                    b.classList.remove('active');
+                });
+                
+                activeStatus = status;
+                btn.classList.add('active');
+                
+                renderCars(); // добавлен вызов рендера
+            };
+
+            // Поиск (теперь с расширенными полями, но обработчик тот же)
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value;
+                renderCars();
+            });
+
+            // Клик по карточке (из первого файла)
+            const handleCarClick = (e) => {
+                const card = e.target.closest('.car-card');
+                if (!card) return;
+                
+                const vin = card.dataset.vin;
+                alert(`Выбрана карточка с VIN: ${vin}`);
+            };
+
+            // Клик по ссылкам внутри карточки (из первого файла)
+            document.addEventListener('click', (e) => {
+                const linkItem = e.target.closest('.link-item');
+                if (linkItem) {
+                    e.stopPropagation();
+                    alert(`Переход по ссылке: ${linkItem.textContent}`);
+                }
+            });
+
+            // Назначаем обработчики
+            filterCapsule.addEventListener('click', handleFilterClick);
+            statusCapsule.addEventListener('click', handleStatusClick);
+            carsGrid.addEventListener('click', handleCarClick);
+
+            // Первоначальный рендер
+            renderCars();
+
+            // Убедимся, что активная кнопка статуса соответствует activeStatus
+            document.querySelectorAll('.status-capsule-btn').forEach(btn => {
+                if (btn.dataset.status === activeStatus) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

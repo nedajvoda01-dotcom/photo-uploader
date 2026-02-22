@@ -1,0 +1,2716 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <title>Контент</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --inter-regular: 400;
+      --inter-medium: 500;
+      --inter-semibold: 600;
+
+      --page-bg: #F1F1F1;
+
+      --white: #FFFFFF;
+      --text-primary: #1A1A1A;
+      --text-secondary: #4B5563;
+      --text-tertiary: #808080;
+
+      --border: #E8E8E8;
+      --divider: #E8E8E8;
+
+      --add-photo-color: var(--border);
+      --add-photo-color-used: var(--used-border);
+
+      --btn-dark: #1A1A1A;
+      --btn-dark-hover: #2A2B2E;
+
+      --btn-danger: #FF4D57;
+      --btn-danger-hover: #E63B45;
+
+      --used-bg: #EAF0ED;
+      --used-border: #02D15C;
+      --used-divider: #E7F0EB;
+      --used-page-bg: #ECF0EE;
+
+      --tile-empty: var(--page-bg);
+      --tile-add: transparent;
+      --tile-add-used: transparent;
+      --tile-empty-used: #D1EDDD;
+
+      --shadow-float: 0 4px 12px rgba(0,0,0,0.12);
+
+      --radius-card: 20px;
+      --radius-btn: 10px;
+
+      --gap-tiles: 4px;
+      --tile-ratio: 16/9;
+
+      --btn-size: clamp(36px, 4vw, 42px);
+      --card-pad: 20px;
+
+      /* viewer colors (под референс) */
+      --viewer-overlay: rgba(233, 236, 239, 0.95); /* серый слой */
+      --viewer-panel: rgba(17, 24, 39, 0.92);      /* тёмный блок */
+      --viewer-panel-2: rgba(17, 24, 39, 0.82);
+      --viewer-stroke: rgba(255,255,255,0.10);
+      --viewer-stroke-2: rgba(255,255,255,0.16);
+    }
+
+    *{box-sizing:border-box; margin:0; padding:0;}
+    html,body{height:auto;min-height:0;width:100%;overflow-x:hidden;overflow-y:visible;}
+    body{
+      font-family: 'Inter', sans-serif;
+      background: var(--page-bg);
+      color: var(--text-primary);
+      padding: 20px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .wrap{
+      max-width: 100%;
+      margin: 0;
+      display:flex;
+      flex-direction:column;
+      gap: 20px;
+    }
+
+    /* Section header */
+    .section-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+    }
+    .section-title{
+      font-size: 20px;
+      font-weight: var(--inter-semibold);
+      color: var(--text-primary);
+    }
+    .section-actions{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+    }
+
+    /* Buttons */
+    .icon-btn{
+      width: var(--btn-size);
+      height: var(--btn-size);
+      border-radius: var(--radius-btn);
+      border: none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+      flex-shrink:0;
+      padding: 0;
+      line-height: 0;
+    }
+    .icon-btn:active{transform: scale(0.98);}
+    .icon-btn--dark{background: var(--btn-dark); color: #fff;}
+    .icon-btn--dark:hover{background: var(--btn-dark-hover);}
+    .icon-btn--danger{background: var(--btn-danger); color: #fff;}
+    .icon-btn--danger:hover{background: var(--btn-danger-hover);}
+    .icon-btn--ghost{
+      background: rgba(255,255,255,0.10);
+      color:#fff;
+      border: none;
+    }
+    .icon-btn--ghost:hover{ background: rgba(255,255,255,0.16); }
+
+    .icon{
+      width: 24px;
+      height: 24px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .icon svg{
+      width: 18px;               /* визуально "тоньше" */
+      height: 18px;
+      display:block;
+      opacity: 0.92;
+    }
+
+    .rotate-45{ transform: rotate(45deg); }
+
+    /* Kits grid (как в Меню.htm: auto-fill + minmax) */
+    .kits{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(520px, 1fr));
+      gap: 20px;
+      align-items:start;
+    }
+
+    @media (max-width: 1100px){
+      .kits{ grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); }
+    }
+    @media (max-width: 780px){
+      body{ padding: 20px; }
+.kits{ grid-template-columns: 1fr; }
+    }
+
+    /* Kit card */
+    .kit-card{
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: var(--card-pad);
+      min-width: 0;
+      
+      position: relative;
+    }
+
+    /* Drag handle (верхний контур) */
+    .kit-drag-handle{
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height: 14px;
+      cursor: grab;
+      background: transparent;
+      border-top-left-radius: var(--radius-card);
+      border-top-right-radius: var(--radius-card);
+    }
+    .kit-drag-handle:hover{ background: rgba(26,26,26,0.03); }
+    .kit-card.is-dragging .kit-drag-handle{ cursor: grabbing; }
+
+    .kit-card.is-dragging{
+      box-shadow: var(--shadow-float);
+    }
+
+    .kit-placeholder{
+      /* placeholder occupies space but is invisible (no 'landing slot' UI) */
+      visibility: hidden;
+      border: none;
+      border-radius: var(--radius-card);
+      background: transparent;
+    }
+    .kit-card.is-used + .kit-placeholder{ border-color: var(--used-border); }
+
+    .kit-card.is-used{
+      background: var(--used-bg);
+      border-color: var(--used-border);
+    }
+
+    .kit-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+    }
+
+    .kit-title{
+      font-size: 20px;
+      font-weight: var(--inter-semibold);
+      color: var(--text-primary);
+      min-width: 0;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .kit-title[contenteditable="true"]{ outline:none; }
+    .kit-actions{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      flex-shrink:0;
+    }
+
+    /* divider must span full width */
+    .kit-divider{
+      height: 1px;
+      background: var(--divider);
+      margin: 20px 0; /* 16px от шапки до линии и 16px от линии до 'Использовано' */
+      /* full-bleed внутри карточки при padding 40px */
+      margin-left: calc(var(--card-pad) * -1);
+      margin-right: calc(var(--card-pad) * -1);
+    }
+
+    .kit-card.is-used .kit-divider{ background: var(--used-border); }
+
+    /* Used row */
+    .kit-used-row{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      user-select:none;
+      margin-bottom: 20px;
+
+      /* same typography as footer ("Всего фото", "Загружено") */
+      font-size: 14px;
+      font-weight: var(--inter-regular);
+      color: var(--text-tertiary);
+
+      /* row itself is not clickable; only the checkbox is */
+      cursor: default;
+    }
+
+    .kit-check{ cursor: default; }
+    .kit-card.is-edit .kit-check{ cursor: pointer; }
+
+.kit-check{
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      background: var(--page-bg);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+    }
+    .kit-card.is-used .kit-check{ background: #02D15C; }
+    .kit-check svg{width: 14px; height: 14px; color: #fff; display:none; opacity: 1;}
+    .kit-card.is-used .kit-check svg{display:block;}
+
+    /* Photo grid */
+    .kit-grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(2, auto);
+      gap: var(--gap-tiles);
+    }
+
+    .tile{
+      position:relative;
+      width: 100%;
+      aspect-ratio: var(--tile-ratio);
+      background: var(--tile-empty);
+      overflow:hidden;
+      border-radius: 0; /* квадратные */
+      cursor: default;
+    }
+    .kit-card.is-used .tile.is-empty{ background: var(--tile-empty-used); }
+
+    .tile.is-add{
+      /* без обводки; нейтральный серый чуть светлее, близко к фону; плюс — чёрный */
+      background: #DADADA;
+      border: none;
+      box-sizing: border-box;
+      color: #1A1A1A;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+          transition: background 140ms ease;
+    }
+    .tile.is-add:hover{
+      background: #D2D2D2;
+    }
+    .tile.is-add.is-dragover{
+      background: #D2D2D2;
+    }
+
+    /* Plus size in "add photo" tile */
+    .tile.is-add .icon{ width: 30px; height: 30px; }
+    .tile.is-add .icon svg{ width: 30px; height: 30px; opacity: 1; }
+    .kit-card.is-used .tile.is-add{
+      background: #D1EDDD;
+      color: #1A1A1A;
+    }
+
+    .tile img{
+      width:100%;
+      height:100%;
+      object-fit: cover;
+      display:block;
+    }
+
+    /* Hover: only darken, no icons */
+    .tile.is-photo::after,
+    .collage-cell.is-photo::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,0);
+      transition: background 0.15s ease;
+      pointer-events:none;
+    }
+    .tile.is-photo:hover::after{ background: rgba(0,0,0,0.25); }
+
+    /* collage (tile 6) */
+    .tile.is-collage{ padding:0; background: transparent; }
+    .collage-grid{
+      width:100%;
+      height:100%;
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: var(--gap-tiles);
+      background: transparent;
+    }
+    .collage-cell{
+      position:relative;
+      overflow:hidden;
+      border-radius: 0;
+      background: var(--tile-empty);
+      cursor:pointer;
+    }
+    .kit-card.is-used .collage-cell.is-empty{ background: var(--tile-empty-used); }
+    .collage-cell img{ width:100%; height:100%; object-fit: cover; display:block; }
+    .collage-cell.is-photo:hover::after{ background: rgba(0,0,0,0.25); }
+
+    .more-overlay{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: rgba(0,0,0,0.6);
+      color:#fff;
+      font-size: 13px;
+      font-weight: var(--inter-medium);
+      pointer-events:none;
+    }
+
+    .kit-footer{
+      margin-top: 20px;
+      display:flex;
+      justify-content:space-between;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-tertiary);
+      font-weight: var(--inter-regular);
+    }
+    .kit-card.is-used .kit-footer{ color: var(--text-secondary); }
+
+    
+    /* ===== Viewer (переработан: full-screen + blur background + лента справа) ===== */
+    .viewer-backdrop{
+      position:fixed;
+      inset:0;
+      display:none;
+      z-index: 999;
+      pointer-events:none;
+    }
+    .viewer-backdrop.open{
+      display:block;
+      pointer-events:auto;
+    }
+
+    /* Blur everything behind viewer */
+    body.viewer-open > *:not(.viewer-backdrop){
+      filter: blur(18px);
+      transform: translateZ(0);
+    }
+
+    .viewer{
+      position:fixed;
+      inset: 0;
+      padding: 20px;
+      display:grid;
+      grid-template-columns: 132px 1fr;
+      gap: 16px;
+      z-index: 1000;
+    }
+
+    @media (max-width: 900px){
+      .viewer{ padding: 16px; grid-template-columns: 110px 1fr; }
+    }
+
+    .viewer-rail{
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 10px;
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .rail-btn{
+      width: 100%;
+      height: 36px;
+      border-radius: 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      background: rgba(255,255,255,0.08);
+      border: none;
+      color:#fff;
+      transition: background 0.15s ease;
+      flex-shrink:0;
+    }
+    .rail-btn:hover{ background: rgba(255,255,255,0.14); }
+    .rail-btn:disabled{ opacity: 0.5; cursor: default; }
+
+    .viewer-thumbs{
+      overflow:auto;
+      scroll-behavior: smooth;
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      padding-right: 2px;
+      min-height: 0;
+      flex: 1;
+    }
+    .viewer-thumbs::-webkit-scrollbar{ width: 6px; }
+    .viewer-thumbs::-webkit-scrollbar-thumb{ background: rgba(255,255,255,0.18); border-radius: 6px; }
+    .viewer-thumbs::-webkit-scrollbar-track{ background: rgba(255,255,255,0.06); }
+
+    .thumb{
+      width: 100%;
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      aspect-ratio: 1/1;
+      background: rgba(255,255,255,0.08);
+      border-radius: 0;
+      overflow:hidden;
+      cursor:pointer;
+      position:relative;
+      border: none;
+      flex-shrink: 0;
+    }
+    .thumb img{ width:100%; height:100%; object-fit: cover; display:block; }
+    .thumb::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,0.58);
+      transition: background 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events:none;
+    }
+    .thumb:hover::after{ background: rgba(0,0,0,0.58); }
+    .thumb.active{
+      border-color: rgba(255,255,255,0.35);
+    }
+    .thumb.active::after{ background: rgba(0,0,0,0.0); }
+    .thumb img{ transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+    .thumb.active img{ opacity: 1; }
+
+    /* Right: vertical filmstrip (prev/current/next) */
+    .viewer-stage{
+      position:relative;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      overflow:hidden;
+      min-height: 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .stage-stack{
+      width: 100%;
+      height: 100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap: 12px;
+      padding: 18px 16px;
+    }
+
+    .stage-item{
+      width: 100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+      -webkit-user-drag:none;
+    }
+
+    .stage-item.preview{
+      height: 18vh;
+      opacity: 0.32 !important;
+      cursor:pointer;
+    
+      
+      
+    }
+
+    .stage-item.preview:hover{ opacity: 0.32 !important; }
+
+    .stage-item.main{
+      height: 58vh;
+    }
+
+    @media (max-height: 740px){
+      .stage-item.preview{ height: 16vh; }
+      .stage-item.main{ height: 52vh; }
+    }
+
+    .stage-img{
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      user-select:none;
+      -webkit-user-drag:none;
+    }
+
+    .stage-item.main .stage-img{
+      max-width: 96%;
+      max-height: 96%;
+    }
+
+    /* subtle hover on previews */
+    /* Top controls */
+    .viewer-topbar{
+      position:absolute;
+      top: 14px;
+      right: 14px;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      z-index: 5;
+    }
+    .viewer-counter{
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 25;
+      color: #000000;
+      font-size: 14px;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    /* Right side vertical nav buttons (optional) */
+    .vnav{
+      position:absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+      z-index: 5;
+    }
+    .vnav .nav-btn{
+      width: 46px;
+      height: 46px;
+      border-radius: 0;
+      border: none;
+      background: rgba(255,255,255,0.10);
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition: background 0.15s ease;
+    }
+    .vnav .nav-btn:hover{ background: rgba(255,255,255,0.16); }
+    .vnav .nav-btn svg{ width: 20px; height: 20px; display:block; }
+
+    /* prevent backdrop click selecting */
+    .viewer, .viewer *{ -webkit-tap-highlight-color: transparent; }
+  
+    .icon-btn--upload{
+      /* same style as "add photo" tile */
+      background: #DADADA;
+      color: #1A1A1A;
+      border: none;
+      transition: background 140ms ease, transform 0.1s ease;
+    }
+    .icon-btn--upload:hover{
+      background: #D2D2D2;
+    }
+
+  
+    /* ===== Viewer overrides to match latest spec ===== */
+    /* Background: blur only, no tint */
+    body.viewer-open > *:not(.viewer-backdrop){
+      filter: blur(18px);
+      transform: translateZ(0);
+    }
+
+    .viewer{ padding: 0; gap: 0; } /* full-screen, no extra margins */
+
+    /* Left rail uses blur (glass) */
+    .viewer-rail{
+      background: rgba(255,255,255,0.10);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: none;
+      border-radius: 0;
+      padding: 10px;
+      width: 132px;
+    }
+
+    /* Rail buttons: black with white arrow */
+    .rail-btn{
+      background: #1A1A1A;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 0;
+      height: 52px;
+    }
+    .rail-btn:hover{ background: #2A2B2E; }
+
+    /* thumbs gap 4px */
+    .viewer-thumbs{ gap: 4px; }
+    .thumb{
+      border-radius: 0;
+      border: none;
+      background: rgba(255,255,255,0.18);
+    }
+
+    /* Stage: also glass blur */
+    .viewer-stage{
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: none;
+      border-radius: 0;
+    }
+
+    /* Vertical stack: show prev/next slightly */
+    .stage-stack{
+      gap: 4px;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      justify-content: center;
+    }
+    .stage-item.preview{
+      height: 18vh;
+      opacity: 0.32 !important;
+    }
+    .stage-item.main{
+      height: 64vh;
+    }
+    .stage-item.main .stage-img{
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .stage-img{ max-width: 100%; max-height: 100%; }
+
+    /* Close button: standard black square with radius (uses our icon-btn dark) */
+    #viewerClose{
+      background: #1A1A1A;
+      color: #FFFFFF;
+      border-radius: var(--radius-btn);
+      border: none;
+    }
+
+    /* Topbar positioning */
+    .viewer-topbar{ top: 20px; right: 20px; gap: 10px; }
+
+    /* Delete button: only in edit, on main photo top-right with 20px inset */
+    #viewerDeleteBtn{
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 6;
+    }
+    /* When delete shown, keep close at the very top-right (stack) */
+    #viewerClose{
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 7;
+    }
+
+    /* Counter subtle */
+    .viewer-counter{
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 25;
+      color: #000000;
+      font-size: 14px;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    /* Remove any remaining nav blocks */
+    .vnav{ display:none !important; }
+
+  
+    /* ===== Viewer tune: center image bigger, previews 20% visible and 20% smaller ===== */
+    .viewer{ padding: 0; }
+    .viewer{ grid-template-columns: 132px 1fr; }
+    .viewer-rail{ width: 132px; }
+    .viewer{ gap: 4px; } /* 4px between left rail and stage */
+
+    .viewer-stage{ padding-right: 4px; } /* 4px from right edge */
+    .stage-stack{
+      height: 100%;
+      width: 100%;
+      padding: 0;
+      gap: 4px; /* gaps between photos 4px */
+      display:grid;
+      grid-template-rows: 20vh 1fr 20vh; /* visible area for prev/next ~20% */
+      align-items: stretch;
+      justify-items: stretch;
+    }
+    .stage-item{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+    }
+    /* main takes most space */
+    .stage-item.main{
+      min-height: 0;
+    }
+    .stage-item.main .stage-img{
+      width: calc(100% - 8px);  /* 4px from left (gap) + 4px from right (stage padding) approximation */
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      object-fit: contain;
+    }
+    /* previews are 20% smaller than main visually via scale */
+    .stage-item.preview{
+      opacity: 0.32 !important;
+    }
+    .stage-item.preview .stage-img{
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain;
+      filter: none !important;
+    }
+
+  
+    /* ===== PATCH v27: force override (main максимально большой, prev/next = тот же кадр, видна только полоска) ===== */
+    .viewer{
+      inset:0;
+      padding:0 !important;
+      gap:4px !important;
+      grid-template-columns: 156px 1fr !important;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    /* Rail and stage transparent so no seams */
+    .viewer-rail,
+    .viewer-stage{
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+
+    /* LEFT RAIL: spacing 4px everywhere */
+    .viewer-rail{
+      width: 156px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      min-height: 100vh;
+      display:flex !important;
+      flex-direction:column !important;
+      gap: 4px !important;
+      overflow: hidden;
+      border-radius: 0;
+    }
+
+    .rail-btn{
+      width: 100%;
+      height: 56px;
+      padding: 0 !important;
+      margin: 0 !important;
+      border-radius: 0;
+      border: none;
+      background: #1A1A1A !important;
+      color: #FFFFFF;
+      display:flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      opacity: 1 !important;
+      flex: 0 0 auto;
+    }
+    .rail-btn:hover{ background:#2A2B2E !important; }
+    .rail-btn:disabled{ background:#1A1A1A !important; cursor: default; }
+    .rail-btn:disabled svg{ opacity: 0.35; }
+
+    .rail-btn svg{ width: 30px; height: 30px; opacity: 0.92; }
+
+    .viewer-thumbs{
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 0 !important;
+      margin: 0 !important;
+      display:flex !important;
+      flex-direction:column !important;
+      gap: 4px !important;
+      overflow: auto;
+      scrollbar-width: none;
+    }
+    .viewer-thumbs::-webkit-scrollbar{ width: 0; height: 0; }
+
+    .thumb{
+      width: 100%;
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      margin: 0 !important;
+      border-radius: 0;
+      border: none;
+      overflow:hidden;
+      position:relative;
+      flex: 0 0 auto;
+      background: rgba(255,255,255,0.18);
+    }
+
+    /* Thumbs darker when not active */
+    .thumb::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,0.58);
+      transition: background 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events:none;
+    }
+    .thumb:hover::after{ background: rgba(0,0,0,0.58); }
+    .thumb.active::after{ background: rgba(0,0,0,0.0); }
+    .thumb img{ transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+    .thumb.active img{ opacity: 1; }
+
+    /* STAGE: force full height, no inner padding */
+    .viewer-stage{
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      position: relative !important;
+      display: block !important;
+      min-height: 100vh;
+    }
+
+    /* Core: absolute stacking, 1:1 framing for all three */
+    .stage-stack{
+      position: relative !important;
+      width: 100% !important;
+      height: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: block !important;
+      overflow: hidden !important;
+
+      /* Visible sliver; smaller => main bigger */
+      --peek: clamp(44px, 7vh, 80px);
+      --gap: 4px;
+    }
+
+    .stage-item{
+      position: absolute !important;
+      left: 0 !important;
+      right: 0 !important;
+      top: calc(var(--peek) + var(--gap)) !important;
+      bottom: calc(var(--peek) + var(--gap)) !important;
+
+      width: auto !important;
+      height: auto !important;
+
+      display:flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      overflow: hidden !important;
+    }
+
+    .stage-item.main{
+      z-index: 2;
+      opacity: 1;
+      cursor: default;
+      transform: none !important;
+    }
+
+    .stage-item.preview{
+      z-index: 1;
+      opacity: 0.32 !important;                /* темнее */
+      cursor: pointer;
+      height: auto !important;       /* убить старые 18vh */
+    }
+
+    /* Shift by its own frame height + 4px gap so only peek is visible */
+    #stagePrev{ transform: translateY(calc(-100% - var(--gap))) !important; }
+    #stageNext{ transform: translateY(calc( 100% + var(--gap))) !important; }
+
+    /* Prev/Next are 20% narrower than main (10% inset from each side) */
+    #stagePrev, #stageNext{
+      left: 10% !important;
+      right: 10% !important;
+    }
+
+    .stage-img{
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+      object-fit: contain;
+    }
+    .stage-item.preview .stage-img{
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain;
+      filter: none !important;
+    }
+
+    /* Delete inside main, 20px inset */
+    #stageMain{ position: relative; }
+    #viewerDeleteBtn{
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+    }
+
+    #viewerClose{
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 20;
+    }
+
+  
+    /* COUNTER OVERRIDE */
+    .viewer-stage .viewer-counter{
+      position: absolute !important;
+      top: 20px !important;
+      left: 20px !important;
+      right: auto !important;
+      bottom: auto !important;
+    
+  
+    }
+    /* ===== PATCH v36: single centered photo, max fill with fixed insets ===== */
+    /* Right stage should be a clean viewport */
+    .viewer-stage{
+      position: relative !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    /* Stage stack just fills stage */
+    #stageStack{
+      position: relative !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+
+    /* Main photo frame: top/bottom 4px, left/right 20px */
+    #stageMain{
+      position: absolute !important;
+      top: 4px !important;
+      bottom: 4px !important;
+      left: var(--main-left, 20px) !important;
+      right: var(--main-right, 20px) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+    }
+
+    /* Photo: maximize area without cropping (decision: contain) */
+    #viewerImg{
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+      object-fit: contain !important;
+    }
+
+    /* Delete button stays inside photo, 20px inset */
+    #viewerDeleteBtn{
+      position: absolute !important;
+      top: 20px !important;
+      right: 20px !important;
+      z-index: 10 !important;
+    }
+
+    /* Counter: top-left 20px (already), keep black */
+    .viewer-counter{
+      top: 20px !important;
+      left: 20px !important;
+      color: #000000 !important;
+      z-index: 25 !important;
+    }
+
+    /* Close button: top-right 20px */
+    #viewerClose{
+      top: 20px !important;
+      right: 20px !important;
+      z-index: 30 !important;
+    }
+
+  
+    /* ===== Viewer actions stack (close + delete) ===== */
+    .viewer-actions{
+      position: absolute !important;
+      top: 20px !important;
+      right: 20px !important;
+      z-index: 50 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      align-items: flex-end !important;
+    }
+    #viewerClose,
+    #viewerDeleteBtn{
+      position: static !important;
+      top: auto !important;
+      right: auto !important;
+      left: auto !important;
+      bottom: auto !important;
+      margin: 0 !important;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="section-header">
+      <div class="section-title" style="display:flex;align-items:center;gap:12px;">Контент<button class="icon-btn icon-btn--upload" id="addKitBtn" title="Добавить контент" aria-label="Добавить контент"><span class="icon" id="svgPlusBtn"></span></button></div>
+      <div class="section-actions" style="display:none;"></div>
+    </div>
+
+    <div class="kits" id="kits"></div>
+
+    <!-- Архив -->
+    <div class="section-header" style="margin-top: 4px;">
+      <div class="section-title">Архив</div>
+      <div class="section-actions" style="display:none;"></div>
+    </div>
+
+    <div class="kits" id="archiveKits"></div>
+
+  </div>
+
+  <!-- Viewer -->
+  <div class="viewer-backdrop" id="viewerBackdrop" aria-hidden="true" tabindex="-1">
+    <div class="viewer" role="dialog" aria-modal="true" aria-label="Просмотр фото">
+      <div class="viewer-rail">
+        <button class="rail-btn" id="railUp" aria-label="Прокрутить вверх">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+        </button>
+        <div class="viewer-thumbs" id="viewerThumbs"></div>
+        <button class="rail-btn" id="railDown" aria-label="Прокрутить вниз">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m7.41 8.59 4.59 4.58 4.59-4.58L18 10l-6 6-6-6z"/></svg>
+        </button>
+      </div>
+
+      
+      <div class="viewer-stage" id="viewerStage">
+        <div class="viewer-counter" id="viewerCounter">0/0</div>
+<div class="viewer-actions" id="viewerActions">
+        <button class="icon-btn icon-btn--dark" id="viewerClose" aria-label="Закрыть">
+          <span class="icon rotate-45" id="svgClose"></span>
+        </button>
+                    <button class="icon-btn icon-btn--danger" id="viewerDeleteBtn" title="Удалить фото" aria-label="Удалить фото" style="display:none;">
+              <span class="icon" id="svgTrashViewer"></span>
+            </button>
+            
+      </div>
+
+<div class="stage-stack" id="stageStack">
+          <div class="stage-item main" id="stageMain">
+<img class="stage-img" id="viewerImg" alt="Фото автомобиля">
+          </div>
+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" />
+
+  <script>
+    /* ===== SVG ICONS (provided) ===== */
+    const SVG_DOWNLOAD = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 18h12v2H6zm5-14v8.586L6.707 8.293L5.293 9.707L12 16.414l6.707-6.707l-1.414-1.414L13 12.586V4z"/></svg>`;
+    const SVG_TRASH = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M5 20a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8h2V6h-4V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H3v2h2zM9 4h6v2H9zM8 8h9v12H7V8z"/><path fill="currentColor" d="M9 10h2v8H9zm4 0h2v8h-2z"/></svg>`;
+    const SVG_PLUS = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z"/></svg>`;
+    const SVG_IMAGE_ADD = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><title>Image-add SVG Icon</title><path fill="currentColor" d="M4 5h13v7h2V5c0-1.103-.897-2-2-2H4c-1.103 0-2 .897-2 2v12c0 1.103.897 2 2 2h8v-2H4z"/><path fill="currentColor" d="m8 11l-3 4h11l-4-6l-3 4z"/><path fill="currentColor" d="M19 14h-2v3h-3v2h3v3h2v-3h3v-2h-3z"/></svg>`;
+    // user's new edit icon
+    const SVG_EDIT = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M16 2.012l3 3L16.713 7.3l-3-3zM4 14v3h3l8.299-8.287l-3-3zm0 6h16v2H4z" fill="currentColor"/></svg>`;
+    const SVG_CHECK = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>`;
+    const SVG_RESTORE = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M10 11h6v7h2v-8a1 1 0 0 0-1-1h-7V6l-5 4l5 4z"/></svg>`;
+
+    // mount icons
+    document.getElementById('svgPlusBtn').innerHTML = SVG_PLUS;
+    document.getElementById('svgTrashViewer').innerHTML = SVG_TRASH;
+    document.getElementById('svgClose').innerHTML = SVG_PLUS;
+
+
+    /* ===== HELPERS ===== */
+    function uid(){
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(16).slice(2);
+    }
+
+    function pad2(n){ return String(n).padStart(2,'0'); }
+    function formatDate(d){
+      // dd.mm.yyyy
+      const day = pad2(d.getDate());
+      const mon = pad2(d.getMonth()+1);
+      const yr = d.getFullYear();
+      return `${day}.${mon}.${yr}`;
+    }
+
+    function formatDateTime(d){
+      // dd.mm.yyyy HH:MM (без секунд)
+      const day = pad2(d.getDate());
+      const mon = pad2(d.getMonth()+1);
+      const yr = d.getFullYear();
+      const hh = pad2(d.getHours());
+      const mm = pad2(d.getMinutes());
+      return `${day}.${mon}.${yr} ${hh}:${mm}`;
+    }
+
+
+    function createKit(){
+      return {
+        id: uid(),
+        title: 'Новый контент',
+        photos: [],
+        used: false,
+        usedDate: null,
+        createdAt: null
+      };
+    }
+
+
+    /* ===== STATE ===== */
+    const kitsEl = document.getElementById('kits');
+    const archiveKitsEl = document.getElementById('archiveKits');
+    const addKitBtn = document.getElementById('addKitBtn');
+    const fileInput = document.getElementById('fileInput');
+
+    // Viewer
+    const viewerBackdrop = document.getElementById('viewerBackdrop');
+    const viewerThumbs = document.getElementById('viewerThumbs');
+    const viewerImg = document.getElementById('viewerImg');
+const stageStack = document.getElementById('stageStack');
+    const viewerClose = document.getElementById('viewerClose');
+const viewerCounter = document.getElementById('viewerCounter');
+    const viewerDeleteBtn = document.getElementById('viewerDeleteBtn');
+    const railUp = document.getElementById('railUp');
+    const railDown = document.getElementById('railDown');
+
+    let kits = [createKit()];
+    let archivedKits = [];
+
+    // missing state vars
+    let activeEditKitId = null;
+    let viewerKitId = null;
+    let viewerIndex = 0;
+    let viewerCanDelete = false;
+
+    function getKitById(kitId){
+      return kits.find(k=>k.id===kitId) || archivedKits.find(k=>k.id===kitId) || null;
+    }
+
+    function isKitInMain(kitId){
+      return kits.some(k=>k.id===kitId);
+    }
+
+
+    function setOnlyOneEdit(kitId){
+      activeEditKitId = kitId;
+      render();
+    }
+
+    function exitEdit(){
+      activeEditKitId = null;
+      render();
+    }
+
+    function isEdit(kitId){ return activeEditKitId === kitId; }
+
+    function escapeHtml(str){
+      return String(str)
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#039;');
+    }
+
+    
+    // --- ZIP download (no external libs). Stored method (no compression) ---
+    function sanitizeFileName(name){
+      return (name || 'content')
+        .toString()
+        .trim()
+        .replace(/[\/\\:*?"<>|]+/g, '_')
+        .replace(/\s+/g, ' ')
+        .slice(0, 80) || 'content';
+    }
+
+    function dataUrlToBlob(url){
+      // fetch works for data: URLs and blob: URLs
+      return fetch(url).then(r => r.blob());
+    }
+
+    // CRC32 for ZIP
+    const _crcTable = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i++){
+        let c = i;
+        for (let k = 0; k < 8; k++){
+          c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        table[i] = c >>> 0;
+      }
+      return table;
+    })();
+
+    function crc32(buf){
+      let c = 0xFFFFFFFF;
+      for (let i = 0; i < buf.length; i++){
+        c = _crcTable[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+      }
+      return (c ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    function u16(n){ return new Uint8Array([n & 255, (n >>> 8) & 255]); }
+    function u32(n){ return new Uint8Array([n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]); }
+
+    function concatUint8(arrays){
+      const total = arrays.reduce((s,a)=>s+a.length,0);
+      const out = new Uint8Array(total);
+      let off = 0;
+      for (const a of arrays){ out.set(a, off); off += a.length; }
+      return out;
+    }
+
+    function dosDateTime(date){
+      const d = date instanceof Date ? date : new Date();
+      const time =
+        ((d.getHours() & 0x1F) << 11) |
+        ((d.getMinutes() & 0x3F) << 5) |
+        ((Math.floor(d.getSeconds()/2)) & 0x1F);
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear() - 1980;
+      const dosDate =
+        ((year & 0x7F) << 9) |
+        ((month & 0x0F) << 5) |
+        (day & 0x1F);
+      return { time, date: dosDate };
+    }
+
+    async function makeZip(files){
+      // files: [{name, blob}]
+      const localParts = [];
+      const centralParts = [];
+      let offset = 0;
+
+      const now = new Date();
+      const dt = dosDateTime(now);
+
+      for (const f of files){
+        const nameBytes = new TextEncoder().encode(f.name);
+        const data = new Uint8Array(await f.blob.arrayBuffer());
+        const crc = crc32(data);
+        const compSize = data.length;
+        const uncompSize = data.length;
+
+        // Local file header
+        const localHeader = concatUint8([
+          u32(0x04034b50),        // signature
+          u16(20),                // version needed
+          u16(0),                 // flags
+          u16(0),                 // compression 0 = stored
+          u16(dt.time),           // mod time
+          u16(dt.date),           // mod date
+          u32(crc),               // crc32
+          u32(compSize),          // compressed size
+          u32(uncompSize),        // uncompressed size
+          u16(nameBytes.length),  // file name length
+          u16(0),                 // extra length
+          nameBytes
+        ]);
+
+        localParts.push(localHeader, data);
+
+        // Central directory header
+        const centralHeader = concatUint8([
+          u32(0x02014b50),        // signature
+          u16(20),                // version made by
+          u16(20),                // version needed
+          u16(0),                 // flags
+          u16(0),                 // compression
+          u16(dt.time),
+          u16(dt.date),
+          u32(crc),
+          u32(compSize),
+          u32(uncompSize),
+          u16(nameBytes.length),
+          u16(0),                 // extra
+          u16(0),                 // comment
+          u16(0),                 // disk number
+          u16(0),                 // internal attrs
+          u32(0),                 // external attrs
+          u32(offset),            // local header offset
+          nameBytes
+        ]);
+
+        centralParts.push(centralHeader);
+
+        offset += localHeader.length + data.length;
+      }
+
+      const centralDir = concatUint8(centralParts);
+      const centralOffset = offset;
+      offset += centralDir.length;
+
+      // End of central directory
+      const end = concatUint8([
+        u32(0x06054b50),
+        u16(0),                 // disk
+        u16(0),                 // start disk
+        u16(files.length),      // entries on disk
+        u16(files.length),      // total entries
+        u32(centralDir.length), // central dir size
+        u32(centralOffset),     // central dir offset
+        u16(0)                  // comment length
+      ]);
+
+      const zipBytes = concatUint8([...localParts, centralDir, end]);
+      return new Blob([zipBytes], { type: 'application/zip' });
+    }
+
+    async function downloadKitZip(kitId){
+      const kit = getKitById(kitId);
+      if (!kit) return;
+
+      const photos = (kit.photos || []).slice();
+      if (!photos.length){
+        alert('Нет фотографий для скачивания.');
+        return;
+      }
+
+      // Build file list
+      const files = [];
+      let i = 1;
+      for (const p of photos){
+        try{
+          const blob = await dataUrlToBlob(p.src);
+          const ext = (blob.type || '').includes('png') ? 'png'
+                   : (blob.type || '').includes('webp') ? 'webp'
+                   : (blob.type || '').includes('gif') ? 'gif'
+                   : 'jpg';
+          const num = String(i++).padStart(2,'0');
+          files.push({ name: `photo_${num}.${ext}`, blob });
+        }catch(err){}
+      }
+
+      if (!files.length){
+        alert('Не удалось подготовить фотографии для скачивания.');
+        return;
+      }
+
+      const zipBlob = await makeZip(files);
+      const a = document.createElement('a');
+      const title = sanitizeFileName(kit.title || 'content');
+      a.href = URL.createObjectURL(zipBlob);
+      a.download = `${title}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 1000);
+    }
+
+
+function render(){
+      function renderList(list, hostEl, mode){
+        const isArchive = mode === 'archive';
+        hostEl.innerHTML = list.map(kit => {
+          const edit = (!isArchive) && isEdit(kit.id);
+          const usedClass = kit.used ? 'is-used' : '';
+          const editClass = edit ? 'is-edit' : '';
+
+          const titleAttr = edit ? 'contenteditable="true"' : '';
+          const titleData = kit.title || 'Новый контент';
+
+          const total = kit.photos.length;
+          const uploaded = kit.createdAt ? kit.createdAt : '—';
+
+          // In archive: no add-photos tile
+          const previewNoAdd = isArchive ? true : !!kit.used;
+
+          const photoTile = (photo, globalIndex) => {
+            if (!photo) return `<div class="tile is-empty"></div>`;
+            return `
+              <div class="tile is-photo" data-action="open" data-kit-id="${kit.id}" data-index="${globalIndex}">
+                <img src="${photo.src}" alt="Фото">
+              </div>
+            `;
+          };
+
+          let remaining = 0;
+          let mainPhotos = [];
+          let collagePhotos = [];
+          let mainIdxBase = 0;
+          let collageIdxBase = 0;
+          let firstCellHtml = '';
+
+          if (previewNoAdd){
+            // [0] first cell photo/empty; [1..4] main; [5..8] collage (9 visible)
+            firstCellHtml = photoTile(kit.photos[0] || null, 0);
+            mainPhotos = kit.photos.slice(1, 5);
+            collagePhotos = kit.photos.slice(5, 9);
+            remaining = Math.max(0, kit.photos.length - 9);
+            mainIdxBase = 1;
+            collageIdxBase = 5;
+          } else {
+            // Default main list: first cell is add photos
+            firstCellHtml = `
+                <div class="tile is-add" data-action="add-photos" data-kit-id="${kit.id}" title="Добавить фото" aria-label="Добавить фото">
+                  <span class="icon">${SVG_IMAGE_ADD}</span>
+                </div>
+            `;
+            mainPhotos = kit.photos.slice(0, 4);
+            collagePhotos = kit.photos.slice(4, 8);
+            remaining = Math.max(0, kit.photos.length - 8);
+            mainIdxBase = 0;
+            collageIdxBase = 4;
+          }
+
+          const collageCell = (photo, globalIndex, isLastCell) => {
+            if (!photo) return `<div class="collage-cell is-empty"></div>`;
+            const more = (isLastCell && remaining>0) ? `<div class="more-overlay">Еще ${remaining}</div>` : '';
+            return `
+              <div class="collage-cell is-photo" data-action="open" data-kit-id="${kit.id}" data-index="${globalIndex}">
+                <img src="${photo.src}" alt="Фото">
+                ${more}
+              </div>
+            `;
+          };
+
+          const [A,B,C,D] = [mainPhotos[0]||null, mainPhotos[1]||null, mainPhotos[2]||null, mainPhotos[3]||null];
+
+          const cells = [];
+          for (let i = 0; i < 4; i++){
+            cells.push(collageCell(collagePhotos[i] || null, collageIdxBase + i, i === 3));
+          }
+
+          let actionsHtml = '';
+          if (isArchive){
+            actionsHtml = `
+              <button class="icon-btn icon-btn--dark" data-action="archive-download" data-kit-id="${kit.id}" title="Скачать" aria-label="Скачать">
+                <span class="icon">${SVG_DOWNLOAD}</span>
+              </button>
+              <button class="icon-btn icon-btn--dark" data-action="archive-restore" data-kit-id="${kit.id}" title="Вернуть" aria-label="Вернуть из архива">
+                <span class="icon">${SVG_RESTORE}</span>
+              </button>
+              <button class="icon-btn icon-btn--danger" data-action="archive-delete" data-kit-id="${kit.id}" title="Удалить" aria-label="Удалить навсегда">
+                <span class="icon">${SVG_TRASH}</span>
+              </button>
+            `;
+          } else if (edit){
+            actionsHtml = `
+              <button class="icon-btn icon-btn--danger" data-action="delete-kit" data-kit-id="${kit.id}" title="В архив" aria-label="Переместить в архив">
+                <span class="icon">${SVG_TRASH}</span>
+              </button>
+            `;
+          } else {
+            actionsHtml = `
+              <button class="icon-btn icon-btn--dark" data-action="download" data-kit-id="${kit.id}" title="Скачать" aria-label="Скачать">
+                <span class="icon">${SVG_DOWNLOAD}</span>
+              </button>
+              <button class="icon-btn icon-btn--dark" data-action="edit" data-kit-id="${kit.id}" title="Редактировать" aria-label="Редактировать">
+                <span class="icon">${SVG_EDIT}</span>
+              </button>
+            `;
+          }
+
+          const usedText = kit.used
+            ? `Использовано: ${kit.usedDate || kit.createdAt || formatDate(new Date())}`
+            : 'Использовано';
+
+          const usedCheckHtml = isArchive
+            ? `<div class="kit-check">${SVG_CHECK}</div>`
+            : `<div class="kit-check" data-action="toggle-used" data-kit-id="${kit.id}">${SVG_CHECK}</div>`;
+
+          const dragHandleHtml = isArchive
+            ? ''
+            : `<div class="kit-drag-handle" data-kit-id="${kit.id}" title="Перетащить"></div>`;
+
+          return `
+            <div class="kit-card ${usedClass} ${editClass}" data-kit-id="${kit.id}">
+              ${dragHandleHtml}
+              <div class="kit-top">
+                <div class="kit-title" ${titleAttr} data-action="title" data-kit-id="${kit.id}">${escapeHtml(titleData)}</div>
+                <div class="kit-actions">${actionsHtml}</div>
+              </div>
+
+              <div class="kit-divider"></div>
+
+              <div class="kit-used-row">
+                ${usedCheckHtml}
+                <div class="kit-used-text">${usedText}</div>
+              </div>
+
+              <div class="kit-grid">
+                ${firstCellHtml}
+                ${photoTile(A, mainIdxBase+0)}
+                ${photoTile(B, mainIdxBase+1)}
+                ${photoTile(C, mainIdxBase+2)}
+                ${photoTile(D, mainIdxBase+3)}
+
+                <div class="tile is-collage">
+                  <div class="collage-grid">${cells.join('')}</div>
+                </div>
+              </div>
+
+              <div class="kit-footer">
+                <div>Всего фото: ${total}</div>
+                <div>Загружено: ${uploaded}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        if (isArchive && list.length === 0){
+          hostEl.innerHTML = `<div style="color: var(--text-tertiary); font-size:14px; padding: 6px 2px;">В архиве пока ничего нет</div>`;
+        }
+      }
+
+      renderList(kits, kitsEl, 'main');
+      renderList(archivedKits, archiveKitsEl, 'archive');
+    }
+
+
+    /* ===== EVENTS ===== */
+
+    addKitBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      kits.push(createKit());
+      render();
+    });
+
+    // Delegated click inside kits
+    kitsEl.addEventListener('click', (e)=>{
+      const actionEl = e.target.closest('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      const kitId = actionEl.dataset.kitId;
+
+      if (action === 'edit'){
+        e.stopPropagation();
+        setOnlyOneEdit(kitId);
+        setTimeout(()=>{
+          const titleEl = kitsEl.querySelector(`.kit-card[data-kit-id="${kitId}"] .kit-title`);
+          if (titleEl){
+            titleEl.focus();
+            const range = document.createRange();
+            range.selectNodeContents(titleEl);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        },0);
+        return;
+      }
+
+      if (action === 'delete-kit'){
+        e.stopPropagation();
+        if (!confirm('Переместить этот контент в архив?')) return;
+        const idx = kits.findIndex(k => k.id === kitId);
+        if (idx !== -1){
+          const [kit] = kits.splice(idx, 1);
+          kit.archivedAt = formatDate(new Date());
+          archivedKits.unshift(kit);
+        }
+        if (kits.length === 0) kits = [createKit()];
+        if (activeEditKitId === kitId) activeEditKitId = null;
+        render();
+        return;
+      }
+
+      if (action === 'download'){
+        e.stopPropagation();
+        downloadKitZip(kitId);
+        return;
+      }
+
+      if (action === 'toggle-used'){
+        // Toggle "used" only in edit mode for this kit
+        if (activeEditKitId !== kitId) return;
+        const kit = kits.find(k=>k.id===kitId);
+        if (!kit) return;
+        kit.used = !kit.used;
+        if (kit.used && !kit.usedDate){
+          kit.usedDate = formatDate(new Date());
+        }
+        render();
+        return;
+      }
+
+      if (action === 'add-photos'){
+        e.stopPropagation();
+        fileInput.dataset.kitId = kitId;
+        fileInput.click();
+        return;
+      }
+
+      if (action === 'open'){
+        e.stopPropagation();
+        const index = parseInt(actionEl.dataset.index,10);
+        openViewer(kitId, index);
+        return;
+      }
+    });
+
+
+    // Delegated click inside archive
+    archiveKitsEl.addEventListener('click', (e)=>{
+      const actionEl = e.target.closest('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      const kitId = actionEl.dataset.kitId;
+
+      if (action === 'archive-download'){
+        e.stopPropagation();
+        downloadKitZip(kitId);
+        return;
+      }
+
+      if (action === 'archive-restore'){
+        e.stopPropagation();
+        const idx = archivedKits.findIndex(k => k.id === kitId);
+        if (idx !== -1){
+          const [kit] = archivedKits.splice(idx, 1);
+          kits.unshift(kit);
+        }
+        render();
+        return;
+      }
+
+      if (action === 'archive-delete'){
+        e.stopPropagation();
+        if (!confirm('Удалить этот контент навсегда? Это действие нельзя отменить.')) return;
+        archivedKits = archivedKits.filter(k => k.id !== kitId);
+        render();
+        return;
+      }
+
+      if (action === 'open'){
+        e.stopPropagation();
+        const index = parseInt(actionEl.dataset.index,10);
+        openViewer(kitId, index);
+        return;
+      }
+    });
+
+    /* ===== DRAG & DROP TO ADD PHOTOS ===== */
+    function getAddTileFromEventTarget(target){
+      const tile = target?.closest?.('.tile.is-add[data-action="add-photos"]');
+      return tile || null;
+    }
+
+    function setAddTileDragState(tile, on){
+      if (!tile) return;
+      tile.classList.toggle('is-dragover', !!on);
+    }
+
+    kitsEl.addEventListener('dragover', (e)=>{
+      const tile = getAddTileFromEventTarget(e.target);
+      if (!tile) return;
+      e.preventDefault();
+      setAddTileDragState(tile, true);
+    });
+
+    kitsEl.addEventListener('dragleave', (e)=>{
+      const tile = getAddTileFromEventTarget(e.target);
+      if (!tile) return;
+      if (tile.contains(e.relatedTarget)) return;
+      setAddTileDragState(tile, false);
+    });
+
+    kitsEl.addEventListener('drop', async (e)=>{
+      const tile = getAddTileFromEventTarget(e.target);
+      if (!tile) return;
+      e.preventDefault();
+      setAddTileDragState(tile, false);
+      const kitId = tile.dataset.kitId;
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (!kitId || !files.length) return;
+      await addFilesToKit(kitId, files);
+    });
+
+    document.addEventListener('dragend', ()=>{
+      document.querySelectorAll('.tile.is-add.is-dragover').forEach(el=>el.classList.remove('is-dragover'));
+    });
+
+
+    // Title editing: remember last fitting value
+    kitsEl.addEventListener('focusin', (e)=>{
+      const titleEl = e.target.closest('.kit-title[contenteditable="true"]');
+      if (!titleEl) return;
+      titleEl.dataset.prevTitle = titleEl.textContent || '';
+    });
+
+    // Title editing: sync on input, stop typing when ellipsis reached
+    kitsEl.addEventListener('input', (e)=>{
+      const titleEl = e.target.closest('.kit-title[contenteditable="true"]');
+      if (!titleEl) return;
+
+      // Normalize line breaks to spaces
+      const normalized = (titleEl.textContent || '').replace(/[\r\n]+/g, ' ');
+      if (normalized !== titleEl.textContent) titleEl.textContent = normalized;
+
+      // If overflow -> revert to last fitting value (effectively blocks further typing)
+      const prev = titleEl.dataset.prevTitle ?? '';
+      if (titleEl.scrollWidth > titleEl.clientWidth + 1){
+        titleEl.textContent = prev;
+
+        // caret to end
+        const range = document.createRange();
+        range.selectNodeContents(titleEl);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return;
+      }
+
+      titleEl.dataset.prevTitle = titleEl.textContent;
+
+      const kitId = titleEl.dataset.kitId;
+      const kit = kits.find(k=>k.id===kitId);
+      if (!kit) return;
+      kit.title = titleEl.textContent.trim() || 'Новый контент';
+    });
+
+
+    
+    // Title editing: prevent new lines; Enter finishes editing
+    kitsEl.addEventListener('keydown', (e)=>{
+      const titleEl = e.target.closest('.kit-title[contenteditable="true"]');
+      if (!titleEl) return;
+
+      if (e.key === 'Enter'){
+        e.preventDefault();
+        // finalize title value
+        titleEl.blur();
+        exitEdit();
+        return;
+      }
+    });
+
+    // Paste as plain text (no line breaks) into title
+    kitsEl.addEventListener('paste', (e)=>{
+      const titleEl = e.target.closest('.kit-title[contenteditable="true"]');
+      if (!titleEl) return;
+
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      const clean = text.replace(/[\r\n]+/g, ' ').trim();
+      document.execCommand('insertText', false, clean);
+    });
+
+// Click outside: exit edit
+    document.addEventListener('click', (e)=>{
+      const clickedInsideKit = !!e.target.closest('.kit-card');
+      const clickedInsideViewer = !!e.target.closest('.viewer');
+      if (!clickedInsideKit && !clickedInsideViewer && activeEditKitId){
+        setTimeout(()=>exitEdit(),0);
+      }
+    });
+
+    // Exit edit immediately if click another kit area
+    kitsEl.addEventListener('mousedown', (e)=>{
+      const kitCard = e.target.closest('.kit-card');
+      if (!kitCard) return;
+      const kitId = kitCard.dataset.kitId;
+      if (activeEditKitId && activeEditKitId !== kitId){
+        exitEdit();
+      }
+    });
+
+    // Add image files to kit (used by file input and drag&drop)
+    async function addFilesToKit(kitId, files){
+      const kit = kits.find(k=>k.id===kitId);
+      if (!kit) return;
+      const imgFiles = (files||[]).filter(f=>f && f.type && f.type.startsWith('image/'));
+      if (!imgFiles.length) return;
+
+      const toDataUrl = (file) => new Promise((resolve, reject)=>{
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+
+      for (const f of imgFiles){
+        try{
+          const src = await toDataUrl(f);
+          kit.photos.push({ id: String(Date.now()) + Math.random().toString(16).slice(2), src });
+        }catch(err){}
+      }
+      kit.createdAt = formatDateTime(new Date());
+      render();
+    }
+
+    // File input load
+    fileInput.addEventListener('change', async (e)=>{
+      const files = Array.from(e.target.files || []);
+      const kitId = fileInput.dataset.kitId;
+      fileInput.value = '';
+      if (!files.length || !kitId) return;
+      await addFilesToKit(kitId, files);
+    });
+
+/* ===== VIEWER ===== */
+    let wheelLock = false;
+    function onStageWheel(e){
+      if (!viewerBackdrop.classList.contains('open')) return;
+      e.preventDefault();
+      if (wheelLock) return;
+      wheelLock = true;
+      const dir = e.deltaY > 0 ? 1 : -1;
+      stepViewer(dir);
+      setTimeout(()=>{ wheelLock = false; }, 450);
+    }
+
+    
+    function layoutViewerMainInsets(){
+      // Ensure the main photo frame keeps 20px gap from counter (left) and close button (right) on any screen.
+      try{
+        const stage = document.querySelector('.viewer-stage');
+        const main = document.getElementById('stageMain');
+        const counter = document.getElementById('viewerCounter');
+        const closeBtn = document.getElementById('viewerClose');
+        if(!stage || !main) return;
+
+        const s = stage.getBoundingClientRect();
+        let leftInset = 20;   // minimal inset from stage edge if counter is missing
+        let rightInset = 20;  // minimal inset from stage edge if close is missing
+
+        if(counter){
+          const c = counter.getBoundingClientRect();
+          // photo left should be counter's right + 20
+          leftInset = Math.max(leftInset, (c.right - s.left) + 20);
+        }
+
+        if(closeBtn){
+          const b = closeBtn.getBoundingClientRect();
+          // photo right should be close's left - 20  => rightInset = stageRight - (closeLeft - 20)
+          rightInset = Math.max(rightInset, (s.right - b.left) + 20);
+        }
+
+        main.style.setProperty('--main-left', leftInset + 'px');
+        main.style.setProperty('--main-right', rightInset + 'px');
+      }catch(e){}
+    }
+
+function openViewer(kitId, index){
+      const kit = getKitById(kitId);
+      if (!kit || !kit.photos.length) return;
+
+      viewerKitId = kitId;
+      viewerIndex = Math.max(0, Math.min(index, kit.photos.length-1));
+      viewerCanDelete = isEdit(kitId) && isKitInMain(kitId); // фиксируем режим в момент открытия
+
+      renderViewer();
+      viewerBackdrop.classList.add('open');
+      layoutViewerMainInsets();
+      // counter text/metrics can change after render; recalc on next frames
+      requestAnimationFrame(()=>layoutViewerMainInsets());
+      setTimeout(()=>layoutViewerMainInsets(), 50);
+      // make Esc handling more reliable
+      try{ viewerBackdrop.focus(); }catch(e){}
+      viewerBackdrop.setAttribute('aria-hidden','false');
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('viewer-open');
+      syncRailButtons();
+    }
+
+    function closeViewer(){
+      viewerBackdrop.classList.remove('open');
+      viewerBackdrop.setAttribute('aria-hidden','true');
+      document.body.style.overflow = '';
+      document.body.classList.remove('viewer-open');
+      viewerKitId = null;
+      viewerIndex = 0;
+      viewerCanDelete = false;
+      viewerThumbs.innerHTML = '';
+      try{ delete viewerThumbs.dataset.kitId; }catch(e){}
+      if (typeof thumbsScrollTimer !== 'undefined' && thumbsScrollTimer){ clearTimeout(thumbsScrollTimer); thumbsScrollTimer = null; }
+      viewerImg.src = '';
+    }
+
+    let thumbsScrollTimer = null;
+
+function buildViewerThumbs(photos){
+  viewerThumbs.innerHTML = photos.map((p, i)=>`
+    <div class="thumb" data-index="${i}">
+      <img src="${p.src}" alt="Миниатюра">
+    </div>
+  `).join('');
+  viewerThumbs.dataset.kitId = viewerKitId || '';
+}
+
+function setActiveThumb(idx){
+  const prev = viewerThumbs.querySelector('.thumb.active');
+  if (prev) prev.classList.remove('active');
+
+  const next = viewerThumbs.querySelector(`.thumb[data-index="${idx}"]`);
+  if (next) next.classList.add('active');
+
+  clearTimeout(thumbsScrollTimer);
+  thumbsScrollTimer = setTimeout(()=>{
+    const active = viewerThumbs.querySelector('.thumb.active');
+    if (active) active.scrollIntoView({block:'nearest', behavior:'smooth'});
+    syncRailButtons();
+  }, 140);
+}
+
+function renderViewer(){
+  const kit = getKitById(viewerKitId);
+  if (!kit) return;
+  const photos = kit.photos;
+  if (!photos.length){ closeViewer(); return; }
+
+  viewerIndex = Math.max(0, Math.min(viewerIndex, photos.length-1));
+  viewerImg.src = photos[viewerIndex].src;
+  viewerCounter.textContent = `${viewerIndex+1}/${photos.length}`;
+  layoutViewerMainInsets();
+  viewerDeleteBtn.style.display = viewerCanDelete ? 'flex' : 'none';
+
+  // Build thumbs only when opening viewer / switching kit / photo count changed
+  if (viewerThumbs.dataset.kitId !== String(viewerKitId) || viewerThumbs.children.length !== photos.length){
+    buildViewerThumbs(photos);
+  }
+
+  setActiveThumb(viewerIndex);
+}
+
+function stepViewer(delta){
+      const kit = getKitById(viewerKitId);
+      if (!kit) return;
+
+      const len = kit.photos.length;
+      if (len <= 1) return;
+
+      viewerIndex = (viewerIndex + delta + len) % len;
+      renderViewer();
+    }
+
+    function syncRailButtons(){
+      const el = viewerThumbs;
+      // small tolerance
+      const atTop = el.scrollTop <= 2;
+      const atBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 2);
+      railUp.disabled = atTop;
+      railDown.disabled = atBottom;
+    }
+
+    viewerThumbs.addEventListener('scroll', syncRailButtons);
+
+    railUp.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      viewerThumbs.scrollBy({top: -220, behavior: 'smooth'});
+    });
+    railDown.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      viewerThumbs.scrollBy({top: 220, behavior: 'smooth'});
+    });
+
+    viewerClose.addEventListener('click', (e)=>{ e.stopPropagation(); closeViewer(); });
+
+    viewerBackdrop.addEventListener('click', (e)=>{
+      // клик по серому фону закрывает
+      if (e.target === viewerBackdrop) closeViewer();
+    });
+document.addEventListener('keydown', (e)=>{
+      if (!viewerBackdrop.classList.contains('open')) return;
+      if (e.key === 'Escape'){ e.preventDefault(); closeViewer(); }
+      if (e.key === 'ArrowLeft'){ e.preventDefault(); stepViewer(-1); }
+      if (e.key === 'ArrowRight'){ e.preventDefault(); stepViewer(1); }
+    
+      if (e.key === 'ArrowUp'){ e.preventDefault(); stepViewer(-1); }
+      if (e.key === 'ArrowDown'){ e.preventDefault(); stepViewer(1); }
+});
+
+    window.addEventListener('resize', ()=>{
+      if (!viewerBackdrop.classList.contains('open')) return;
+      layoutViewerMainInsets();
+      // counter text/metrics can change after render; recalc on next frames
+      requestAnimationFrame(()=>layoutViewerMainInsets());
+      setTimeout(()=>layoutViewerMainInsets(), 50);
+    });
+
+
+    stageStack.addEventListener('wheel', onStageWheel, {passive:false});
+
+    viewerThumbs.addEventListener('click', (e)=>{
+      const thumb = e.target.closest('.thumb');
+      if (!thumb) return;
+      const idx = parseInt(thumb.dataset.index,10);
+      viewerIndex = idx;
+      renderViewer();
+    });
+
+    // Delete current photo (viewer only, only if opened from edit-mode)
+    viewerDeleteBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if (!viewerCanDelete) return;
+
+      const kit = getKitById(viewerKitId);
+      if (!kit) return;
+
+      
+
+      if (!confirm('Удалить фото? Это действие нельзя отменить.')) return;
+
+      kit.photos.splice(viewerIndex,1);
+      if (kit.photos.length === 0){
+        kit.createdAt = null;
+        closeViewer();
+      }else{
+        viewerIndex = Math.min(viewerIndex, kit.photos.length-1);
+        kit.createdAt = formatDateTime(new Date());
+        renderViewer();
+      }
+      render(); // update counts/grid
+    });
+
+
+    /* ===== EDIT MODE EXIT UX ===== */
+    // Exit edit on Esc
+    document.addEventListener('keydown', (e)=>{
+      if (e.key !== 'Escape') return;
+      if (!activeEditKitId) return;
+      // don't interfere with viewer controls if needed
+      exitEdit();
+    });
+
+    // Exit edit when clicking outside allowed areas of the active card
+    document.addEventListener('pointerdown', (e)=>{
+      if (!activeEditKitId) return;
+
+      // Allow clicking action buttons inside the active card (edit/delete/download etc.)
+      if (e.target.closest(`.kit-card[data-kit-id="${activeEditKitId}"] .kit-actions`)) return;
+
+      // If viewer is open, ignore outside clicks (viewer overlay handles itself)
+      const viewer = document.getElementById('viewerBackdrop');
+      if (viewer && viewer.classList.contains('open')) return;
+
+      const card = kitsEl.querySelector(`.kit-card[data-kit-id="${activeEditKitId}"]`);
+      if (!card) return;
+
+      const allowed = e.target.closest(
+        `.kit-card[data-kit-id="${activeEditKitId}"] .kit-grid,
+         .kit-card[data-kit-id="${activeEditKitId}"] .kit-title,
+         .kit-card[data-kit-id="${activeEditKitId}"] .kit-check,
+         .kit-card[data-kit-id="${activeEditKitId}"] .kit-drag-handle`
+      );
+
+      if (!allowed){
+        exitEdit();
+      }
+    }, true);
+
+
+
+
+    /* ===== Drag reorder (stable iPhone-like) ===== */
+    (function setupDragReorder(){
+      /**
+       * Center-based stable grid reordering (SpringBoard-ish “centers decide”).
+       *
+       * Goals:
+       * - Target position is derived from the dragged CARD (its center), not the cursor.
+       * - Other cards “decide” shifts by comparing centers (row-major order).
+       * - Single placeholder (“hole”) represents the insertion slot.
+       * - Anti-jitter: rAF batching + cooldown + hysteresis + small dead-zone around centers.
+       *
+       * Model:
+       * 1) Lift dragged card into overlay (position:fixed in <body>)
+       * 2) Leave placeholder in grid at original position
+       * 3) While dragging, compute dragged center; compute closest card center; decide
+       *    whether hole should be before or after that card (by centers), then move placeholder.
+       * 4) On drop, insert card at placeholder.
+       */
+      const grid = kitsEl; // #kits
+      if (!grid) return;
+
+      // ---- Tuning knobs ----
+      const AUTOSCROLL_MARGIN = 60; // px from viewport edge
+      const AUTOSCROLL_MAX = 22;    // px per frame
+
+      // Move policy (anti-jitter): allow moves, but never "chatter"
+      const MOVE_COOLDOWN_MS = 90;  // min time between hole moves
+      const MOVE_HYST_PX = 12;      // min center travel between moves
+
+      // Mild smoothing of the dragged card (adds a small delay so the finger/cursor doesn't "teleport" the card)
+      const DRAG_EASE = 0.35;       // 0..1 (higher = snappier)
+
+      // Planning + commit policy (pre-plan target, commit only when overlap is strong)
+      const PLAN_TRIGGER = 0.20;       // start "planning" once overlap is noticeable
+      const PLAN_STABLE_MS = 90;       // candidate must be stable this long to become the plan
+      const PLAN_SWITCH_HYST = 0.12;   // switch plan only if new is better by this margin
+      const PLAN_DROP = 0.08;          // drop plan if overlap falls below this
+
+      const COMMIT_TRIGGER = 0.80;     // 80% overlap => move placeholder (your "decision point")
+      const COMMIT_STABLE_MS = 80;     // keep >= 80% overlap for this long before moving
+      const LOCK_AFTER_MOVE_MS = 160;  // after a move, freeze re-planning briefly (prevents ping-pong)
+
+      // Candidate stickiness: keep previous best unless the new one is clearly better
+      const OVERLAP_HYST = 0.10;
+
+      // Small look-ahead using card velocity (still "from the card", not from cursor)
+      const PREDICT_MS = 90;        // ms ahead
+
+      const ROW_BAND_FRAC = 0.48;    // same row if |dy| < medianH * frac
+      const CENTER_DEAD_FRAC = 0.08; // dead-zone around target center (fraction of w/h)
+
+      let drag = null;
+      let rafId = 0;
+
+      function px(n){ return Math.round(n) + 'px'; }
+
+      function viewportAutoScroll(clientX, clientY){
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+        let vy = 0, vx = 0;
+
+        if (clientY < AUTOSCROLL_MARGIN){
+          vy = -AUTOSCROLL_MAX * (1 - clientY / AUTOSCROLL_MARGIN);
+        } else if (clientY > vh - AUTOSCROLL_MARGIN){
+          vy = AUTOSCROLL_MAX * (1 - (vh - clientY) / AUTOSCROLL_MARGIN);
+        }
+
+        if (clientX < AUTOSCROLL_MARGIN){
+          vx = -AUTOSCROLL_MAX * (1 - clientX / AUTOSCROLL_MARGIN);
+        } else if (clientX > vw - AUTOSCROLL_MARGIN){
+          vx = AUTOSCROLL_MAX * (1 - (vw - clientX) / AUTOSCROLL_MARGIN);
+        }
+
+        if (vx || vy) window.scrollBy(vx, vy);
+      }
+
+      function makePlaceholder(fromCard){
+        const ph = document.createElement('div');
+        ph.className = 'kit-placeholder';
+        const r = fromCard.getBoundingClientRect();
+        ph.style.height = px(r.height);
+        ph.style.minHeight = px(r.height);
+        ph.style.width = '100%';
+        ph.style.pointerEvents = 'none';
+        return ph;
+      }
+
+      function nextCardAfter(node){
+        let n = node ? node.nextElementSibling : null;
+        while (n && !n.classList.contains('kit-card')) n = n.nextElementSibling;
+        return n;
+      }
+
+      function isPlaceholderAtEnd(){
+        const ref = nextCardAfter(drag?.placeholder);
+        return !ref;
+      }
+
+      function flipAnimateAfterDOMChange(doChange){
+        const first = new Map();
+        grid.querySelectorAll('.kit-card, .kit-placeholder').forEach(n => first.set(n, n.getBoundingClientRect()));
+
+        doChange();
+
+        const last = new Map();
+        grid.querySelectorAll('.kit-card, .kit-placeholder').forEach(n => last.set(n, n.getBoundingClientRect()));
+
+        last.forEach((lr, node)=>{
+          const fr = first.get(node);
+          if (!fr) return;
+          const dx = fr.left - lr.left;
+          const dy = fr.top - lr.top;
+          if (dx || dy){
+            node.animate([
+              { transform: `translate(${dx}px, ${dy}px)` },
+              { transform: 'translate(0,0)' }
+            ], { duration: 220, easing: 'cubic-bezier(.2,.85,.2,1)' });
+          }
+        });
+      }
+
+      function getDragTopLeft(){
+        // Keep overlay card under pointer with fixed grab offset, but smooth a bit to reduce jitter.
+        const targetTop = drag.lastClientY - drag.grabDy;
+        const targetLeft = drag.lastClientX - drag.grabDx;
+
+        if (drag._smoothTop == null){
+          drag._smoothTop = targetTop;
+          drag._smoothLeft = targetLeft;
+        } else {
+          drag._smoothTop += (targetTop - drag._smoothTop) * DRAG_EASE;
+          drag._smoothLeft += (targetLeft - drag._smoothLeft) * DRAG_EASE;
+        }
+
+        return { top: drag._smoothTop, left: drag._smoothLeft };
+      }
+
+      function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+      function rectFromCenter(cx, cy, w, h){
+        const left = cx - w/2;
+        const top = cy - h/2;
+        return { left, top, right: left + w, bottom: top + h, width: w, height: h };
+      }
+
+      function intersectionArea(a, b){
+        const ix = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+        const iy = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+        return ix * iy;
+      }
+
+      function overlapScore(dragRect, targetRect){
+        const area = intersectionArea(dragRect, targetRect);
+        if (!area) return 0;
+        const a1 = dragRect.width * dragRect.height;
+        const a2 = targetRect.width * targetRect.height;
+        return area / Math.min(a1, a2); // 0..1
+      }
+
+      function computeRowMajorOrder(){
+        const cards = [...grid.querySelectorAll('.kit-card')];
+        const items = [];
+        for (const el of cards){
+          const r = el.getBoundingClientRect();
+          items.push({
+            el,
+            rect: r,
+            cx: r.left + r.width/2,
+            cy: r.top + r.height/2,
+            w: r.width,
+            h: r.height
+          });
+        }
+        if (!items.length) return { order: [], rowBand: 0 };
+
+        const hs = items.map(i=>i.h).sort((a,b)=>a-b);
+        const medH = hs[Math.floor(hs.length/2)] || 0;
+        const rowBand = Math.max(12, medH * ROW_BAND_FRAC);
+
+        // group into rows by centerY
+        items.sort((a,b)=>a.cy - b.cy);
+        const rows = [];
+        for (const it of items){
+          const row = rows[rows.length-1];
+          if (!row){
+            rows.push({ cy: it.cy, items: [it] });
+            continue;
+          }
+          if (Math.abs(it.cy - row.cy) <= rowBand){
+            row.items.push(it);
+            row.cy = row.cy + (it.cy - row.cy)/row.items.length;
+          } else {
+            rows.push({ cy: it.cy, items: [it] });
+          }
+        }
+        // sort within rows by centerX and flatten
+        const order = [];
+        for (const row of rows){
+          row.items.sort((a,b)=>a.cx - b.cx);
+          for (const it of row.items) order.push(it);
+        }
+        return { order, rowBand };
+      }
+
+      function computeInsertRefInOrder(order, rowBand, chosenI, dragCx, dragCy){
+        const chosen = order[chosenI];
+        const sameRow = Math.abs(dragCy - chosen.cy) <= rowBand/2;
+
+        if (sameRow){
+          const deadX = Math.max(6, chosen.w * CENTER_DEAD_FRAC);
+          if (dragCx < chosen.cx - deadX) return chosen.el; // before
+          if (dragCx > chosen.cx + deadX) return (chosenI + 1 < order.length) ? order[chosenI + 1].el : null; // after
+          return nextCardAfter(drag.placeholder); // dead-zone
+        } else {
+          const deadY = Math.max(6, chosen.h * CENTER_DEAD_FRAC);
+          if (dragCy < chosen.cy - deadY) return chosen.el;
+          if (dragCy > chosen.cy + deadY) return (chosenI + 1 < order.length) ? order[chosenI + 1].el : null;
+          return nextCardAfter(drag.placeholder);
+        }
+      }
+
+      function computeCandidate(dragCx, dragCy, dragRect){
+        const { order, rowBand } = computeRowMajorOrder();
+        if (!order.length) return { ref: null, targetEl: null, targetScore: 0 };
+
+        const dr = dragRect;
+
+        // 1) Best overlap (who is most covered by the dragged card)
+        let bestI = -1;
+        let bestScore = 0;
+        for (let i=0;i<order.length;i++){
+          const it = order[i];
+          const s = overlapScore(dr, it.rect);
+          if (s > bestScore){
+            bestScore = s;
+            bestI = i;
+          }
+        }
+
+        // 2) Choose with stickiness (prevents rapid flips while hovering)
+        let chosenI = -1;
+        let chosenScore = 0;
+
+        if (bestI !== -1 && bestScore > 0){
+          chosenI = bestI;
+          chosenScore = bestScore;
+
+          if (drag.lastTargetEl){
+            const prevI = order.findIndex(it => it.el === drag.lastTargetEl);
+            if (prevI !== -1){
+              const prevScore = overlapScore(dr, order[prevI].rect);
+              if (prevScore >= chosenScore - OVERLAP_HYST){
+                chosenI = prevI;
+                chosenScore = prevScore;
+              }
+            }
+          }
+        } else {
+          // Fallback: closest center (between cards / in gaps)
+          let ci = 0;
+          let bestD = Infinity;
+          for (let i=0;i<order.length;i++){
+            const it = order[i];
+            const dx = dragCx - it.cx;
+            const dy = dragCy - it.cy;
+            const d = dx*dx + dy*dy;
+            if (d < bestD){ bestD = d; ci = i; }
+          }
+          chosenI = ci;
+          chosenScore = 0;
+        }
+
+        const chosen = order[chosenI];
+        drag.lastTargetEl = chosen.el;
+
+        const ref = computeInsertRefInOrder(order, rowBand, chosenI, dragCx, dragCy);
+        return { ref, targetEl: chosen.el, targetScore: chosenScore };
+      }
+
+      function computeInsertRefForTarget(targetEl, dragCx, dragCy){
+        const { order, rowBand } = computeRowMajorOrder();
+        if (!order.length) return null;
+
+        const i = order.findIndex(it => it.el === targetEl);
+        if (i === -1){
+          return nextCardAfter(drag.placeholder);
+        }
+        return computeInsertRefInOrder(order, rowBand, i, dragCx, dragCy);
+      }
+
+      function updatePlanFromCandidate(cand, dragRect, now){
+        const el = cand.targetEl;
+        const score = cand.targetScore;
+
+        // Not enough overlap => candidate resets; plan may drop if we moved away.
+        if (!el || score < PLAN_TRIGGER){
+          drag.planCandEl = null;
+          drag.planCandStart = 0;
+          drag.planCandScore = 0;
+
+          if (drag.planEl){
+            const cur = overlapScore(dragRect, drag.planEl.getBoundingClientRect());
+            if (cur < PLAN_DROP){
+              drag.planEl = null;
+              drag.planSetAt = 0;
+              drag.planScore = 0;
+              drag.commitSince = 0;
+            }
+          }
+          return;
+        }
+
+        // Same plan target: just refresh score.
+        if (drag.planEl === el){
+          drag.planScore = score;
+          return;
+        }
+
+        // Track a stable candidate before switching plan.
+        if (drag.planCandEl !== el){
+          drag.planCandEl = el;
+          drag.planCandStart = now;
+          drag.planCandScore = score;
+          return;
+        }
+
+        if (now - (drag.planCandStart || now) < PLAN_STABLE_MS) return;
+
+        const cur = drag.planEl ? overlapScore(dragRect, drag.planEl.getBoundingClientRect()) : 0;
+        if (!drag.planEl || score > cur + PLAN_SWITCH_HYST){
+          drag.planEl = el;
+          drag.planSetAt = now;
+          drag.planScore = score;
+          drag.commitSince = 0;
+        }
+      }
+
+      function maybeMoveHole(predCx, predCy, predRect, curCx, curCy, curRect){
+        const now = performance.now();
+
+        // Candidate selection uses the *predicted* rect (helps "plan ahead")
+        const cand = computeCandidate(predCx, predCy, predRect);
+
+        // Update planned target (unless we're in a short post-move lock)
+        if (now >= (drag.lockUntil ?? 0)){
+          updatePlanFromCandidate(cand, predRect, now);
+        }
+
+        // For committing the move, use the *current visual* rect.
+        // Pick the element with the strongest CURRENT overlap.
+        // (Planning can be predictive; committing should follow what the user actually sees.)
+        const { order: commitOrder } = computeRowMajorOrder();
+        let commitTarget = null;
+        let bestOv = 0;
+
+        for (const it of commitOrder){
+          const ov = overlapScore(curRect, it.rect);
+          if (ov > bestOv){
+            bestOv = ov;
+            commitTarget = it.el;
+          }
+        }
+
+        // Keep the previous commit target unless the new one is clearly better (anti-flip).
+        if (drag.commitTargetEl && commitTarget && drag.commitTargetEl !== commitTarget){
+          const prev = commitOrder.find(it => it.el === drag.commitTargetEl);
+          if (prev){
+            const prevOv = overlapScore(curRect, prev.rect);
+            if (prevOv >= bestOv - OVERLAP_HYST){
+              commitTarget = drag.commitTargetEl;
+              bestOv = prevOv;
+            }
+          }
+        }
+
+        if (!commitTarget) return;
+
+
+        // Stable commit timer is per-target
+        if (drag.commitTargetEl !== commitTarget){
+          drag.commitTargetEl = commitTarget;
+          drag.commitSince = 0;
+        }
+
+        // Only commit a move when overlap is strong (>= 80%) AND stable for a short time.
+        if (bestOv >= COMMIT_TRIGGER){
+          if (!drag.commitSince) drag.commitSince = now;
+          if (now - drag.commitSince < COMMIT_STABLE_MS) return;
+        } else {
+          drag.commitSince = 0;
+          return;
+        }
+
+        // "Take the target's slot":
+        // - if target is AFTER the hole => move hole AFTER target (dragged card lands into target's index)
+        // - if target is BEFORE the hole => move hole BEFORE target
+        const holePos = drag.placeholder;
+        const targetAfterHole = !!(holePos.compareDocumentPosition(commitTarget) & Node.DOCUMENT_POSITION_FOLLOWING);
+        const commitRef = targetAfterHole ? nextCardAfter(commitTarget) : commitTarget
+
+
+        const currentRef = nextCardAfter(drag.placeholder);
+        if (commitRef === currentRef) return;
+
+        // Extra anti-chatter guards (use current center)
+        const dist = Math.hypot(curCx - (drag.lastMoveCx ?? curCx), curCy - (drag.lastMoveCy ?? curCy));
+        if (now - drag.lastMoveAt < MOVE_COOLDOWN_MS) return;
+        if (dist < MOVE_HYST_PX) return;
+
+        flipAnimateAfterDOMChange(()=>{
+          grid.insertBefore(drag.placeholder, commitRef);
+        });
+
+        drag.lastMoveAt = now;
+        drag.lastMoveCx = curCx;
+        drag.lastMoveCy = curCy;
+
+        // brief lock prevents immediate "undo" when layout shifts
+        drag.lockUntil = now + LOCK_AFTER_MOVE_MS;
+        drag.commitSince = 0;
+      }
+
+      function onPointerMove(e){
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        drag.lastClientX = e.clientX;
+        drag.lastClientY = e.clientY;
+        if (!rafId) rafId = requestAnimationFrame(tick);
+      }
+
+      function beginDrag(handleEl, e){
+        const card = handleEl.closest('.kit-card');
+        if (!card) return;
+        const kitId = card.dataset.kitId;
+        if (!kitId) return;
+
+        // Ignore if drag started on interactive actions
+        if (e.target.closest('.kit-actions')) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rect = card.getBoundingClientRect();
+        const startCx = rect.left + rect.width/2;
+        const startCy = rect.top + rect.height/2;
+
+        drag = {
+          pointerId: e.pointerId,
+          card,
+          kitId,
+          grabDx: e.clientX - rect.left,
+          grabDy: e.clientY - rect.top,
+          w: rect.width,
+          h: rect.height,
+          lastClientX: e.clientX,
+          lastClientY: e.clientY,
+          active: true,
+          placeholder: makePlaceholder(card),
+          lastMoveAt: 0,
+          lastMoveCx: startCx,
+          lastMoveCy: startCy,
+          // planning / commit state (anti-jitter)
+          planEl: null,
+          planSetAt: 0,
+          planScore: 0,
+          planCandEl: null,
+          planCandStart: 0,
+          planCandScore: 0,
+          commitSince: 0,
+          lockUntil: 0,
+
+          commitTargetEl: null,
+
+          // smoothed position for overlay card
+          _smoothTop: rect.top,
+          _smoothLeft: rect.left,
+
+          _prevUserSelect: document.body.style.userSelect
+        };
+
+        // Insert placeholder where the card was
+        grid.insertBefore(drag.placeholder, card);
+
+        // Lift card into overlay
+        document.body.appendChild(card);
+        card.classList.add('is-dragging');
+        card.style.position = 'fixed';
+        card.style.top = px(rect.top);
+        card.style.left = px(rect.left);
+        card.style.width = px(rect.width);
+        card.style.height = px(rect.height);
+        card.style.zIndex = '9999';
+        card.style.pointerEvents = 'none';
+        card.style.margin = '0';
+        document.body.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+
+        // Move loop
+        document.addEventListener('pointermove', onPointerMove, true);
+        document.addEventListener('pointerup', endDrag, true);
+        document.addEventListener('pointercancel', endDrag, true);
+
+        if (!rafId) rafId = requestAnimationFrame(tick);
+      }
+
+      function cleanupDrag(){
+        if (!drag) return;
+
+        document.removeEventListener('pointermove', onPointerMove, true);
+        document.removeEventListener('pointerup', endDrag, true);
+        document.removeEventListener('pointercancel', endDrag, true);
+
+        document.body.style.cursor = '';
+        document.body.style.userSelect = drag._prevUserSelect ?? '';
+
+        drag.card.classList.remove('is-dragging');
+        drag.card.style.position = '';
+        drag.card.style.top = '';
+        drag.card.style.left = '';
+        drag.card.style.width = '';
+        drag.card.style.height = '';
+        drag.card.style.zIndex = '';
+        drag.card.style.pointerEvents = '';
+        drag.card.style.margin = '';
+      }
+
+      function endDrag(e){
+        if (!drag || (e && e.pointerId !== drag.pointerId)) return;
+
+        drag.active = false;
+
+        // Put card back into flow at placeholder position
+        if (drag.placeholder && drag.placeholder.parentNode){
+          grid.insertBefore(drag.card, drag.placeholder);
+          drag.placeholder.remove();
+        }
+
+        cleanupDrag();
+
+        // Sync model order
+        try{
+          const ids = [...grid.querySelectorAll('.kit-card')].map(el => el.dataset.kitId);
+          const byId = new Map(kits.map(k => [String(k.id), k]));
+          kits = ids.map(id => byId.get(String(id))).filter(Boolean);
+          saveState();
+        }catch(_){}
+
+        drag = null;
+      }
+
+      function tick(){
+        rafId = 0;
+        if (!drag || !drag.active) return;
+
+        viewportAutoScroll(drag.lastClientX, drag.lastClientY);
+
+        const { top, left } = getDragTopLeft();
+        drag.card.style.top = px(top);
+        drag.card.style.left = px(left);
+
+        // decision uses the CARD center, not the cursor
+        const dragCx = left + drag.w/2;
+        const dragCy = top + drag.h/2;
+
+        // velocity-based look-ahead (still derived from the card's motion)
+        const now = performance.now();
+        const dt = Math.max(8, now - (drag._prevT ?? now));
+        const vx = (dragCx - (drag._prevCx ?? dragCx)) / dt; // px per ms
+        const vy = (dragCy - (drag._prevCy ?? dragCy)) / dt;
+
+        // clamp to avoid wild jumps on first frames
+        const cvx = clamp(vx, -1.2, 1.2);
+        const cvy = clamp(vy, -1.2, 1.2);
+
+        const predCx = dragCx + cvx * PREDICT_MS;
+        const predCy = dragCy + cvy * PREDICT_MS;
+
+        drag._prevT = now;
+        drag._prevCx = dragCx;
+        drag._prevCy = dragCy;
+
+        const decisionRect = rectFromCenter(predCx, predCy, drag.w, drag.h);
+
+        const currentRect = rectFromCenter(dragCx, dragCy, drag.w, drag.h);
+
+        maybeMoveHole(predCx, predCy, decisionRect, dragCx, dragCy, currentRect);
+
+        rafId = requestAnimationFrame(tick);
+      }
+
+      // Delegate pointerdown to handles
+      grid.addEventListener('pointerdown', (e)=>{
+        const handle = e.target.closest('.kit-drag-handle');
+        if (!handle) return;
+        beginDrag(handle, e);
+      }, true);
+    })();;
+
+
+    /* ===== Initial render ===== */
+    render();
+  </script>
+</body>
+</html>
